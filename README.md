@@ -63,12 +63,13 @@ scraper wizard
 - 🔄 Multi-tenancy & RBAC
 - 🔄 Real-time monitoring & alerts
 
-### Layer C - Developer Experience (Roadmap)
+### Layer C - UX & SDK Surface (Complete!)
 
-- 🔄 Python/JavaScript SDKs
-- 🔄 Web dashboard (React)
-- 🔄 GraphQL API
-- 🔄 20+ export integrations
+- ✅ **Python SDK** - Clean, pythonic API client
+- ✅ **Web Dashboard** - Modern HTML/JS interface
+- ✅ **Docker Deployment** - Production-ready containers
+- ✅ **Comprehensive Tests** - pytest suite for all components
+- ✅ **Production Guide** - Complete deployment documentation
 
 ---
 
@@ -129,6 +130,62 @@ job = ScrapeJob(
 
 engine = ScraperEngine()
 results = await engine.run_job(job)
+```
+
+### Example 4: Python SDK (Layer C)
+
+```python
+from scraper.sdk import GrandmaScrapeClient
+
+# Initialize client
+with GrandmaScrapeClient("http://localhost:8000") as client:
+    # Auto-scrape with zero config
+    job_id = client.auto_scrape(
+        "https://example.com",
+        max_pages=10,
+        export_format="csv",
+        concurrent=True,
+        wait=True  # Wait for completion
+    )
+
+    # Get results
+    results = client.get_all_results(job_id)
+    print(f"Scraped {len(results)} items!")
+
+    # Check data quality
+    quality = client.check_data_quality(job_id)
+    print(f"Quality score: {quality['quality_report']['quality_score']:.2f}")
+```
+
+### Example 5: Web Dashboard (Layer C)
+
+```bash
+# Start API server with dashboard
+python -m scraper.api.rest_server
+
+# Open browser to http://localhost:8000
+# 1. Enter URL in auto-scrape form
+# 2. Click "Start Auto-Scrape"
+# 3. View real-time progress
+# 4. Download results when complete
+```
+
+### Example 6: Docker Deployment (Layer C)
+
+```bash
+# Quick start
+docker-compose up -d
+
+# Production deployment
+docker-compose -f docker-compose.prod.yml up -d
+
+# Check status
+docker-compose ps
+
+# View logs
+docker-compose logs -f
+
+# Access dashboard at http://localhost:8000
 ```
 
 ---

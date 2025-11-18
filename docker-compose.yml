@@ -1,0 +1,100 @@
+version: '3.8'
+
+services:
+  # GrandmaScrape API Server
+  grandmascrape-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: grandmascrape-api
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persist data, exports, and cache
+      - ./data:/app/data
+      - ./exports:/app/exports
+      - ./cache:/app/cache
+      # Optional: mount config files
+      - ./config:/app/config:ro
+    environment:
+      # API Configuration
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - LOG_LEVEL=info
+
+      # Scraper Configuration
+      - SCRAPER_MAX_CONCURRENT=50
+      - SCRAPER_RATE_LIMIT=10
+      - SCRAPER_TIMEOUT=30
+      - SCRAPER_USER_AGENT=GrandmaScrape/1.0
+
+      # Cache Configuration
+      - CACHE_ENABLED=true
+      - CACHE_TTL=3600
+
+      # Database (if using PostgreSQL instead of SQLite)
+      # - DATABASE_URL=postgresql://user:password@db:5432/grandmascrape
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - grandmascrape-network
+
+  # Optional: PostgreSQL Database
+  # Uncomment to use PostgreSQL instead of SQLite
+  # grandmascrape-db:
+  #   image: postgres:15-alpine
+  #   container_name: grandmascrape-db
+  #   environment:
+  #     - POSTGRES_DB=grandmascrape
+  #     - POSTGRES_USER=grandmascrape
+  #     - POSTGRES_PASSWORD=changeme
+  #   volumes:
+  #     - db-data:/var/lib/postgresql/data
+  #   networks:
+  #     - grandmascrape-network
+  #   restart: unless-stopped
+
+  # Optional: Redis for caching
+  # Uncomment to use Redis instead of in-memory cache
+  # grandmascrape-redis:
+  #   image: redis:7-alpine
+  #   container_name: grandmascrape-redis
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis-data:/data
+  #   networks:
+  #     - grandmascrape-network
+  #   restart: unless-stopped
+
+  # Optional: Nginx reverse proxy
+  # Uncomment for production deployment with SSL
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: grandmascrape-nginx
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
+  #     - ./ssl:/etc/nginx/ssl:ro
+  #   depends_on:
+  #     - grandmascrape-api
+  #   networks:
+  #     - grandmascrape-network
+  #   restart: unless-stopped
+
+networks:
+  grandmascrape-network:
+    driver: bridge
+
+volumes:
+  # Uncomment if using PostgreSQL
+  # db-data:
+  # Uncomment if using Redis
+  # redis-data:

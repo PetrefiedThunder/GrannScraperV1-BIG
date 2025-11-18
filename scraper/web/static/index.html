@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GrandmaScrape Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .job-list {
+            list-style: none;
+        }
+
+        .job-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: transform 0.2s;
+        }
+
+        .job-item:hover {
+            transform: translateX(5px);
+            background: #e9ecef;
+        }
+
+        .job-info {
+            flex: 1;
+        }
+
+        .job-info h3 {
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .job-info p {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .job-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .status-running {
+            background: #ffd700;
+            color: #000;
+        }
+
+        .status-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .status-failed {
+            background: #dc3545;
+            color: white;
+        }
+
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .results-table th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+        }
+
+        .results-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .results-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-card h3 {
+            font-size: 2em;
+            margin-bottom: 5px;
+        }
+
+        .stat-card p {
+            opacity: 0.9;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border-left: 4px solid #17a2b8;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧓 GrandmaScrape Dashboard</h1>
+            <p>Enterprise web scraping made grandma-simple</p>
+        </div>
+
+        <!-- API Info Stats -->
+        <div id="stats" class="stats-grid">
+            <div class="stat-card">
+                <h3 id="stat-jobs">0</h3>
+                <p>Total Jobs</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="stat-running">0</h3>
+                <p>Running</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="stat-completed">0</h3>
+                <p>Completed</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="stat-workflows">0</h3>
+                <p>Workflows</p>
+            </div>
+        </div>
+
+        <!-- Alert Messages -->
+        <div id="alert-container"></div>
+
+        <!-- Auto-Scrape Form -->
+        <div class="card">
+            <h2>🚀 Auto-Scrape (Grandma-Simple!)</h2>
+            <form id="auto-scrape-form">
+                <div class="form-group">
+                    <label for="url">Website URL:</label>
+                    <input
+                        type="url"
+                        id="url"
+                        name="url"
+                        placeholder="https://example.com"
+                        required
+                    >
+                </div>
+                <div class="form-group">
+                    <label for="max-pages">Maximum Pages:</label>
+                    <input
+                        type="number"
+                        id="max-pages"
+                        name="max-pages"
+                        value="10"
+                        min="1"
+                        max="1000"
+                    >
+                </div>
+                <div class="form-group">
+                    <label for="export-format">Export Format:</label>
+                    <select id="export-format" name="export-format">
+                        <option value="json">JSON</option>
+                        <option value="csv">CSV</option>
+                        <option value="excel">Excel</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="concurrent" name="concurrent" checked>
+                        Use concurrent scraping (10x faster)
+                    </label>
+                </div>
+                <button type="submit" class="btn">Start Auto-Scrape</button>
+            </form>
+        </div>
+
+        <!-- Job List -->
+        <div class="card">
+            <h2>📋 Your Jobs</h2>
+            <div id="job-list-loading" class="loading hidden">
+                <div class="spinner"></div>
+                <p>Loading jobs...</p>
+            </div>
+            <ul id="job-list" class="job-list"></ul>
+        </div>
+
+        <!-- Job Details Modal -->
+        <div id="job-details" class="card hidden">
+            <h2>📊 Job Details</h2>
+            <div id="job-details-content"></div>
+            <button class="btn btn-secondary" onclick="hideJobDetails()">Close</button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

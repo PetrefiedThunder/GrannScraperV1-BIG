@@ -16,7 +16,8 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from scraper.config.models import ScrapeJob, ScrapeResult
@@ -44,6 +45,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount static files for web dashboard
+static_path = Path(__file__).parent.parent / "web" / "static"
+if static_path.exists():
+    app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
 
 # In-memory storage (use database in production)
 jobs_db: Dict[str, ScrapeJob] = {}
@@ -552,6 +558,34 @@ async def get_info() -> Dict[str, Any]:
             "smart_caching"
         ]
     }
+
+
+# ============================================================================
+# WEB DASHBOARD
+# ============================================================================
+
+@app.get("/", response_class=HTMLResponse)
+async def serve_dashboard():
+    """Serve the web dashboard."""
+    index_path = Path(__file__).parent.parent / "web" / "static" / "index.html"
+
+    if index_path.exists():
+        return FileResponse(index_path)
+    else:
+        return HTMLResponse(
+            content="""
+            <html>
+                <head><title>GrandmaScrape API</title></head>
+                <body style="font-family: sans-serif; text-align: center; padding: 50px;">
+                    <h1>GrandmaScrape API</h1>
+                    <p>API is running!</p>
+                    <p>Dashboard not found. Please check web/static/index.html</p>
+                    <p><a href="/docs">View API Documentation</a></p>
+                </body>
+            </html>
+            """,
+            status_code=200
+        )
 
 
 # ============================================================================
