@@ -1,0 +1,82 @@
+# Example: E-commerce product scraper
+# Scrapes product listings with prices, ratings, images
+
+name: "product_scraper"
+description: "E-commerce product listing scraper"
+start_url: "https://example.com/products"
+
+# Use browser for dynamic content
+browser:
+  enabled: true
+  headless: true
+  wait_for_selector: ".product-grid"
+  block_images: false
+
+# Item selector
+item_selector: ".product-card"
+
+# Fields
+fields:
+  name:
+    selector: "h3.product-title"
+    type: "string"
+    required: true
+
+  price:
+    selector: ".price"
+    type: "currency"
+    required: true
+
+  original_price:
+    selector: ".original-price"
+    type: "currency"
+    required: false
+
+  rating:
+    selector: ".rating"
+    type: "float"
+    regex: "([0-9.]+)"
+
+  review_count:
+    selector: ".review-count"
+    type: "int"
+    regex: "(\\d+)"
+
+  image:
+    selector: "img.product-image"
+    attr: "src"
+    type: "url"
+
+  availability:
+    selector: ".stock-status"
+    type: "string"
+
+  description:
+    selector: ".description"
+    type: "string"
+
+# Pagination via URL pattern
+pagination:
+  mode: "url_pattern"
+  url_pattern: "https://example.com/products?page={page}"
+  start_page: 1
+  max_pages: 20
+
+# Limits
+max_items: 500
+
+# Rate limiting
+rate_limit:
+  enabled: true
+  min_delay: 2.0
+  max_delay: 4.0
+  max_concurrent_requests: 2
+  respect_robots_txt: true
+
+# Export
+export:
+  formats:
+    - csv
+    - excel
+    - json
+  filename_template: "products_{timestamp}"

@@ -1,0 +1,76 @@
+# Example: Social media / infinite scroll scraper
+# Uses infinite scroll pagination
+
+name: "social_feed_scraper"
+description: "Scrape social media feed with infinite scroll"
+start_url: "https://example.com/feed"
+
+# Browser required for infinite scroll
+browser:
+  enabled: true
+  headless: true
+  wait_for_selector: ".feed-item"
+  viewport_width: 1920
+  viewport_height: 1080
+
+# Item selector
+item_selector: ".feed-item"
+
+# Fields
+fields:
+  username:
+    selector: ".username"
+    type: "string"
+
+  content:
+    selector: ".post-content"
+    type: "string"
+
+  timestamp:
+    selector: "time"
+    attr: "datetime"
+    type: "datetime"
+
+  likes:
+    selector: ".like-count"
+    type: "int"
+    regex: "(\\d+)"
+
+  comments:
+    selector: ".comment-count"
+    type: "int"
+    regex: "(\\d+)"
+
+  image:
+    selector: "img.post-image"
+    attr: "src"
+    type: "url"
+    multiple: true
+
+  hashtags:
+    selector: ".hashtag"
+    type: "string"
+    multiple: true
+
+# Infinite scroll pagination
+pagination:
+  mode: "infinite_scroll"
+  scroll_times: 10
+  scroll_pause: 2.0
+
+# Limits
+max_items: 200
+
+# Rate limiting
+rate_limit:
+  enabled: true
+  min_delay: 3.0
+  max_delay: 5.0
+  max_concurrent_requests: 1
+
+# Export
+export:
+  formats:
+    - json
+    - csv
+  filename_template: "feed_{timestamp}"

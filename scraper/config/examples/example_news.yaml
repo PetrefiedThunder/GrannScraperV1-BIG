@@ -1,0 +1,56 @@
+# Example: News website scraper
+# Scrapes article titles, dates, and links from a news site
+
+name: "news_scraper"
+description: "Scrape news articles with titles, dates, and links"
+start_url: "https://news.ycombinator.com"
+
+# Item selector - finds each news item container
+item_selector: ".athing"
+
+# Fields to extract from each item
+fields:
+  rank:
+    selector: ".rank"
+    type: "int"
+
+  title:
+    selector: ".titleline > a"
+    attr: "text"
+    type: "string"
+
+  url:
+    selector: ".titleline > a"
+    attr: "href"
+    type: "url"
+
+  score:
+    selector: ".score"
+    type: "int"
+    regex: "\\d+"
+
+  author:
+    selector: ".hnuser"
+    type: "string"
+
+# Pagination settings
+pagination:
+  mode: "next_button"
+  next_button_selector: ".morelink"
+  max_pages: 5
+
+# Rate limiting
+rate_limit:
+  enabled: true
+  min_delay: 1.0
+  max_delay: 2.0
+  max_concurrent_requests: 3
+  respect_robots_txt: true
+
+# Export settings
+export:
+  formats:
+    - csv
+    - json
+  base_path: "~/scraper_results"
+  filename_template: "hackernews_{timestamp}"

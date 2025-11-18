@@ -1,0 +1,66 @@
+[tool.poetry]
+name = "grandma-scraper"
+version = "0.1.0"
+description = "GrandmaScrape Intelligence Platform - Enterprise-grade web scraping made grandma-simple"
+authors = ["GrannScraper Team"]
+readme = "README.md"
+packages = [{include = "scraper"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+httpx = "^0.27.0"
+beautifulsoup4 = "^4.12.0"
+lxml = "^5.1.0"
+playwright = "^1.41.0"
+pydantic = "^2.6.0"
+pydantic-settings = "^2.1.0"
+fastapi = "^0.109.0"
+uvicorn = {extras = ["standard"], version = "^0.27.0"}
+aiosqlite = "^0.19.0"
+pandas = "^2.2.0"
+openpyxl = "^3.1.2"
+pyarrow = "^15.0.0"
+click = "^8.1.7"
+rich = "^13.7.0"
+pyyaml = "^6.0.1"
+jinja2 = "^3.1.3"
+aiofiles = "^23.2.1"
+tenacity = "^8.2.3"
+fake-useragent = "^1.4.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+pytest-asyncio = "^0.23.0"
+pytest-mock = "^3.12.0"
+pytest-cov = "^4.1.0"
+ruff = "^0.2.0"
+mypy = "^1.8.0"
+ipython = "^8.21.0"
+
+[tool.poetry.scripts]
+scraper = "scraper.cli.main:cli"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "ANN", "ASYNC", "S", "B", "A", "C4", "RET", "SIM", "ARG"]
+ignore = ["ANN101", "ANN102", "S101"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -1,0 +1,67 @@
+# Example: AI-powered extraction
+# Uses Claude to intelligently extract unstructured data
+
+name: "ai_content_extractor"
+description: "AI-powered extraction for complex/unstructured content"
+start_url: "https://example.com/articles"
+
+item_selector: "article"
+
+# Mix of traditional and AI extraction
+fields:
+  # Traditional extraction
+  url:
+    selector: "a.article-link"
+    attr: "href"
+    type: "url"
+
+  # AI-powered extraction
+  main_topic:
+    use_llm: true
+    llm_description: "What is the main topic or subject of this article?"
+    type: "string"
+
+  key_points:
+    use_llm: true
+    llm_description: "Extract 3-5 key points or takeaways from this article as a list"
+    type: "string"
+    multiple: true
+
+  sentiment:
+    use_llm: true
+    llm_description: "What is the overall sentiment: positive, negative, or neutral?"
+    type: "string"
+
+  entities:
+    use_llm: true
+    llm_description: "Extract named entities (people, organizations, locations) mentioned"
+    type: "string"
+    multiple: true
+
+  # Traditional extraction for metadata
+  author:
+    selector: ".author-name"
+    type: "string"
+
+  published_date:
+    selector: "time"
+    attr: "datetime"
+    type: "datetime"
+
+# Single page for now (AI extraction is slower)
+pagination:
+  mode: "none"
+
+# More generous rate limiting for AI
+rate_limit:
+  enabled: true
+  min_delay: 5.0
+  max_delay: 10.0
+  max_concurrent_requests: 1
+
+# Export
+export:
+  formats:
+    - json
+    - excel
+  filename_template: "ai_extracted_{timestamp}"
