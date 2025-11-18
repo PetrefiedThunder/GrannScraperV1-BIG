@@ -18,6 +18,9 @@ from scraper.config.models import ScrapeJob, FieldConfig, ExportConfig
 from scraper.core.engine import ScraperEngine
 from scraper.export.export_manager import ExportManager
 
+# Import smart commands
+from scraper.cli.smart_commands import smart, analyze
+
 console = Console()
 logger = logging.getLogger(__name__)
 
@@ -27,6 +30,16 @@ logger = logging.getLogger(__name__)
 def cli(debug: bool) -> None:
     """
     GrandmaScrape - Enterprise web scraping made grandma-simple.
+
+    Commands:
+      easy      - 3 questions, that's it! (grandma-friendly)
+      smart     - AI auto-detection (zero configuration)
+      analyze   - Deep site analysis
+      massive   - Max power mode
+      wizard    - Interactive job builder
+      run       - Execute saved job
+      list      - Show all jobs
+      validate  - Check config file
 
     Use 'scraper COMMAND --help' for more information on a command.
     """
@@ -456,6 +469,11 @@ def validate(config_path: str) -> None:
     except Exception as e:
         console.print(f"[bold red]✗ Configuration is invalid![/bold red]")
         console.print(f"\n[bold]Error:[/bold] {e}")
+
+
+# Register smart commands
+cli.add_command(smart)
+cli.add_command(analyze)
 
 
 if __name__ == "__main__":
