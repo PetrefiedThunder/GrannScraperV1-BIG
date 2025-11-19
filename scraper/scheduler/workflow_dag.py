@@ -332,21 +332,88 @@ class WorkflowDAG:
 
     def _evaluate_condition(self, condition: str, context: Dict) -> bool:
         """
-        Evaluate a condition expression.
+        Evaluate a condition expression safely.
 
-        Conditions are Python expressions with access to context.
+        Conditions are restricted to safe comparison operations only.
         """
         try:
-            # Safe evaluation with limited scope
-            safe_context = {
-                'context': context,
+            import ast
+            import operator
+
+            # Parse the condition
+            tree = ast.parse(condition, mode='eval')
+
+            # Define allowed operators and functions
+            allowed_ops = {
+                ast.Eq: operator.eq,
+                ast.NotEq: operator.ne,
+                ast.Lt: operator.lt,
+                ast.LtE: operator.le,
+                ast.Gt: operator.gt,
+                ast.GtE: operator.ge,
+                ast.And: lambda a, b: a and b,
+                ast.Or: lambda a, b: a or b,
+                ast.Not: operator.not_,
+            }
+
+            allowed_funcs = {
                 'len': len,
                 'sum': sum,
                 'max': max,
                 'min': min,
             }
 
-            result = eval(condition, {"__builtins__": {}}, safe_context)
+            # Validate AST - only allow safe operations
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Call):
+                    if not (isinstance(node.func, ast.Name) and node.func.id in allowed_funcs):
+                        raise ValueError(f"Function not allowed: {ast.dump(node.func)}")
+                elif isinstance(node, (ast.Import, ast.ImportFrom, ast.Attribute)):
+                    raise ValueError("Imports and attribute access not allowed")
+
+            # Evaluate safely
+            def eval_node(node):
+                if isinstance(node, ast.Expression):
+                    return eval_node(node.body)
+                elif isinstance(node, ast.Compare):
+                    left = eval_node(node.left)
+                    for op, comp in zip(node.ops, node.comparators):
+                        right = eval_node(comp)
+                        if type(op) not in allowed_ops:
+                            raise ValueError(f"Operator not allowed: {type(op)}")
+                        if not allowed_ops[type(op)](left, right):
+                            return False
+                        left = right
+                    return True
+                elif isinstance(node, ast.BoolOp):
+                    op_func = allowed_ops.get(type(node.op))
+                    if not op_func:
+                        raise ValueError(f"Boolean operator not allowed: {type(node.op)}")
+                    values = [eval_node(v) for v in node.values]
+                    result = values[0]
+                    for v in values[1:]:
+                        result = op_func(result, v)
+                    return result
+                elif isinstance(node, ast.UnaryOp):
+                    if type(node.op) not in allowed_ops:
+                        raise ValueError(f"Unary operator not allowed: {type(node.op)}")
+                    return allowed_ops[type(node.op)](eval_node(node.operand))
+                elif isinstance(node, ast.Constant):
+                    return node.value
+                elif isinstance(node, ast.Name):
+                    return context.get(node.id)
+                elif isinstance(node, ast.Subscript):
+                    value = eval_node(node.value)
+                    key = eval_node(node.slice)
+                    return value[key] if isinstance(value, dict) else None
+                elif isinstance(node, ast.Call):
+                    func = allowed_funcs.get(node.func.id)
+                    args = [eval_node(arg) for arg in node.args]
+                    return func(*args)
+                else:
+                    raise ValueError(f"Node type not allowed: {type(node)}")
+
+            result = eval_node(tree)
             return bool(result)
 
         except Exception as e:
