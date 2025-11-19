@@ -1,5 +1,12 @@
 # 🧓 GrandmaScrape Intelligence Platform
 
+[![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Code Style](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+[![Type Checked](https://img.shields.io/badge/type%20checked-mypy-blue.svg)](http://mypy-lang.org/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![Status](https://img.shields.io/badge/status-production%20ready-success.svg)]()
+
 **Enterprise-grade web scraping made grandma-simple.**
 
 A next-generation, intelligent web scraping and data intelligence platform that **rivals commercial products costing $2,700-6,800/month** — completely **FREE** and open source.
@@ -274,10 +281,26 @@ This platform is a powerful tool. **You are responsible** for using it in compli
 
 ## 📚 Documentation
 
-- [User Guide](docs/USER_GUIDE.md) - Complete usage documentation
-- [Developer Guide](docs/DEV_GUIDE.md) - Contributing & architecture
-- [API Reference](docs/API_REFERENCE.md) - REST & GraphQL APIs
-- [How to Add New Sites](docs/HOW_TO_ADD_NEW_SITES.md) - Custom strategies
+**Getting Started:**
+- [Getting Started Guide](GETTING_STARTED.md) - 5-minute quick start for beginners
+- [Platform Summary](PLATFORM_SUMMARY.md) - Complete feature overview
+- [Success Summary](SUCCESS_SUMMARY.md) - Achievement statistics & ROI
+
+**Advanced Features:**
+- [Ultra Power Features](ULTRA_POWER.md) - Layer B intelligence features
+- [Layer C Documentation](LAYER_C.md) - SDK, API, and UX guide
+- [Deployment Guide](DEPLOYMENT.md) - Production deployment (400+ lines)
+
+**Competitive Analysis:**
+- [Competitive Analysis](COMPETITIVE_ANALYSIS.md) - vs. commercial services (Apify, Bright Data, etc.)
+
+**Contributing:**
+- [Contributing Guide](CONTRIBUTING.md) - How to contribute
+- [Security Policy](SECURITY.md) - Security and responsible disclosure
+- [Changelog](CHANGELOG.md) - Version history and updates
+
+**API Documentation:**
+- Auto-generated OpenAPI docs at `/docs` when running `scraper serve`
 
 ---
 
@@ -298,7 +321,18 @@ poetry run pytest tests/core/
 
 ## 🤝 Contributing
 
-Contributions welcome! Please read our [Developer Guide](docs/DEV_GUIDE.md) first.
+Contributions are welcome and appreciated!
+
+Please read our [Contributing Guide](CONTRIBUTING.md) to get started.
+
+**Ways to contribute:**
+- 🐛 Report bugs
+- 💡 Suggest features
+- 📚 Improve documentation
+- 🧪 Add tests
+- ✨ Submit pull requests
+
+**Good first issues:** Look for issues labeled `good first issue` in the GitHub repository.
 
 ---
 
