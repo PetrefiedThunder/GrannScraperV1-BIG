@@ -38,12 +38,15 @@ app = FastAPI(
 )
 
 # CORS middleware
+import os
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=ALLOWED_ORIGINS,  # Configured via environment variable
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 # Mount static files for web dashboard
@@ -142,6 +145,11 @@ async def list_jobs(
 @app.get("/api/v1/jobs/{job_id}")
 async def get_job(job_id: str) -> ScrapeJob:
     """Get job details."""
+    import re
+    # Validate job_id format
+    if not job_id or not re.match(r'^[a-zA-Z0-9_-]+$', job_id):
+        raise HTTPException(status_code=400, detail="Invalid job_id format")
+
     if job_id not in jobs_db:
         raise HTTPException(status_code=404, detail="Job not found")
 
@@ -151,6 +159,11 @@ async def get_job(job_id: str) -> ScrapeJob:
 @app.delete("/api/v1/jobs/{job_id}")
 async def delete_job(job_id: str) -> Dict[str, str]:
     """Delete a job."""
+    import re
+    # Validate job_id format
+    if not job_id or not re.match(r'^[a-zA-Z0-9_-]+$', job_id):
+        raise HTTPException(status_code=400, detail="Invalid job_id format")
+
     if job_id not in jobs_db:
         raise HTTPException(status_code=404, detail="Job not found")
 
@@ -567,25 +580,36 @@ async def get_info() -> Dict[str, Any]:
 @app.get("/", response_class=HTMLResponse)
 async def serve_dashboard():
     """Serve the web dashboard."""
-    index_path = Path(__file__).parent.parent / "web" / "static" / "index.html"
+    base_static_path = Path(__file__).parent.parent / "web" / "static"
+    index_path = base_static_path / "index.html"
 
-    if index_path.exists():
-        return FileResponse(index_path)
-    else:
-        return HTMLResponse(
-            content="""
-            <html>
-                <head><title>GrandmaScrape API</title></head>
-                <body style="font-family: sans-serif; text-align: center; padding: 50px;">
-                    <h1>GrandmaScrape API</h1>
-                    <p>API is running!</p>
-                    <p>Dashboard not found. Please check web/static/index.html</p>
-                    <p><a href="/docs">View API Documentation</a></p>
-                </body>
-            </html>
-            """,
-            status_code=200
-        )
+    # Validate path to prevent directory traversal
+    try:
+        index_path_resolved = index_path.resolve()
+        base_path_resolved = base_static_path.resolve()
+
+        if not str(index_path_resolved).startswith(str(base_path_resolved)):
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        if index_path_resolved.exists() and index_path_resolved.is_file():
+            return FileResponse(index_path_resolved)
+    except Exception as e:
+        logger.warning(f"Error serving dashboard: {e}")
+
+    return HTMLResponse(
+        content="""
+        <html>
+            <head><title>GrandmaScrape API</title></head>
+            <body style="font-family: sans-serif; text-align: center; padding: 50px;">
+                <h1>GrandmaScrape API</h1>
+                <p>API is running!</p>
+                <p>Dashboard not found. Please check web/static/index.html</p>
+                <p><a href="/docs">View API Documentation</a></p>
+            </body>
+        </html>
+        """,
+        status_code=200
+    )
 
 
 # ============================================================================
