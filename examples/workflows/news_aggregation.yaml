@@ -1,0 +1,118 @@
+# News Aggregation Workflow
+#
+# Scrapes multiple news sources, detects duplicate stories,
+# categorizes them, and generates a daily digest.
+#
+# Usage:
+#   python -m scraper.scheduler.workflow_dag execute news_aggregation.yaml
+
+name: news_aggregation
+description: Aggregate news from multiple sources and generate digest
+
+nodes:
+  # Scrape multiple news sources in parallel
+  - id: scrape_hacker_news
+    type: scrape
+    config:
+      url: "https://news.ycombinator.com"
+      item_selector: ".athing"
+      fields:
+        title:
+          selector: ".titleline > a"
+          type: string
+        url:
+          selector: ".titleline > a"
+          attribute: "href"
+          type: url
+        score:
+          selector: ".score"
+          type: integer
+      max_pages: 5
+
+  - id: scrape_reddit_programming
+    type: scrape
+    config:
+      url: "https://old.reddit.com/r/programming"
+      item_selector: ".thing"
+      fields:
+        title:
+          selector: ".title > a"
+          type: string
+        url:
+          selector: ".title > a"
+          attribute: "href"
+          type: url
+        score:
+          selector: ".score.unvoted"
+          type: integer
+      max_pages: 3
+
+  - id: scrape_tech_blogs
+    type: scrape
+    config:
+      url: "https://news.google.com/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGRqTVhZU0FtVnVHZ0pWVXlnQVAB"
+      item_selector: "article"
+      fields:
+        title:
+          selector: "h3"
+          type: string
+        url:
+          selector: "a"
+          attribute: "href"
+          type: url
+      max_pages: 5
+
+  # Deduplicate articles (remove duplicates across sources)
+  - id: deduplicate
+    type: transform
+    depends_on: [scrape_hacker_news, scrape_reddit_programming, scrape_tech_blogs]
+    config:
+      transformation: "deduplicate"
+      deduplicate_by: ["title", "url"]
+      similarity_threshold: 0.85  # 85% similarity = duplicate
+
+  # Categorize articles using ML
+  - id: categorize
+    type: analyze
+    depends_on: [deduplicate]
+    config:
+      analysis_type: "smart_categorization"
+      n_categories: 5
+      text_field: "title"
+      categories:
+        - "AI/ML"
+        - "Web Development"
+        - "DevOps"
+        - "Security"
+        - "General Tech"
+
+  # Generate quality report
+  - id: quality_check
+    type: analyze
+    depends_on: [categorize]
+    config:
+      analysis_type: "data_quality"
+      min_quality_score: 0.8
+
+  # Export as HTML digest
+  - id: export_html_digest
+    type: export
+    depends_on: [quality_check]
+    config:
+      export_format: "html"
+      template: "news_digest"
+      output_file: "daily_tech_news_{date}.html"
+
+  # Send email
+  - id: send_email_digest
+    type: export
+    depends_on: [export_html_digest]
+    config:
+      export_format: "email"
+      email_to: ["team@example.com"]
+      email_subject: "Daily Tech News Digest - {date}"
+      attach_file: true
+
+schedule:
+  cron: "0 9 * * *"  # Every day at 9 AM
+  timezone: "America/Los_Angeles"

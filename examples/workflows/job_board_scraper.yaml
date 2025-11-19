@@ -1,0 +1,187 @@
+# Job Board Scraper Workflow
+#
+# Scrapes multiple job boards for specific positions, filters by criteria,
+# removes duplicates, and sends matched jobs to your email.
+#
+# Usage:
+#   python -m scraper.scheduler.workflow_dag execute job_board_scraper.yaml
+
+name: job_board_scraper
+description: Scrape job boards and find matching positions
+
+# Global configuration
+config:
+  search_keywords:
+    - "Python Developer"
+    - "Backend Engineer"
+    - "Data Engineer"
+  locations:
+    - "Remote"
+    - "San Francisco"
+    - "New York"
+  salary_min: 100000
+
+nodes:
+  # Scrape Indeed
+  - id: scrape_indeed
+    type: scrape
+    config:
+      url: "https://www.indeed.com/jobs?q=python+developer&l=remote"
+      item_selector: ".job_seen_beacon"
+      fields:
+        title:
+          selector: "h2.jobTitle"
+          type: string
+        company:
+          selector: "[data-testid='company-name']"
+          type: string
+        location:
+          selector: "[data-testid='text-location']"
+          type: string
+        salary:
+          selector: ".salary-snippet"
+          type: string
+        description:
+          selector: ".job-snippet"
+          type: string
+        url:
+          selector: "h2.jobTitle a"
+          attribute: "href"
+          type: url
+      max_pages: 10
+      concurrent: true
+      rate_limit:
+        requests_per_second: 1
+
+  # Scrape LinkedIn
+  - id: scrape_linkedin
+    type: scrape
+    config:
+      url: "https://www.linkedin.com/jobs/search/?keywords=python%20developer&location=Remote"
+      browser: true  # LinkedIn requires JavaScript
+      item_selector: ".job-search-card"
+      fields:
+        title:
+          selector: ".job-search-card__title"
+          type: string
+        company:
+          selector: ".job-search-card__company-name"
+          type: string
+        location:
+          selector: ".job-search-card__location"
+          type: string
+        url:
+          selector: "a"
+          attribute: "href"
+          type: url
+      max_pages: 5
+      concurrent: true
+
+  # Scrape RemoteOK
+  - id: scrape_remoteok
+    type: scrape
+    config:
+      url: "https://remoteok.com/remote-python-jobs"
+      item_selector: "tr.job"
+      fields:
+        title:
+          selector: ".position"
+          type: string
+        company:
+          selector: ".company"
+          type: string
+        location:
+          selector: ".location"
+          type: string
+        salary:
+          selector: ".salary"
+          type: string
+        tags:
+          selector: ".tag"
+          type: list
+        url:
+          selector: "a.preventLink"
+          attribute: "href"
+          type: url
+      max_pages: 3
+
+  # Combine all results
+  - id: combine_results
+    type: transform
+    depends_on: [scrape_indeed, scrape_linkedin, scrape_remoteok]
+    config:
+      transformation: "combine"
+      add_source_field: true
+
+  # Deduplicate jobs
+  - id: deduplicate_jobs
+    type: transform
+    depends_on: [combine_results]
+    config:
+      transformation: "deduplicate"
+      deduplicate_by: ["title", "company"]
+      similarity_threshold: 0.90
+
+  # Filter jobs by criteria
+  - id: filter_jobs
+    type: transform
+    depends_on: [deduplicate_jobs]
+    config:
+      transformation: "filter"
+      conditions:
+        - field: "location"
+          operator: "contains_any"
+          values: ["Remote", "San Francisco", "New York"]
+        - field: "title"
+          operator: "contains_any"
+          values: ["Python", "Backend", "Engineer", "Developer"]
+          case_insensitive: true
+
+  # Score/rank jobs
+  - id: rank_jobs
+    type: analyze
+    depends_on: [filter_jobs]
+    config:
+      analysis_type: "scoring"
+      scoring_criteria:
+        keyword_match: 0.4
+        location_preference: 0.3
+        salary: 0.3
+
+  # Quality check
+  - id: quality_check
+    type: analyze
+    depends_on: [rank_jobs]
+    config:
+      analysis_type: "data_quality"
+      min_completeness: 0.7
+
+  # Export top matches
+  - id: export_top_jobs
+    type: export
+    depends_on: [quality_check]
+    config:
+      export_format: "json"
+      output_file: "matched_jobs_{date}.json"
+      top_n: 50  # Only export top 50 matches
+
+  # Send email notification
+  - id: send_email
+    type: export
+    depends_on: [export_top_jobs]
+    config:
+      export_format: "email"
+      email_to: ["your.email@example.com"]
+      email_subject: "🎯 New Job Matches - {count} positions found"
+      template: "job_matches"
+      include_summary: true
+
+schedule:
+  cron: "0 10 * * 1,3,5"  # Monday, Wednesday, Friday at 10 AM
+  timezone: "America/Los_Angeles"
+
+notifications:
+  on_failure:
+    email: ["alerts@example.com"]
+  on_success:
+    webhook: "https://your-webhook.com/job-scraper-success"

@@ -1,0 +1,88 @@
+# E-Commerce Price Monitoring Workflow
+#
+# This workflow scrapes competitor prices, compares them to your prices,
+# and sends alerts when you're being undercut.
+#
+# Usage:
+#   python -m scraper.scheduler.workflow_dag execute ecommerce_monitoring.yaml
+
+name: ecommerce_price_monitoring
+description: Monitor competitor prices and send alerts
+
+nodes:
+  # Step 1: Scrape our own product catalog
+  - id: scrape_our_products
+    type: scrape
+    config:
+      url: "https://our-store.com/products"
+      item_selector: ".product-card"
+      fields:
+        product_id:
+          selector: "[data-product-id]"
+          attribute: "data-product-id"
+          type: string
+        name:
+          selector: ".product-title"
+          type: string
+        our_price:
+          selector: ".price"
+          type: currency
+      max_pages: 50
+      concurrent: true
+
+  # Step 2: Scrape Competitor A (runs in parallel with B)
+  - id: scrape_competitor_a
+    type: scrape
+    depends_on: [scrape_our_products]
+    config:
+      url: "https://competitor-a.com/products"
+      item_selector: ".item"
+      fields:
+        name:
+          selector: "h3"
+          type: string
+        price:
+          selector: ".sale-price"
+          type: currency
+      max_pages: 30
+      concurrent: true
+
+  # Step 3: Scrape Competitor B (runs in parallel with A)
+  - id: scrape_competitor_b
+    type: scrape
+    depends_on: [scrape_our_products]
+    config:
+      url: "https://competitor-b.com/catalog"
+      item_selector: ".product"
+      fields:
+        name:
+          selector: ".name"
+          type: string
+        price:
+          selector: ".cost"
+          type: currency
+      max_pages: 30
+      concurrent: true
+
+  # Step 4: Compare prices
+  - id: compare_prices
+    type: analyze
+    depends_on: [scrape_our_products, scrape_competitor_a, scrape_competitor_b]
+    config:
+      analysis_type: "price_comparison"
+      thresholds:
+        undercut_percentage: 5  # Alert if competitor is 5% cheaper
+
+  # Step 5: Send alerts
+  - id: send_alerts
+    type: export
+    depends_on: [compare_prices]
+    config:
+      export_format: "email"
+      email_to: ["pricing-team@our-store.com"]
+      email_subject: "Price Alert: Competitor Undercuts Detected"
+      include_visualization: true
+
+schedule:
+  cron: "0 */6 * * *"  # Every 6 hours
+  timezone: "America/New_York"

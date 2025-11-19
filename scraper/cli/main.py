@@ -32,6 +32,7 @@ def cli(debug: bool) -> None:
     GrandmaScrape - Enterprise web scraping made grandma-simple.
 
     Commands:
+      serve     - Start API server + web dashboard
       easy      - 3 questions, that's it! (grandma-friendly)
       smart     - AI auto-detection (zero configuration)
       analyze   - Deep site analysis
@@ -469,6 +470,48 @@ def validate(config_path: str) -> None:
     except Exception as e:
         console.print(f"[bold red]✗ Configuration is invalid![/bold red]")
         console.print(f"\n[bold]Error:[/bold] {e}")
+
+
+@cli.command()
+@click.option("--host", default="0.0.0.0", help="Host to bind to")
+@click.option("--port", default=8000, help="Port to bind to")
+@click.option("--reload", is_flag=True, help="Enable auto-reload (development)")
+def serve(host: str, port: int, reload: bool) -> None:
+    """
+    Start the API server with web dashboard.
+
+    This starts the FastAPI server that provides:
+    - REST API for programmatic access
+    - Web dashboard at http://localhost:8000
+    - API documentation at http://localhost:8000/docs
+
+    Examples:
+        scraper serve                  # Start on default port 8000
+        scraper serve --port 3000      # Start on custom port
+        scraper serve --reload         # Development mode with auto-reload
+    """
+    try:
+        import uvicorn
+        from scraper.api.rest_server import app
+    except ImportError:
+        console.print("[bold red]Error:[/bold red] uvicorn not installed")
+        console.print("Install with: poetry install")
+        return
+
+    console.print("[bold cyan]🧓 GrandmaScrape API Server[/bold cyan]\n")
+    console.print(f"[bold]Starting server on {host}:{port}[/bold]")
+    console.print(f"\n[green]✓[/green] Dashboard:      http://localhost:{port}")
+    console.print(f"[green]✓[/green] API Docs:       http://localhost:{port}/docs")
+    console.print(f"[green]✓[/green] Health Check:   http://localhost:{port}/api/v1/health")
+    console.print("\n[dim]Press Ctrl+C to stop[/dim]\n")
+
+    uvicorn.run(
+        "scraper.api.rest_server:app",
+        host=host,
+        port=port,
+        reload=reload,
+        log_level="info"
+    )
 
 
 # Register smart commands
