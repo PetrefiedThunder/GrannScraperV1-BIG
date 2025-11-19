@@ -89,8 +89,11 @@ def easy(url: str) -> None:
     console.print("  (I'll add .csv automatically)")
     filename = click.prompt("  Your answer", default="my_scrape")
 
-    # Clean filename
-    filename = filename.replace(" ", "_").replace(".csv", "")
+    # Clean and validate filename
+    import re
+    filename = filename.replace(".csv", "")
+    # Only allow alphanumeric, dash, underscore
+    filename = re.sub(r'[^a-zA-Z0-9_-]', '_', filename)[:100]
 
     console.print("\n[bold cyan]Great! I'm ready to scrape![/bold cyan]")
     console.print(f"  • Getting: {what_to_get}")
@@ -334,11 +337,15 @@ def wizard() -> None:
     }
 
     # Save config
+    import re
+    # Sanitize job name for filesystem
+    safe_name = re.sub(r'[^a-zA-Z0-9_-]', '_', name)[:100]
+
     config_dir = Path.home() / ".grandma-scraper" / "jobs"
     config_dir.mkdir(parents=True, exist_ok=True)
 
     import yaml
-    config_file = config_dir / f"{name}.yaml"
+    config_file = config_dir / f"{safe_name}.yaml"
 
     with open(config_file, "w") as f:
         yaml.dump(job_data, f, default_flow_style=False)
@@ -346,7 +353,7 @@ def wizard() -> None:
     console.print(f"\n[bold green]✓ Configuration saved![/bold green]")
     console.print(f"  Location: {config_file}")
     console.print(f"\n[bold]To run this job:[/bold]")
-    console.print(f"  scraper run {name}")
+    console.print(f"  scraper run {safe_name}")
 
     if click.confirm("\nRun it now?", default=True):
         ctx = click.get_current_context()
@@ -362,12 +369,16 @@ def run(job_name: str) -> None:
     Example:
         scraper run my_job
     """
+    import re
+    # Sanitize job_name to prevent path traversal
+    safe_job_name = re.sub(r'[^a-zA-Z0-9_-]', '_', job_name)[:100]
+
     # Load job config
     config_dir = Path.home() / ".grandma-scraper" / "jobs"
-    config_file = config_dir / f"{job_name}.yaml"
+    config_file = config_dir / f"{safe_job_name}.yaml"
 
     if not config_file.exists():
-        console.print(f"[bold red]✗ Job '{job_name}' not found![/bold red]")
+        console.print(f"[bold red]✗ Job '{safe_job_name}' not found![/bold red]")
         console.print(f"  Looking for: {config_file}")
         return
 
