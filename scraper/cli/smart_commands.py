@@ -354,7 +354,7 @@ def _display_results(result, exported_files):
         f"[bold]Pages Visited:[/bold] {result.pages_visited}\n"
         f"[bold]Errors:[/bold] {len(result.errors)}\n"
         f"[bold]Duration:[/bold] {result.duration_seconds:.2f}s\n"
-        f"[bold]Speed:[/bold] {result.items_scraped / result.duration_seconds:.2f} items/sec",
+        f"[bold]Speed:[/bold] {result.items_scraped / max(result.duration_seconds, 0.001):.2f} items/sec",
         title="[bold green]Results[/bold green]",
         border_style="green"
     )
