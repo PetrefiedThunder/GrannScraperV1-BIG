@@ -35,7 +35,7 @@ class JobStatus(BaseModel):
     is_running: bool
     has_result: bool
     status: Optional[str] = None
-    items_scraped: Optional<int> = None
+    items_scraped: Optional[int] = None
     pages_visited: Optional[int] = None
     errors: Optional[int] = None
     duration: Optional[float] = None

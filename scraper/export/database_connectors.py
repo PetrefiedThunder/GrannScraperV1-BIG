@@ -98,13 +98,24 @@ class PostgreSQLConnector(DatabaseConnector):
         if not data:
             return
 
+        import re
+        # Validate table name (alphanumeric and underscore only)
+        if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', table):
+            raise ValueError(f"Invalid table name: {table}")
+
         # Get column names from first record
         columns = list(data[0].keys())
+
+        # Validate column names
+        for col in columns:
+            if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', col):
+                raise ValueError(f"Invalid column name: {col}")
+
         placeholders = ', '.join([f'${i+1}' for i in range(len(columns))])
-        column_names = ', '.join(columns)
+        column_names = ', '.join([f'"{col}"' for col in columns])
 
         query = f"""
-            INSERT INTO {table} ({column_names})
+            INSERT INTO "{table}" ({column_names})
             VALUES ({placeholders})
         """
 
@@ -129,18 +140,29 @@ class PostgreSQLConnector(DatabaseConnector):
         if not data:
             return
 
+        import re
+        # Validate table name
+        if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', table):
+            raise ValueError(f"Invalid table name: {table}")
+
         columns = list(data[0].keys())
-        column_names = ', '.join(columns)
+
+        # Validate all column names and key fields
+        for col in columns + key_fields:
+            if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', col):
+                raise ValueError(f"Invalid column name: {col}")
+
+        column_names = ', '.join([f'"{col}"' for col in columns])
         placeholders = ', '.join([f'${i+1}' for i in range(len(columns))])
 
         # Update clause for non-key fields
         update_fields = [col for col in columns if col not in key_fields]
-        update_clause = ', '.join([f"{col} = EXCLUDED.{col}" for col in update_fields])
+        update_clause = ', '.join([f'"{col}" = EXCLUDED."{col}"' for col in update_fields])
 
-        conflict_cols = ', '.join(key_fields)
+        conflict_cols = ', '.join([f'"{col}"' for col in key_fields])
 
         query = f"""
-            INSERT INTO {table} ({column_names})
+            INSERT INTO "{table}" ({column_names})
             VALUES ({placeholders})
             ON CONFLICT ({conflict_cols})
             DO UPDATE SET {update_clause}
@@ -159,6 +181,11 @@ class PostgreSQLConnector(DatabaseConnector):
         if not data:
             return
 
+        import re
+        # Validate table name
+        if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', table):
+            raise ValueError(f"Invalid table name: {table}")
+
         # Infer column types
         sample = data[0]
         type_map = {
@@ -171,11 +198,14 @@ class PostgreSQLConnector(DatabaseConnector):
 
         columns = []
         for key, value in sample.items():
+            # Validate column name
+            if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', key):
+                raise ValueError(f"Invalid column name: {key}")
             col_type = type_map.get(type(value), 'TEXT')
-            columns.append(f"{key} {col_type}")
+            columns.append(f'"{key}" {col_type}')
 
         create_query = f"""
-            CREATE TABLE IF NOT EXISTS {table} (
+            CREATE TABLE IF NOT EXISTS "{table}" (
                 id SERIAL PRIMARY KEY,
                 {', '.join(columns)},
                 scraped_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -226,12 +256,23 @@ class MySQLConnector(DatabaseConnector):
         if not data:
             return
 
+        import re
+        # Validate table name
+        if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', table):
+            raise ValueError(f"Invalid table name: {table}")
+
         columns = list(data[0].keys())
+
+        # Validate column names
+        for col in columns:
+            if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', col):
+                raise ValueError(f"Invalid column name: {col}")
+
         placeholders = ', '.join(['%s'] * len(columns))
-        column_names = ', '.join(columns)
+        column_names = ', '.join([f'`{col}`' for col in columns])
 
         query = f"""
-            INSERT INTO {table} ({column_names})
+            INSERT INTO `{table}` ({column_names})
             VALUES ({placeholders})
         """
 
@@ -250,15 +291,26 @@ class MySQLConnector(DatabaseConnector):
         if not data:
             return
 
+        import re
+        # Validate table name
+        if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', table):
+            raise ValueError(f"Invalid table name: {table}")
+
         columns = list(data[0].keys())
-        column_names = ', '.join(columns)
+
+        # Validate all column names
+        for col in columns + key_fields:
+            if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', col):
+                raise ValueError(f"Invalid column name: {col}")
+
+        column_names = ', '.join([f'`{col}`' for col in columns])
         placeholders = ', '.join(['%s'] * len(columns))
 
         update_fields = [col for col in columns if col not in key_fields]
-        update_clause = ', '.join([f"{col} = VALUES({col})" for col in update_fields])
+        update_clause = ', '.join([f"`{col}` = VALUES(`{col}`)" for col in update_fields])
 
         query = f"""
-            INSERT INTO {table} ({column_names})
+            INSERT INTO `{table}` ({column_names})
             VALUES ({placeholders})
             ON DUPLICATE KEY UPDATE {update_clause}
         """
