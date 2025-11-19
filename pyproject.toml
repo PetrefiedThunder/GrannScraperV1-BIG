@@ -31,6 +31,20 @@ numpy = "^1.26.0"
 scikit-learn = "^1.4.0"
 croniter = "^2.0.0"
 python-dateutil = "^2.8.2"
+# Premium features dependencies
+python-json-logger = "^2.0.7"  # Structured logging
+aioboto3 = "^12.3.0"  # AWS S3
+google-cloud-storage = "^2.14.0"  # Google Cloud Storage
+azure-storage-blob = "^12.19.0"  # Azure Blob Storage
+asyncpg = "^0.29.0"  # PostgreSQL
+aiomysql = "^0.2.0"  # MySQL
+motor = "^3.3.2"  # MongoDB
+redis = {extras = ["hiredis"], version = "^5.0.1"}  # Redis
+elasticsearch = {extras = ["async"], version = "^8.11.0"}  # Elasticsearch
+aiosmtplib = "^3.0.1"  # Email alerts
+twilio = "^8.11.0"  # SMS alerts
+fastavro = "^1.9.0"  # Avro format
+msgpack = "^1.0.7"  # MessagePack format
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
