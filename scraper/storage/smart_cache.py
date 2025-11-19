@@ -37,57 +37,56 @@ class SmartCache:
 
     def _init_database(self):
         """Initialize cache database."""
-        conn = sqlite3.connect(str(self.db_path))
-        cursor = conn.cursor()
+        with sqlite3.connect(str(self.db_path)) as conn:
+            cursor = conn.cursor()
 
-        # Page cache table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS page_cache (
-                url TEXT PRIMARY KEY,
-                content_hash TEXT NOT NULL,
-                content TEXT,
-                scraped_at TIMESTAMP NOT NULL,
-                last_modified TIMESTAMP,
-                etag TEXT,
-                metadata TEXT
-            )
-        """)
+            # Page cache table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS page_cache (
+                    url TEXT PRIMARY KEY,
+                    content_hash TEXT NOT NULL,
+                    content TEXT,
+                    scraped_at TIMESTAMP NOT NULL,
+                    last_modified TIMESTAMP,
+                    etag TEXT,
+                    metadata TEXT
+                )
+            """)
 
-        # Item cache table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS item_cache (
-                item_hash TEXT PRIMARY KEY,
-                source_url TEXT NOT NULL,
-                data TEXT NOT NULL,
-                scraped_at TIMESTAMP NOT NULL,
-                version INTEGER DEFAULT 1
-            )
-        """)
+            # Item cache table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS item_cache (
+                    item_hash TEXT PRIMARY KEY,
+                    source_url TEXT NOT NULL,
+                    data TEXT NOT NULL,
+                    scraped_at TIMESTAMP NOT NULL,
+                    version INTEGER DEFAULT 1
+                )
+            """)
 
-        # Change log table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS change_log (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                url TEXT NOT NULL,
-                change_type TEXT NOT NULL,
-                detected_at TIMESTAMP NOT NULL,
-                details TEXT
-            )
-        """)
+            # Change log table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS change_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    url TEXT NOT NULL,
+                    change_type TEXT NOT NULL,
+                    detected_at TIMESTAMP NOT NULL,
+                    details TEXT
+                )
+            """)
 
-        # Statistics table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS cache_stats (
-                date DATE PRIMARY KEY,
-                pages_cached INTEGER DEFAULT 0,
-                cache_hits INTEGER DEFAULT 0,
-                cache_misses INTEGER DEFAULT 0,
-                bytes_saved INTEGER DEFAULT 0
-            )
-        """)
+            # Statistics table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS cache_stats (
+                    date DATE PRIMARY KEY,
+                    pages_cached INTEGER DEFAULT 0,
+                    cache_hits INTEGER DEFAULT 0,
+                    cache_misses INTEGER DEFAULT 0,
+                    bytes_saved INTEGER DEFAULT 0
+                )
+            """)
 
-        conn.commit()
-        conn.close()
+            conn.commit()
 
     def should_scrape(
         self,
@@ -100,43 +99,41 @@ class SmartCache:
         Returns:
             (should_scrape, reason)
         """
-        conn = sqlite3.connect(str(self.db_path))
-        cursor = conn.cursor()
+        with sqlite3.connect(str(self.db_path)) as conn:
+            cursor = conn.cursor()
 
-        cursor.execute(
-            "SELECT content_hash, scraped_at FROM page_cache WHERE url = ?",
-            (url,)
-        )
-        result = cursor.fetchone()
-        conn.close()
+            cursor.execute(
+                "SELECT content_hash, scraped_at FROM page_cache WHERE url = ?",
+                (url,)
+            )
+            result = cursor.fetchone()
 
-        if not result:
-            return True, "not_in_cache"
+            if not result:
+                return True, "not_in_cache"
 
-        content_hash, scraped_at = result
-        scraped_time = datetime.fromisoformat(scraped_at)
+            content_hash, scraped_at = result
+            scraped_time = datetime.fromisoformat(scraped_at)
 
-        # Check TTL
-        if ttl_seconds:
-            age = (datetime.utcnow() - scraped_time).total_seconds()
-            if age > ttl_seconds:
-                return True, f"ttl_expired (age: {age:.0f}s)"
+            # Check TTL
+            if ttl_seconds:
+                age = (datetime.utcnow() - scraped_time).total_seconds()
+                if age > ttl_seconds:
+                    return True, f"ttl_expired (age: {age:.0f}s)"
 
-        return False, "cache_valid"
+            return False, "cache_valid"
 
     def get_cached_content(self, url: str) -> Optional[str]:
         """Get cached HTML content for URL."""
-        conn = sqlite3.connect(str(self.db_path))
-        cursor = conn.cursor()
+        with sqlite3.connect(str(self.db_path)) as conn:
+            cursor = conn.cursor()
 
-        cursor.execute(
-            "SELECT content FROM page_cache WHERE url = ?",
-            (url,)
-        )
-        result = cursor.fetchone()
-        conn.close()
+            cursor.execute(
+                "SELECT content FROM page_cache WHERE url = ?",
+                (url,)
+            )
+            result = cursor.fetchone()
 
-        return result[0] if result else None
+            return result[0] if result else None
 
     def cache_page(
         self,
@@ -149,73 +146,71 @@ class SmartCache:
         """Cache page content with metadata."""
         content_hash = self._hash_content(content)
 
-        conn = sqlite3.connect(str(self.db_path))
-        cursor = conn.cursor()
+        with sqlite3.connect(str(self.db_path)) as conn:
+            cursor = conn.cursor()
 
-        # Check if content changed
-        cursor.execute(
-            "SELECT content_hash FROM page_cache WHERE url = ?",
-            (url,)
-        )
-        existing = cursor.fetchone()
-
-        if existing and existing[0] != content_hash:
-            # Content changed - log it
-            self._log_change(
-                url,
-                "content_modified",
-                {"old_hash": existing[0], "new_hash": content_hash}
-            )
-
-        # Update or insert
-        cursor.execute("""
-            INSERT OR REPLACE INTO page_cache
-            (url, content_hash, content, scraped_at, last_modified, etag, metadata)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (
-            url,
-            content_hash,
-            content,
-            datetime.utcnow().isoformat(),
-            last_modified,
-            etag,
-            json.dumps(metadata) if metadata else None
-        ))
-
-        conn.commit()
-        conn.close()
-
-    def cache_items(self, items: List[Dict[str, Any]], source_url: str):
-        """Cache extracted items."""
-        conn = sqlite3.connect(str(self.db_path))
-        cursor = conn.cursor()
-
-        for item in items:
-            item_hash = self._hash_content(json.dumps(item, sort_keys=True))
-
-            # Check if item exists
+            # Check if content changed
             cursor.execute(
-                "SELECT version FROM item_cache WHERE item_hash = ?",
-                (item_hash,)
+                "SELECT content_hash FROM page_cache WHERE url = ?",
+                (url,)
             )
             existing = cursor.fetchone()
 
-            version = (existing[0] + 1) if existing else 1
+            if existing and existing[0] != content_hash:
+                # Content changed - log it
+                self._log_change(
+                    url,
+                    "content_modified",
+                    {"old_hash": existing[0], "new_hash": content_hash}
+                )
 
+            # Update or insert
             cursor.execute("""
-                INSERT OR REPLACE INTO item_cache
-                (item_hash, source_url, data, scraped_at, version)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT OR REPLACE INTO page_cache
+                (url, content_hash, content, scraped_at, last_modified, etag, metadata)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
             """, (
-                item_hash,
-                source_url,
-                json.dumps(item),
+                url,
+                content_hash,
+                content,
                 datetime.utcnow().isoformat(),
-                version
+                last_modified,
+                etag,
+                json.dumps(metadata) if metadata else None
             ))
 
-        conn.commit()
-        conn.close()
+            conn.commit()
+
+    def cache_items(self, items: List[Dict[str, Any]], source_url: str):
+        """Cache extracted items."""
+        with sqlite3.connect(str(self.db_path)) as conn:
+            cursor = conn.cursor()
+
+            for item in items:
+                item_hash = self._hash_content(json.dumps(item, sort_keys=True))
+
+                # Check if item exists
+                cursor.execute(
+                    "SELECT version FROM item_cache WHERE item_hash = ?",
+                    (item_hash,)
+                )
+                existing = cursor.fetchone()
+
+                version = (existing[0] + 1) if existing else 1
+
+                cursor.execute("""
+                    INSERT OR REPLACE INTO item_cache
+                    (item_hash, source_url, data, scraped_at, version)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (
+                    item_hash,
+                    source_url,
+                    json.dumps(item),
+                    datetime.utcnow().isoformat(),
+                    version
+                ))
+
+            conn.commit()
 
     def get_changed_urls(
         self,
@@ -246,113 +241,107 @@ class SmartCache:
 
     def _log_change(self, url: str, change_type: str, details: Optional[Dict] = None):
         """Log a detected change."""
-        conn = sqlite3.connect(str(self.db_path))
-        cursor = conn.cursor()
+        with sqlite3.connect(str(self.db_path)) as conn:
+            cursor = conn.cursor()
 
-        cursor.execute("""
-            INSERT INTO change_log (url, change_type, detected_at, details)
-            VALUES (?, ?, ?, ?)
-        """, (
-            url,
-            change_type,
-            datetime.utcnow().isoformat(),
-            json.dumps(details) if details else None
-        ))
+            cursor.execute("""
+                INSERT INTO change_log (url, change_type, detected_at, details)
+                VALUES (?, ?, ?, ?)
+            """, (
+                url,
+                change_type,
+                datetime.utcnow().isoformat(),
+                json.dumps(details) if details else None
+            ))
 
-        conn.commit()
-        conn.close()
+            conn.commit()
 
         logger.info(f"Change detected: {change_type} for {url}")
 
     def get_changes_since(self, since: datetime) -> List[Dict]:
         """Get all changes since a given time."""
-        conn = sqlite3.connect(str(self.db_path))
-        cursor = conn.cursor()
+        with sqlite3.connect(str(self.db_path)) as conn:
+            cursor = conn.cursor()
 
-        cursor.execute("""
-            SELECT url, change_type, detected_at, details
-            FROM change_log
-            WHERE detected_at >= ?
-            ORDER BY detected_at DESC
-        """, (since.isoformat(),))
+            cursor.execute("""
+                SELECT url, change_type, detected_at, details
+                FROM change_log
+                WHERE detected_at >= ?
+                ORDER BY detected_at DESC
+            """, (since.isoformat(),))
 
-        changes = []
-        for row in cursor.fetchall():
-            changes.append({
-                'url': row[0],
-                'change_type': row[1],
-                'detected_at': row[2],
-                'details': json.loads(row[3]) if row[3] else None
-            })
+            changes = []
+            for row in cursor.fetchall():
+                changes.append({
+                    'url': row[0],
+                    'change_type': row[1],
+                    'detected_at': row[2],
+                    'details': json.loads(row[3]) if row[3] else None
+                })
 
-        conn.close()
-        return changes
+            return changes
 
     def get_stats(self) -> Dict[str, Any]:
         """Get cache statistics."""
-        conn = sqlite3.connect(str(self.db_path))
-        cursor = conn.cursor()
+        with sqlite3.connect(str(self.db_path)) as conn:
+            cursor = conn.cursor()
 
-        # Total pages cached
-        cursor.execute("SELECT COUNT(*) FROM page_cache")
-        total_pages = cursor.fetchone()[0]
+            # Total pages cached
+            cursor.execute("SELECT COUNT(*) FROM page_cache")
+            total_pages = cursor.fetchone()[0]
 
-        # Total items cached
-        cursor.execute("SELECT COUNT(*) FROM item_cache")
-        total_items = cursor.fetchone()[0]
+            # Total items cached
+            cursor.execute("SELECT COUNT(*) FROM item_cache")
+            total_items = cursor.fetchone()[0]
 
-        # Recent changes (last 7 days)
-        week_ago = (datetime.utcnow() - timedelta(days=7)).isoformat()
-        cursor.execute(
-            "SELECT COUNT(*) FROM change_log WHERE detected_at >= ?",
-            (week_ago,)
-        )
-        recent_changes = cursor.fetchone()[0]
+            # Recent changes (last 7 days)
+            week_ago = (datetime.utcnow() - timedelta(days=7)).isoformat()
+            cursor.execute(
+                "SELECT COUNT(*) FROM change_log WHERE detected_at >= ?",
+                (week_ago,)
+            )
+            recent_changes = cursor.fetchone()[0]
 
-        # Cache size
-        cursor.execute("SELECT SUM(LENGTH(content)) FROM page_cache")
-        cache_size_bytes = cursor.fetchone()[0] or 0
+            # Cache size
+            cursor.execute("SELECT SUM(LENGTH(content)) FROM page_cache")
+            cache_size_bytes = cursor.fetchone()[0] or 0
 
-        conn.close()
-
-        return {
-            'total_pages_cached': total_pages,
-            'total_items_cached': total_items,
-            'recent_changes': recent_changes,
-            'cache_size_mb': cache_size_bytes / (1024 * 1024),
-            'cache_dir': str(self.cache_dir),
-        }
+            return {
+                'total_pages_cached': total_pages,
+                'total_items_cached': total_items,
+                'recent_changes': recent_changes,
+                'cache_size_mb': cache_size_bytes / (1024 * 1024),
+                'cache_dir': str(self.cache_dir),
+            }
 
     def clear_expired(self, ttl_seconds: int):
         """Clear expired cache entries."""
         cutoff = datetime.utcnow() - timedelta(seconds=ttl_seconds)
 
-        conn = sqlite3.connect(str(self.db_path))
-        cursor = conn.cursor()
+        with sqlite3.connect(str(self.db_path)) as conn:
+            cursor = conn.cursor()
 
-        cursor.execute(
-            "DELETE FROM page_cache WHERE scraped_at < ?",
-            (cutoff.isoformat(),)
-        )
+            cursor.execute(
+                "DELETE FROM page_cache WHERE scraped_at < ?",
+                (cutoff.isoformat(),)
+            )
 
-        deleted = cursor.rowcount
-        conn.commit()
-        conn.close()
+            deleted = cursor.rowcount
+            conn.commit()
 
-        logger.info(f"Cleared {deleted} expired cache entries")
-        return deleted
+            logger.info(f"Cleared {deleted} expired cache entries")
+            return deleted
 
     def clear_all(self):
         """Clear all cache."""
-        conn = sqlite3.connect(str(self.db_path))
-        cursor = conn.cursor()
+        with sqlite3.connect(str(self.db_path)) as conn:
+            cursor = conn.cursor()
 
-        cursor.execute("DELETE FROM page_cache")
-        cursor.execute("DELETE FROM item_cache")
-        cursor.execute("DELETE FROM change_log")
+            cursor.execute("DELETE FROM page_cache")
+            cursor.execute("DELETE FROM item_cache")
+            cursor.execute("DELETE FROM change_log")
 
-        conn.commit()
-        conn.close()
+            conn.commit()
 
         logger.info("All cache cleared")
 
