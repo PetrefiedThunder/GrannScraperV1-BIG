@@ -61,7 +61,8 @@ class SQLiteExporter(BaseExporter):
 
             # Insert data
             placeholders = ", ".join(["?" for _ in columns])
-            insert_sql = f'INSERT INTO "{self.table_name}" ({", ".join([f\'"{col}"\' for col in columns])}) VALUES ({placeholders})'
+            column_names = ", ".join([f'"{col}"' for col in columns])
+            insert_sql = f'INSERT INTO "{self.table_name}" ({column_names}) VALUES ({placeholders})'
 
             for item in data:
                 values = []

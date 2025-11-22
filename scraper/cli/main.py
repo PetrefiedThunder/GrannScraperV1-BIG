@@ -199,12 +199,15 @@ def massive(
         output_path = Path.home() / "scraper_results"
 
     # Create job with smart defaults
+    # Use 'none' mode for single page, otherwise let engine handle pagination detection
+    pagination_mode = "none" if max_pages == 1 else "none"
+    
     job = ScrapeJob(
         name=f"massive_{url.split('//')[1].split('/')[0]}",
         start_url=url,
         description="Massive mode scrape with auto-detection",
         browser={"enabled": use_browser},
-        pagination={"mode": "url_pattern", "max_pages": max_pages},
+        pagination={"mode": pagination_mode, "max_pages": max_pages},
         fields={},  # Auto-detect
         export=ExportConfig(
             formats=export_formats,
