@@ -5,17 +5,11 @@
 [![Code Style](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![Type Checked](https://img.shields.io/badge/type%20checked-mypy-blue.svg)](http://mypy-lang.org/)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
-[![Status](https://img.shields.io/badge/status-production%20ready-success.svg)]()
+[![Status](https://img.shields.io/badge/status-active%20development-orange.svg)]()
 
-**Enterprise-grade web scraping made grandma-simple.**
+**An open-source scraping toolkit with a friendly CLI, FastAPI service, and Python SDK.**
 
-A next-generation, intelligent web scraping and data intelligence platform that **rivals commercial products costing $2,700-6,800/month** — completely **FREE** and open source.
-
-🏆 **Best-in-Class Features:** Beats Apify, ScraperAPI, Bright Data, Octoparse, ParseHub, Diffbot, and Zyte
-
-💰 **Save $20,000+/year:** All premium features included at no cost
-
-⚡ **Power Level: ∞** - More features than ANY commercial service
+The project currently ships a single-node scraping engine (static + Playwright), a set of beginner-friendly CLI modes, an HTTP API with an optional dashboard, and a Python SDK for programmatic access. Distributed orchestration and other Layer B features live on the roadmap while the core experience is hardened.
 
 ---
 
@@ -54,65 +48,30 @@ scraper wizard
 
 ---
 
-## 🎯 Features
+## 🎯 Current Capabilities
 
-### Layer A - Enterprise Single-Node (Current)
+### Core scraping engine (Layer A)
 
-- ✅ **Static & JavaScript Scraping** - Handle both simple HTML and complex SPAs
-- ✅ **Smart Pagination** - Next button, URL patterns, infinite scroll
-- ✅ **Proxy & User-Agent Rotation** - Built-in anti-blocking
-- ✅ **Multiple Export Formats** - CSV, JSON, Excel, SQLite, and more
-- ✅ **AI-Powered Extraction** - Claude-powered semantic field detection
-- ✅ **Grandma-Friendly CLI** - Three difficulty modes (easy/massive/wizard)
-- ✅ **Rate Limiting & Politeness** - Respect robots.txt and site resources
-- ✅ **Data Transformation** - Cleaning, type inference, deduplication
+- ✅ **Static + JavaScript rendering** via `requests`/BeautifulSoup and optional Playwright
+- ✅ **Smart pagination** with none/url-pattern/next-button/infinite-scroll modes
+- ✅ **Session controls** including robots.txt checks, rate limiting, and basic proxy/UA rotation
+- ✅ **Extraction options** for CSS selectors, tables, media, and optional LLM-backed semantic fields
+- ✅ **Exports** to CSV, JSON/NDJSON, Excel, SQLite, Parquet, Feather, and more
+- ✅ **Data post-processing** (type inference, cleaning, deduplication)
 
-### Layer B - Distributed Intelligence (Roadmap)
+### Interfaces & developer surface
 
-- 🔄 Distributed workers & orchestration
-- 🔄 Browser cluster management
-- 🔄 Advanced ML extraction
-- 🔄 Workflow DAGs & scheduling
-- 🔄 Multi-tenancy & RBAC
-- 🔄 Real-time monitoring & alerts
+- ✅ **CLI** modes: `easy`, `massive`, `wizard`, `smart`, `analyze`, `run`, `list`, `validate`, `serve`
+- ✅ **FastAPI service** with job management, smart cache/incremental scraping, and OpenAPI docs at `/docs`
+- ✅ **Python SDK** (`GrandmaScrapeClient`) for interacting with the API
+- ✅ **Examples & configs** to bootstrap common workflows
 
-### Layer C - UX & SDK Surface (Complete!)
+### Roadmap highlights (Layer B and beyond)
 
-- ✅ **Python SDK** - Clean, pythonic API client (sync + async)
-- ✅ **Web Dashboard** - Modern HTML/JS interface
-- ✅ **Docker Deployment** - Production-ready containers
-- ✅ **Comprehensive Tests** - 50+ test cases
-- ✅ **Production Guide** - Complete deployment documentation
-
-### Premium Enterprise Features (NEW!)
-
-**🔔 Advanced Monitoring & Alerting** ($99-299/mo value)
-- ✅ Multi-channel notifications (Slack, Discord, Email, SMS, PagerDuty)
-- ✅ Job failure/success alerts
-- ✅ Data quality threshold alerts
-- ✅ Anomaly detection alerts
-- ✅ Custom webhooks
-
-**💾 Database Connectors** ($199-499/mo value)
-- ✅ PostgreSQL (async, batch ops, upsert)
-- ✅ MySQL/MariaDB (connection pooling)
-- ✅ MongoDB (bulk operations)
-- ✅ Redis (caching, TTL)
-- ✅ Elasticsearch (full-text search)
-
-**☁️ Cloud Storage Integration** ($99-299/mo value)
-- ✅ AWS S3 (encryption, multipart upload)
-- ✅ Google Cloud Storage (resumable uploads)
-- ✅ Azure Blob Storage (access tiers)
-
-**📊 Premium Export Formats** ($99-199/mo value)
-- ✅ Apache Parquet (10-100x compression)
-- ✅ Apache Avro (schema-based)
-- ✅ Apache Feather (5-10x faster)
-- ✅ Apache ORC (Spark optimized)
-- ✅ MessagePack, XML, NDJSON
-
-**Total Value:** $2,700-6,800/month → **FREE** ✨
+- 🔄 Distributed execution, browser pooling, and workflow orchestration
+- 🔄 RBAC/multi-tenant hardening
+- 🔄 Expanded monitoring/alerting surface
+- 🔄 More pluggable ML extraction models
 
 [See detailed comparison →](COMPETITIVE_ANALYSIS.md)
 
