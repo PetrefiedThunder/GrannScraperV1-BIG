@@ -1,0 +1,141 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#4a90d9', 'secondaryColor': '#67b26f', 'tertiaryColor': '#f0f0f0'}}}%%
+
+graph TB
+    subgraph EntryPoints["Entry Points"]
+        CLI["cli/main.py<br/>CLI Application"]
+        API["api/rest_server.py<br/>REST API"]
+        SDK["sdk/client.py<br/>Python SDK"]
+    end
+
+    subgraph Core["Core Engine Layer"]
+        ENGINE["core/engine.py<br/>ScrapingEngine"]
+        CONCURRENT["core/concurrent_engine.py<br/>ConcurrentEngine"]
+        RATE["core/rate_limiter.py<br/>RateLimiter"]
+    end
+
+    subgraph Fetchers["Fetchers"]
+        STATIC["core/fetcher_static.py<br/>StaticFetcher (httpx)"]
+        BROWSER["core/fetcher_browser.py<br/>BrowserFetcher (Playwright)"]
+    end
+
+    subgraph Extractors["Extractors"]
+        BASE_EX["extractors/base_extractor.py<br/>BaseExtractor (ABC)"]
+        SELECTOR["extractors/selector_extractor.py<br/>SelectorExtractor"]
+        LLM["extractors/llm_extractor.py<br/>LLMExtractor"]
+    end
+
+    subgraph Export["Export Layer"]
+        EXPORT_MGR["export/export_manager.py<br/>ExportManager"]
+        BASE_EXPORT["export/base_exporter.py<br/>BaseExporter (ABC)"]
+        CSV["export/csv_exporter.py"]
+        JSON["export/json_exporter.py"]
+        EXCEL["export/excel_exporter.py"]
+        SQLITE["export/sqlite_exporter.py"]
+        PREMIUM["export/premium_formats.py"]
+        CLOUD["export/cloud_storage.py<br/>⚠️ NOT INTEGRATED"]
+        DB["export/database_connectors.py"]
+    end
+
+    subgraph Transforms["Data Transforms"]
+        CLEAN["transforms/cleaning.py<br/>DataCleaner"]
+        TYPE["transforms/type_inference.py<br/>TypeInferrer"]
+        DEDUP["transforms/deduplication.py<br/>Deduplicator"]
+    end
+
+    subgraph ML["ML/Intelligence"]
+        QUALITY["ml/data_intelligence.py<br/>DataQualityAnalyzer"]
+        ANOMALY["ml/data_intelligence.py<br/>AnomalyDetector"]
+        CATEGORIZE["ml/data_intelligence.py<br/>SmartCategorizer"]
+    end
+
+    subgraph Scheduler["Scheduling"]
+        SCHED["scheduler/advanced_scheduler.py<br/>AdvancedScheduler"]
+        DAG["scheduler/workflow_dag.py<br/>WorkflowDAG"]
+    end
+
+    subgraph Strategies["Smart Strategies"]
+        INTEL["strategies/intelligent_extraction.py<br/>IntelligentExtractor"]
+        PAGINATE["strategies/intelligent_extraction.py<br/>SmartPaginationDetector"]
+    end
+
+    subgraph Storage["Storage/Cache"]
+        CACHE["storage/smart_cache.py<br/>SmartCache"]
+        INCR["storage/smart_cache.py<br/>IncrementalScraper"]
+    end
+
+    subgraph Security["Security"]
+        AUTH["security/auth.py<br/>APIKeyManager, RateLimiter"]
+    end
+
+    subgraph Monitoring["Monitoring & Observability"]
+        ALERTS["monitoring/alerts.py<br/>AlertManager<br/>⚠️ NOT INTEGRATED"]
+        LOGGING["observability/logging_system.py<br/>StructuredLogger"]
+        DASHBOARD["monitor/live_dashboard.py<br/>LiveDashboard"]
+    end
+
+    subgraph Config["Configuration (Foundation)"]
+        MODELS["config/models.py<br/>ScrapeJob, FieldConfig<br/>🔴 CRITICAL HUB"]
+    end
+
+    %% Entry Point Dependencies
+    CLI --> ENGINE
+    CLI --> CONCURRENT
+    CLI --> DASHBOARD
+    API --> ENGINE
+    API --> CONCURRENT
+    API --> AUTH
+    API --> EXPORT_MGR
+    SDK --> MODELS
+
+    %% Core Dependencies
+    ENGINE --> MODELS
+    ENGINE --> SELECTOR
+    ENGINE --> LLM
+    ENGINE --> STATIC
+    ENGINE --> BROWSER
+    ENGINE --> RATE
+    ENGINE --> CACHE
+    ENGINE --> CLEAN
+    ENGINE --> TYPE
+    ENGINE --> DEDUP
+    CONCURRENT --> ENGINE
+    CONCURRENT --> RATE
+
+    %% Extractor Dependencies
+    SELECTOR --> BASE_EX
+    SELECTOR --> MODELS
+    LLM --> BASE_EX
+
+    %% Export Dependencies
+    EXPORT_MGR --> MODELS
+    EXPORT_MGR --> CSV
+    EXPORT_MGR --> JSON
+    EXPORT_MGR --> EXCEL
+    EXPORT_MGR --> SQLITE
+    EXPORT_MGR --> PREMIUM
+    EXPORT_MGR --> DB
+    CSV --> BASE_EXPORT
+    JSON --> BASE_EXPORT
+    EXCEL --> BASE_EXPORT
+    SQLITE --> BASE_EXPORT
+    PREMIUM --> BASE_EXPORT
+
+    %% Scheduler Dependencies
+    SCHED --> MODELS
+    DAG -.-> MODELS
+
+    %% Strategy Dependencies
+    INTEL --> MODELS
+    API --> INTEL
+
+    %% Styling
+    classDef critical fill:#ff6b6b,stroke:#c0392b,stroke-width:3px,color:#fff
+    classDef warning fill:#f39c12,stroke:#d68910,stroke-width:2px,color:#fff
+    classDef hub fill:#3498db,stroke:#2980b9,stroke-width:2px,color:#fff
+    classDef entry fill:#27ae60,stroke:#1e8449,stroke-width:2px,color:#fff
+    classDef orphan fill:#95a5a6,stroke:#7f8c8d,stroke-width:2px,color:#fff,stroke-dasharray: 5 5
+
+    class MODELS critical
+    class ENGINE,EXPORT_MGR hub
+    class CLI,API,SDK entry
+    class ALERTS,CLOUD orphan
