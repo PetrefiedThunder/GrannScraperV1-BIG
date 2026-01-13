@@ -1,0 +1,703 @@
+{
+  "metadata": {
+    "generated_at": "2026-01-13",
+    "tool": "Claude Code Dependency Auditor",
+    "total_source_files": 44,
+    "total_test_files": 7,
+    "total_example_files": 6
+  },
+  "modules": {
+    "scraper/__init__.py": {
+      "imports": {
+        "internal": [],
+        "external": []
+      },
+      "imported_by": [
+        "scraper/api/rest_server.py",
+        "scraper/cli/main.py"
+      ],
+      "exports": ["ScrapeJob", "ScrapeResult", "ScrapingEngine"],
+      "coupling_score": 0.2,
+      "lines": 45
+    },
+    "scraper/config/models.py": {
+      "imports": {
+        "internal": [],
+        "external": ["pydantic", "typing", "enum", "datetime", "pathlib", "re"]
+      },
+      "imported_by": [
+        "scraper/core/engine.py",
+        "scraper/core/concurrent_engine.py",
+        "scraper/api/rest_server.py",
+        "scraper/cli/main.py",
+        "scraper/cli/smart_commands.py",
+        "scraper/extractors/selector_extractor.py",
+        "scraper/extractors/llm_extractor.py",
+        "scraper/export/export_manager.py",
+        "scraper/sdk/client.py",
+        "tests/test_models.py",
+        "tests/test_extractors.py"
+      ],
+      "exports": [
+        "FieldType",
+        "FieldConfig",
+        "PaginationMode",
+        "PaginationConfig",
+        "ExportConfig",
+        "ScrapeJob",
+        "ScrapeResult",
+        "Workflow",
+        "WorkflowStep"
+      ],
+      "coupling_score": 0.95,
+      "lines": 280
+    },
+    "scraper/core/engine.py": {
+      "imports": {
+        "internal": [
+          "scraper/config/models.py",
+          "scraper/extractors/selector_extractor.py",
+          "scraper/extractors/llm_extractor.py",
+          "scraper/core/fetcher_static.py",
+          "scraper/core/fetcher_browser.py",
+          "scraper/core/rate_limiter.py",
+          "scraper/export/export_manager.py",
+          "scraper/transforms/cleaning.py",
+          "scraper/transforms/type_inference.py"
+        ],
+        "external": ["logging", "asyncio", "typing", "datetime", "urllib.parse"]
+      },
+      "imported_by": [
+        "scraper/api/rest_server.py",
+        "scraper/cli/main.py",
+        "scraper/core/concurrent_engine.py"
+      ],
+      "exports": ["ScrapingEngine"],
+      "coupling_score": 0.85,
+      "lines": 350
+    },
+    "scraper/core/concurrent_engine.py": {
+      "imports": {
+        "internal": [
+          "scraper/config/models.py",
+          "scraper/core/engine.py",
+          "scraper/core/rate_limiter.py"
+        ],
+        "external": ["asyncio", "logging", "typing", "dataclasses"]
+      },
+      "imported_by": [
+        "scraper/api/rest_server.py"
+      ],
+      "exports": ["ConcurrentScrapingEngine", "WorkerPool"],
+      "coupling_score": 0.55,
+      "lines": 220
+    },
+    "scraper/core/fetcher_static.py": {
+      "imports": {
+        "internal": [],
+        "external": ["httpx", "logging", "typing", "asyncio", "random"]
+      },
+      "imported_by": [
+        "scraper/core/engine.py"
+      ],
+      "exports": ["StaticFetcher"],
+      "coupling_score": 0.3,
+      "lines": 180
+    },
+    "scraper/core/fetcher_browser.py": {
+      "imports": {
+        "internal": [],
+        "external": ["playwright.async_api", "logging", "typing", "asyncio", "random"]
+      },
+      "imported_by": [
+        "scraper/core/engine.py"
+      ],
+      "exports": ["BrowserFetcher"],
+      "coupling_score": 0.3,
+      "lines": 220
+    },
+    "scraper/core/rate_limiter.py": {
+      "imports": {
+        "internal": [],
+        "external": ["asyncio", "time", "typing", "logging", "dataclasses"]
+      },
+      "imported_by": [
+        "scraper/core/engine.py",
+        "scraper/core/concurrent_engine.py"
+      ],
+      "exports": ["RateLimiter", "TokenBucket", "AdaptiveRateLimiter"],
+      "coupling_score": 0.35,
+      "lines": 190
+    },
+    "scraper/extractors/base_extractor.py": {
+      "imports": {
+        "internal": ["scraper/config/models.py"],
+        "external": ["abc", "typing", "bs4"]
+      },
+      "imported_by": [
+        "scraper/extractors/selector_extractor.py",
+        "scraper/extractors/llm_extractor.py"
+      ],
+      "exports": ["BaseExtractor"],
+      "coupling_score": 0.4,
+      "lines": 60
+    },
+    "scraper/extractors/selector_extractor.py": {
+      "imports": {
+        "internal": [
+          "scraper/config/models.py",
+          "scraper/extractors/base_extractor.py"
+        ],
+        "external": ["bs4", "lxml", "parsel", "re", "typing", "logging"]
+      },
+      "imported_by": [
+        "scraper/core/engine.py",
+        "tests/test_extractors.py"
+      ],
+      "exports": ["SelectorExtractor", "TableExtractor"],
+      "coupling_score": 0.55,
+      "lines": 200
+    },
+    "scraper/extractors/llm_extractor.py": {
+      "imports": {
+        "internal": [
+          "scraper/config/models.py",
+          "scraper/extractors/base_extractor.py"
+        ],
+        "external": ["openai", "anthropic", "typing", "logging", "json"]
+      },
+      "imported_by": [
+        "scraper/core/engine.py"
+      ],
+      "exports": ["LLMExtractor"],
+      "coupling_score": 0.45,
+      "lines": 180
+    },
+    "scraper/export/base_exporter.py": {
+      "imports": {
+        "internal": [],
+        "external": ["abc", "typing", "pathlib"]
+      },
+      "imported_by": [
+        "scraper/export/csv_exporter.py",
+        "scraper/export/json_exporter.py",
+        "scraper/export/excel_exporter.py",
+        "scraper/export/sqlite_exporter.py",
+        "scraper/export/premium_formats.py"
+      ],
+      "exports": ["BaseExporter"],
+      "coupling_score": 0.5,
+      "lines": 60
+    },
+    "scraper/export/export_manager.py": {
+      "imports": {
+        "internal": [
+          "scraper/config/models.py",
+          "scraper/export/base_exporter.py",
+          "scraper/export/csv_exporter.py",
+          "scraper/export/json_exporter.py",
+          "scraper/export/excel_exporter.py",
+          "scraper/export/sqlite_exporter.py"
+        ],
+        "external": ["typing", "pathlib", "logging"]
+      },
+      "imported_by": [
+        "scraper/core/engine.py",
+        "scraper/api/rest_server.py"
+      ],
+      "exports": ["ExportManager"],
+      "coupling_score": 0.65,
+      "lines": 120
+    },
+    "scraper/export/csv_exporter.py": {
+      "imports": {
+        "internal": ["scraper/export/base_exporter.py"],
+        "external": ["csv", "typing", "pathlib"]
+      },
+      "imported_by": [
+        "scraper/export/export_manager.py"
+      ],
+      "exports": ["CSVExporter"],
+      "coupling_score": 0.3,
+      "lines": 70
+    },
+    "scraper/export/json_exporter.py": {
+      "imports": {
+        "internal": ["scraper/export/base_exporter.py"],
+        "external": ["json", "typing", "pathlib"]
+      },
+      "imported_by": [
+        "scraper/export/export_manager.py"
+      ],
+      "exports": ["JSONExporter"],
+      "coupling_score": 0.3,
+      "lines": 80
+    },
+    "scraper/export/excel_exporter.py": {
+      "imports": {
+        "internal": ["scraper/export/base_exporter.py"],
+        "external": ["openpyxl", "typing", "pathlib"]
+      },
+      "imported_by": [
+        "scraper/export/export_manager.py"
+      ],
+      "exports": ["ExcelExporter"],
+      "coupling_score": 0.3,
+      "lines": 100
+    },
+    "scraper/export/sqlite_exporter.py": {
+      "imports": {
+        "internal": ["scraper/export/base_exporter.py"],
+        "external": ["sqlite3", "typing", "pathlib", "json"]
+      },
+      "imported_by": [
+        "scraper/export/export_manager.py"
+      ],
+      "exports": ["SQLiteExporter"],
+      "coupling_score": 0.3,
+      "lines": 120
+    },
+    "scraper/export/premium_formats.py": {
+      "imports": {
+        "internal": ["scraper/export/base_exporter.py"],
+        "external": ["pyarrow", "pandas", "typing", "pathlib"]
+      },
+      "imported_by": [],
+      "exports": ["ParquetExporter", "AvroExporter"],
+      "coupling_score": 0.25,
+      "lines": 150
+    },
+    "scraper/export/cloud_storage.py": {
+      "imports": {
+        "internal": [],
+        "external": ["boto3", "google.cloud.storage", "azure.storage.blob", "typing", "pathlib", "logging"]
+      },
+      "imported_by": [],
+      "exports": ["S3Uploader", "GCSUploader", "AzureBlobUploader", "CloudStorageManager"],
+      "coupling_score": 0.2,
+      "lines": 200
+    },
+    "scraper/export/database_connectors.py": {
+      "imports": {
+        "internal": [],
+        "external": ["sqlalchemy", "pymongo", "redis", "typing", "logging"]
+      },
+      "imported_by": [],
+      "exports": ["PostgreSQLConnector", "MongoDBConnector", "RedisConnector", "DatabaseManager"],
+      "coupling_score": 0.2,
+      "lines": 250
+    },
+    "scraper/api/rest_server.py": {
+      "imports": {
+        "internal": [
+          "scraper/config/models.py",
+          "scraper/core/engine.py",
+          "scraper/core/concurrent_engine.py",
+          "scraper/storage/smart_cache.py",
+          "scraper/ml/data_intelligence.py",
+          "scraper/export/export_manager.py"
+        ],
+        "external": ["fastapi", "uvicorn", "pydantic", "typing", "logging", "datetime", "uuid"]
+      },
+      "imported_by": [],
+      "exports": ["app", "create_app"],
+      "coupling_score": 0.75,
+      "lines": 450
+    },
+    "scraper/cli/main.py": {
+      "imports": {
+        "internal": [
+          "scraper/config/models.py",
+          "scraper/core/engine.py",
+          "scraper/cli/smart_commands.py"
+        ],
+        "external": ["typer", "rich", "typing", "pathlib", "json", "asyncio"]
+      },
+      "imported_by": [],
+      "exports": ["app", "main"],
+      "coupling_score": 0.55,
+      "lines": 280
+    },
+    "scraper/cli/smart_commands.py": {
+      "imports": {
+        "internal": [
+          "scraper/config/models.py",
+          "scraper/strategies/intelligent_extraction.py"
+        ],
+        "external": ["typer", "rich", "typing", "asyncio"]
+      },
+      "imported_by": [
+        "scraper/cli/main.py"
+      ],
+      "exports": ["smart_app"],
+      "coupling_score": 0.4,
+      "lines": 180
+    },
+    "scraper/scheduler/workflow_dag.py": {
+      "imports": {
+        "internal": [],
+        "external": ["asyncio", "typing", "dataclasses", "logging", "graphlib"]
+      },
+      "imported_by": [
+        "examples/04_workflow_dag.py"
+      ],
+      "exports": ["WorkflowBuilder", "DAGExecutor", "WorkflowNode"],
+      "coupling_score": 0.35,
+      "lines": 230
+    },
+    "scraper/scheduler/advanced_scheduler.py": {
+      "imports": {
+        "internal": [],
+        "external": ["asyncio", "typing", "datetime", "logging", "dataclasses"]
+      },
+      "imported_by": [],
+      "exports": ["AdvancedScheduler", "ScheduledJob", "CronParser"],
+      "coupling_score": 0.2,
+      "lines": 200
+    },
+    "scraper/transforms/cleaning.py": {
+      "imports": {
+        "internal": [],
+        "external": ["re", "typing", "urllib.parse", "html"]
+      },
+      "imported_by": [
+        "scraper/core/engine.py",
+        "tests/test_transforms.py"
+      ],
+      "exports": ["DataCleaner"],
+      "coupling_score": 0.35,
+      "lines": 180
+    },
+    "scraper/transforms/type_inference.py": {
+      "imports": {
+        "internal": [],
+        "external": ["re", "typing", "datetime"]
+      },
+      "imported_by": [
+        "scraper/core/engine.py",
+        "tests/test_transforms.py"
+      ],
+      "exports": ["TypeInferrer"],
+      "coupling_score": 0.35,
+      "lines": 150
+    },
+    "scraper/transforms/deduplication.py": {
+      "imports": {
+        "internal": [],
+        "external": ["typing", "hashlib", "json"]
+      },
+      "imported_by": [
+        "tests/test_transforms.py"
+      ],
+      "exports": ["Deduplicator"],
+      "coupling_score": 0.25,
+      "lines": 120
+    },
+    "scraper/ml/data_intelligence.py": {
+      "imports": {
+        "internal": [],
+        "external": ["typing", "logging", "statistics", "collections", "re", "sklearn"]
+      },
+      "imported_by": [
+        "scraper/api/rest_server.py",
+        "tests/test_data_intelligence.py"
+      ],
+      "exports": ["DataQualityAnalyzer", "AnomalyDetector", "SmartCategorizer"],
+      "coupling_score": 0.4,
+      "lines": 400
+    },
+    "scraper/storage/smart_cache.py": {
+      "imports": {
+        "internal": [],
+        "external": ["sqlite3", "hashlib", "json", "logging", "datetime", "pathlib", "typing"]
+      },
+      "imported_by": [
+        "scraper/api/rest_server.py",
+        "tests/test_smart_cache.py"
+      ],
+      "exports": ["SmartCache", "IncrementalScraper", "DifferentialScraper"],
+      "coupling_score": 0.45,
+      "lines": 467
+    },
+    "scraper/strategies/intelligent_extraction.py": {
+      "imports": {
+        "internal": [],
+        "external": ["bs4", "lxml", "re", "typing", "logging", "collections", "urllib.parse"]
+      },
+      "imported_by": [
+        "scraper/cli/smart_commands.py"
+      ],
+      "exports": ["IntelligentExtractor", "PageAnalyzer", "FieldDetector"],
+      "coupling_score": 0.35,
+      "lines": 350
+    },
+    "scraper/monitoring/alerts.py": {
+      "imports": {
+        "internal": [],
+        "external": ["httpx", "smtplib", "email.mime", "twilio", "typing", "logging", "dataclasses", "asyncio"]
+      },
+      "imported_by": [],
+      "exports": ["AlertManager", "SlackNotifier", "DiscordNotifier", "EmailNotifier", "SMSNotifier", "PagerDutyNotifier"],
+      "coupling_score": 0.2,
+      "lines": 400
+    },
+    "scraper/observability/logging_system.py": {
+      "imports": {
+        "internal": [],
+        "external": ["logging", "pythonjsonlogger", "typing", "datetime", "uuid", "contextvars", "functools", "time"]
+      },
+      "imported_by": [],
+      "exports": ["StructuredLogger", "PerformanceMetrics", "RequestTracker", "setup_logging"],
+      "coupling_score": 0.25,
+      "lines": 350
+    },
+    "scraper/security/auth.py": {
+      "imports": {
+        "internal": [],
+        "external": ["asyncio", "hashlib", "logging", "secrets", "time", "datetime", "functools", "typing", "fastapi", "pydantic"]
+      },
+      "imported_by": [],
+      "exports": ["APIKeyManager", "RateLimiter", "IPRateLimiter", "verify_api_key", "CORSConfig", "RequestSigner", "SecurityHeaders"],
+      "coupling_score": 0.3,
+      "lines": 534
+    },
+    "scraper/sdk/client.py": {
+      "imports": {
+        "internal": ["scraper/config/models.py"],
+        "external": ["httpx", "pydantic", "typing", "asyncio", "time", "pathlib"]
+      },
+      "imported_by": [
+        "examples/01_quick_start.py",
+        "tests/test_sdk.py"
+      ],
+      "exports": ["GrandmaScrapeClient", "AsyncGrandmaScrapeClient", "JobStatus"],
+      "coupling_score": 0.45,
+      "lines": 681
+    },
+    "scraper/monitor/live_dashboard.py": {
+      "imports": {
+        "internal": [],
+        "external": ["asyncio", "datetime", "typing", "rich"]
+      },
+      "imported_by": [],
+      "exports": ["LiveDashboard", "PerformanceAnalyzer"],
+      "coupling_score": 0.2,
+      "lines": 360
+    }
+  },
+  "external_dependencies": {
+    "httpx": {
+      "used_by": ["scraper/core/fetcher_static.py", "scraper/sdk/client.py", "scraper/monitoring/alerts.py"],
+      "category": "http-client",
+      "version_constraint": ">=0.24.0"
+    },
+    "aiohttp": {
+      "used_by": [],
+      "category": "http-client",
+      "version_constraint": ">=3.8.0"
+    },
+    "beautifulsoup4": {
+      "used_by": ["scraper/extractors/base_extractor.py", "scraper/extractors/selector_extractor.py", "scraper/strategies/intelligent_extraction.py"],
+      "category": "parsing",
+      "version_constraint": ">=4.12.0"
+    },
+    "lxml": {
+      "used_by": ["scraper/extractors/selector_extractor.py", "scraper/strategies/intelligent_extraction.py"],
+      "category": "parsing",
+      "version_constraint": ">=4.9.0"
+    },
+    "parsel": {
+      "used_by": ["scraper/extractors/selector_extractor.py"],
+      "category": "parsing",
+      "version_constraint": ">=1.8.0"
+    },
+    "pydantic": {
+      "used_by": ["scraper/config/models.py", "scraper/api/rest_server.py", "scraper/sdk/client.py", "scraper/security/auth.py"],
+      "category": "validation",
+      "version_constraint": ">=2.0.0"
+    },
+    "fastapi": {
+      "used_by": ["scraper/api/rest_server.py", "scraper/security/auth.py"],
+      "category": "web-framework",
+      "version_constraint": ">=0.100.0"
+    },
+    "uvicorn": {
+      "used_by": ["scraper/api/rest_server.py"],
+      "category": "web-server",
+      "version_constraint": ">=0.23.0"
+    },
+    "typer": {
+      "used_by": ["scraper/cli/main.py", "scraper/cli/smart_commands.py"],
+      "category": "cli",
+      "version_constraint": ">=0.9.0"
+    },
+    "rich": {
+      "used_by": ["scraper/cli/main.py", "scraper/cli/smart_commands.py", "scraper/monitor/live_dashboard.py"],
+      "category": "cli",
+      "version_constraint": ">=13.0.0"
+    },
+    "playwright": {
+      "used_by": ["scraper/core/fetcher_browser.py"],
+      "category": "browser-automation",
+      "version_constraint": ">=1.35.0"
+    },
+    "openpyxl": {
+      "used_by": ["scraper/export/excel_exporter.py"],
+      "category": "export",
+      "version_constraint": ">=3.1.0"
+    },
+    "pyarrow": {
+      "used_by": ["scraper/export/premium_formats.py"],
+      "category": "export",
+      "version_constraint": ">=12.0.0"
+    },
+    "boto3": {
+      "used_by": ["scraper/export/cloud_storage.py"],
+      "category": "cloud",
+      "version_constraint": ">=1.28.0"
+    },
+    "google-cloud-storage": {
+      "used_by": ["scraper/export/cloud_storage.py"],
+      "category": "cloud",
+      "version_constraint": ">=2.10.0"
+    },
+    "azure-storage-blob": {
+      "used_by": ["scraper/export/cloud_storage.py"],
+      "category": "cloud",
+      "version_constraint": ">=12.17.0"
+    },
+    "sqlalchemy": {
+      "used_by": ["scraper/export/database_connectors.py"],
+      "category": "database",
+      "version_constraint": ">=2.0.0"
+    },
+    "pymongo": {
+      "used_by": ["scraper/export/database_connectors.py"],
+      "category": "database",
+      "version_constraint": ">=4.4.0"
+    },
+    "redis": {
+      "used_by": ["scraper/export/database_connectors.py"],
+      "category": "database",
+      "version_constraint": ">=4.6.0"
+    },
+    "openai": {
+      "used_by": ["scraper/extractors/llm_extractor.py"],
+      "category": "llm",
+      "version_constraint": ">=1.0.0"
+    },
+    "anthropic": {
+      "used_by": ["scraper/extractors/llm_extractor.py"],
+      "category": "llm",
+      "version_constraint": ">=0.5.0"
+    },
+    "sklearn": {
+      "used_by": ["scraper/ml/data_intelligence.py"],
+      "category": "ml",
+      "version_constraint": ">=1.3.0"
+    },
+    "pythonjsonlogger": {
+      "used_by": ["scraper/observability/logging_system.py"],
+      "category": "logging",
+      "version_constraint": ">=2.0.0"
+    },
+    "twilio": {
+      "used_by": ["scraper/monitoring/alerts.py"],
+      "category": "notifications",
+      "version_constraint": ">=8.5.0"
+    }
+  },
+  "summary": {
+    "hub_files": [
+      {
+        "file": "scraper/config/models.py",
+        "imported_by_count": 11,
+        "reason": "Core data models imported across entire codebase"
+      },
+      {
+        "file": "scraper/core/engine.py",
+        "imported_by_count": 3,
+        "imports_count": 9,
+        "reason": "Central orchestrator with many internal dependencies"
+      },
+      {
+        "file": "scraper/export/base_exporter.py",
+        "imported_by_count": 5,
+        "reason": "Base class for all exporters"
+      }
+    ],
+    "god_modules": [
+      {
+        "file": "scraper/sdk/client.py",
+        "lines": 681,
+        "exports": 3,
+        "reason": "Large file with SDK client implementations"
+      },
+      {
+        "file": "scraper/security/auth.py",
+        "lines": 534,
+        "exports": 7,
+        "reason": "Many authentication/security exports in single file"
+      },
+      {
+        "file": "scraper/storage/smart_cache.py",
+        "lines": 467,
+        "exports": 3,
+        "reason": "Large caching module with multiple classes"
+      },
+      {
+        "file": "scraper/api/rest_server.py",
+        "lines": 450,
+        "exports": 2,
+        "reason": "Large REST API with many endpoints"
+      },
+      {
+        "file": "scraper/ml/data_intelligence.py",
+        "lines": 400,
+        "exports": 3,
+        "reason": "Multiple ML classes in single module"
+      },
+      {
+        "file": "scraper/monitoring/alerts.py",
+        "lines": 400,
+        "exports": 6,
+        "reason": "Multiple notifier classes bundled together"
+      }
+    ],
+    "orphan_candidates": [
+      {
+        "file": "scraper/export/premium_formats.py",
+        "reason": "No internal importers - premium feature not integrated"
+      },
+      {
+        "file": "scraper/export/cloud_storage.py",
+        "reason": "No internal importers - cloud feature not integrated"
+      },
+      {
+        "file": "scraper/export/database_connectors.py",
+        "reason": "No internal importers - database feature not integrated"
+      },
+      {
+        "file": "scraper/monitoring/alerts.py",
+        "reason": "No internal importers - alerting not integrated"
+      },
+      {
+        "file": "scraper/observability/logging_system.py",
+        "reason": "No internal importers - structured logging not used"
+      },
+      {
+        "file": "scraper/security/auth.py",
+        "reason": "No internal importers - auth not integrated with API"
+      },
+      {
+        "file": "scraper/scheduler/advanced_scheduler.py",
+        "reason": "No internal importers - scheduler not integrated"
+      },
+      {
+        "file": "scraper/monitor/live_dashboard.py",
+        "reason": "No internal importers - dashboard not integrated"
+      }
+    ],
+    "circular_dependencies": []
+  }
+}

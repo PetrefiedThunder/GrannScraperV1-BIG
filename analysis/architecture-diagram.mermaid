@@ -1,0 +1,142 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#4a90d9', 'primaryTextColor': '#fff', 'primaryBorderColor': '#2d5986', 'lineColor': '#666', 'secondaryColor': '#f4f4f4', 'tertiaryColor': '#fff'}}}%%
+
+graph TB
+    subgraph "Entry Points"
+        CLI["fa:fa-terminal CLI<br/>cli/main.py"]
+        API["fa:fa-server REST API<br/>api/rest_server.py"]
+        SDK["fa:fa-code Python SDK<br/>sdk/client.py"]
+    end
+
+    subgraph "Configuration Layer"
+        Models["fa:fa-database Models<br/>config/models.py<br/><b>CRITICAL: 11 dependents</b>"]
+    end
+
+    subgraph "Core Engine"
+        Engine["fa:fa-cogs Scraping Engine<br/>core/engine.py<br/><b>HIGH RISK</b>"]
+        ConcurrentEngine["fa:fa-layer-group Concurrent Engine<br/>core/concurrent_engine.py"]
+    end
+
+    subgraph "Fetchers"
+        StaticFetcher["fa:fa-download Static Fetcher<br/>core/fetcher_static.py<br/>(httpx)"]
+        BrowserFetcher["fa:fa-chrome Browser Fetcher<br/>core/fetcher_browser.py<br/>(playwright)"]
+        RateLimiter["fa:fa-tachometer-alt Rate Limiter<br/>core/rate_limiter.py"]
+    end
+
+    subgraph "Extractors"
+        BaseExtractor["fa:fa-puzzle-piece Base Extractor<br/>extractors/base_extractor.py"]
+        SelectorExtractor["fa:fa-crosshairs Selector Extractor<br/>extractors/selector_extractor.py"]
+        LLMExtractor["fa:fa-brain LLM Extractor<br/>extractors/llm_extractor.py<br/>(OpenAI/Anthropic)"]
+    end
+
+    subgraph "Data Transforms"
+        Cleaning["fa:fa-broom Data Cleaner<br/>transforms/cleaning.py"]
+        TypeInference["fa:fa-magic Type Inferrer<br/>transforms/type_inference.py"]
+        Dedup["fa:fa-clone Deduplicator<br/>transforms/deduplication.py"]
+    end
+
+    subgraph "Export Pipeline"
+        ExportManager["fa:fa-file-export Export Manager<br/>export/export_manager.py"]
+        BaseExporter["fa:fa-file Base Exporter<br/>export/base_exporter.py"]
+        CSVExporter["fa:fa-file-csv CSV"]
+        JSONExporter["fa:fa-file-code JSON"]
+        ExcelExporter["fa:fa-file-excel Excel"]
+        SQLiteExporter["fa:fa-database SQLite"]
+    end
+
+    subgraph "Orphan Modules ⚠️"
+        style PremiumFormats fill:#ffeeee,stroke:#cc0000
+        style CloudStorage fill:#ffeeee,stroke:#cc0000
+        style DBConnectors fill:#ffeeee,stroke:#cc0000
+        style Auth fill:#ff6666,stroke:#cc0000
+        style Alerts fill:#ffeeee,stroke:#cc0000
+        style Logging fill:#ffeeee,stroke:#cc0000
+        style Scheduler fill:#ffeeee,stroke:#cc0000
+        style Dashboard fill:#ffeeee,stroke:#cc0000
+
+        PremiumFormats["fa:fa-gem Premium Formats<br/>export/premium_formats.py<br/>⚠️ NOT INTEGRATED"]
+        CloudStorage["fa:fa-cloud Cloud Storage<br/>export/cloud_storage.py<br/>⚠️ NOT INTEGRATED"]
+        DBConnectors["fa:fa-database DB Connectors<br/>export/database_connectors.py<br/>⚠️ NOT INTEGRATED"]
+        Auth["fa:fa-shield-alt Security/Auth<br/>security/auth.py<br/>🔴 CRITICAL: NOT USED"]
+        Alerts["fa:fa-bell Alerts<br/>monitoring/alerts.py<br/>⚠️ NOT INTEGRATED"]
+        Logging["fa:fa-list Structured Logging<br/>observability/logging_system.py<br/>⚠️ NOT INTEGRATED"]
+        Scheduler["fa:fa-clock Scheduler<br/>scheduler/advanced_scheduler.py<br/>⚠️ NOT INTEGRATED"]
+        Dashboard["fa:fa-tachometer-alt Live Dashboard<br/>monitor/live_dashboard.py<br/>⚠️ NOT INTEGRATED"]
+    end
+
+    subgraph "Smart Features"
+        SmartCache["fa:fa-memory Smart Cache<br/>storage/smart_cache.py"]
+        DataIntel["fa:fa-chart-line Data Intelligence<br/>ml/data_intelligence.py"]
+        IntelExtract["fa:fa-lightbulb Intelligent Extraction<br/>strategies/intelligent_extraction.py"]
+        WorkflowDAG["fa:fa-project-diagram Workflow DAG<br/>scheduler/workflow_dag.py"]
+    end
+
+    %% Entry Point Dependencies
+    CLI --> Models
+    CLI --> Engine
+    API --> Models
+    API --> Engine
+    API --> ConcurrentEngine
+    API --> SmartCache
+    API --> DataIntel
+    API --> ExportManager
+    SDK --> Models
+
+    %% Engine Dependencies
+    Engine --> Models
+    Engine --> SelectorExtractor
+    Engine --> LLMExtractor
+    Engine --> StaticFetcher
+    Engine --> BrowserFetcher
+    Engine --> RateLimiter
+    Engine --> ExportManager
+    Engine --> Cleaning
+    Engine --> TypeInference
+
+    ConcurrentEngine --> Engine
+    ConcurrentEngine --> Models
+    ConcurrentEngine --> RateLimiter
+
+    %% Extractor Hierarchy
+    SelectorExtractor --> BaseExtractor
+    SelectorExtractor --> Models
+    LLMExtractor --> BaseExtractor
+    LLMExtractor --> Models
+    BaseExtractor --> Models
+
+    %% Export Hierarchy
+    ExportManager --> BaseExporter
+    ExportManager --> CSVExporter
+    ExportManager --> JSONExporter
+    ExportManager --> ExcelExporter
+    ExportManager --> SQLiteExporter
+    ExportManager --> Models
+    CSVExporter --> BaseExporter
+    JSONExporter --> BaseExporter
+    ExcelExporter --> BaseExporter
+    SQLiteExporter --> BaseExporter
+
+    %% Orphan connections (should exist but don't)
+    API -.->|SHOULD INTEGRATE| Auth
+    Engine -.->|SHOULD INTEGRATE| Alerts
+    CLI -.->|SHOULD INTEGRATE| Dashboard
+    ExportManager -.->|SHOULD INTEGRATE| PremiumFormats
+    ExportManager -.->|SHOULD INTEGRATE| CloudStorage
+    ExportManager -.->|SHOULD INTEGRATE| DBConnectors
+
+    %% Smart Features
+    CLI --> IntelExtract
+    API --> WorkflowDAG
+
+    %% Styling
+    classDef critical fill:#ff6666,stroke:#cc0000,color:#fff
+    classDef high fill:#ffaa66,stroke:#cc6600,color:#000
+    classDef orphan fill:#ffeeee,stroke:#cc0000,color:#cc0000
+    classDef entry fill:#66cc66,stroke:#006600,color:#fff
+    classDef normal fill:#4a90d9,stroke:#2d5986,color:#fff
+
+    class Models critical
+    class Engine high
+    class API high
+    class SDK high
+    class CLI,API,SDK entry
+    class PremiumFormats,CloudStorage,DBConnectors,Auth,Alerts,Logging,Scheduler,Dashboard orphan
