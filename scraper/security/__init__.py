@@ -6,6 +6,7 @@ Production-grade security features for enterprise deployment.
 Features:
 - API Key Management (generation, validation, expiration)
 - Advanced Rate Limiting (token bucket, per-key, IP-based)
+- Security Audit Logging (key usage, denied access)
 - Request Signing (HMAC-SHA256)
 - Security Headers (OWASP compliant)
 - CORS Configuration
@@ -33,6 +34,7 @@ Usage:
 from scraper.security.auth import (
     APIKey,
     APIKeyManager,
+    SecurityAuditLogger,
     RateLimiter,
     RequestSigner,
     SecurityHeaders,
@@ -42,6 +44,7 @@ from scraper.security.auth import (
 __all__ = [
     'APIKey',
     'APIKeyManager',
+    'SecurityAuditLogger',
     'RateLimiter',
     'RequestSigner',
     'SecurityHeaders',
