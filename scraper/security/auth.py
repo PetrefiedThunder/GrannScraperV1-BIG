@@ -7,7 +7,9 @@ Competitors charge $299-999/month for these features.
 
 import asyncio
 import hashlib
+import hmac
 import logging
+import os
 import secrets
 import time
 from datetime import datetime, timedelta
@@ -27,7 +29,8 @@ logger = logging.getLogger(__name__)
 
 class APIKey(BaseModel):
     """API key model."""
-    key: str
+    key_prefix: str
+    key_hash: str
     name: str
     created_at: datetime
     last_used: Optional[datetime] = None
@@ -36,6 +39,28 @@ class APIKey(BaseModel):
     expires_at: Optional[datetime] = None
     is_active: bool = True
     metadata: Dict[str, Any] = {}
+    rotated_from: Optional[str] = None
+
+
+class SecurityAuditLogger:
+    """
+    Security event logger for auditing and incident response.
+
+    Captures high-value events for security monitoring.
+    """
+
+    def __init__(self):
+        self.events: List[Dict[str, Any]] = []
+
+    def log_event(self, event_type: str, details: Dict[str, Any]) -> None:
+        """Record a security event."""
+        event = {
+            "event_type": event_type,
+            "details": details,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        self.events.append(event)
+        logger.warning(f"Security event: {event_type} | {details}")
 
 
 class APIKeyManager:
@@ -53,8 +78,23 @@ class APIKeyManager:
 
     def __init__(self):
         """Initialize API key manager."""
-        self.keys: Dict[str, APIKey] = {}
+        self.keys_by_hash: Dict[str, APIKey] = {}
         self.usage_stats: Dict[str, Dict[str, Any]] = {}
+        self.pepper = os.getenv("GRANDMASCRAPE_API_KEY_PEPPER", "")
+        self.audit_logger = SecurityAuditLogger()
+
+    def _hash_key(self, key: str) -> str:
+        """Hash an API key with a server-side pepper."""
+        return hmac.new(
+            self.pepper.encode(),
+            key.encode(),
+            hashlib.sha256
+        ).hexdigest()
+
+    @staticmethod
+    def _key_prefix(key: str, length: int = 8) -> str:
+        """Return a safe prefix for auditing without exposing full keys."""
+        return key[:length]
 
     def generate_key(
         self,
@@ -84,8 +124,10 @@ class APIKeyManager:
         if expires_in_days:
             expires_at = datetime.utcnow() + timedelta(days=expires_in_days)
 
+        key_hash = self._hash_key(key)
         api_key = APIKey(
-            key=key,
+            key_prefix=self._key_prefix(key),
+            key_hash=key_hash,
             name=name,
             created_at=datetime.utcnow(),
             rate_limit=rate_limit,
@@ -94,7 +136,7 @@ class APIKeyManager:
             metadata=metadata or {}
         )
 
-        self.keys[key] = api_key
+        self.keys_by_hash[key_hash] = api_key
 
         logger.info(f"Generated API key: {name} (rate_limit={rate_limit}/min)")
 
@@ -111,25 +153,42 @@ class APIKeyManager:
         Returns:
             True if valid, False otherwise
         """
-        if key not in self.keys:
+        key_hash = self._hash_key(key)
+        if key_hash not in self.keys_by_hash:
+            self.audit_logger.log_event(
+                "auth.invalid_key",
+                details={"key_prefix": self._key_prefix(key)}
+            )
             logger.warning(f"Invalid API key attempted: {key[:10]}...")
             return False
 
-        api_key = self.keys[key]
+        api_key = self.keys_by_hash[key_hash]
 
         # Check if active
         if not api_key.is_active:
+            self.audit_logger.log_event(
+                "auth.inactive_key",
+                details={"key_prefix": api_key.key_prefix, "name": api_key.name}
+            )
             logger.warning(f"Inactive API key used: {api_key.name}")
             return False
 
         # Check expiration
         if api_key.expires_at and datetime.utcnow() > api_key.expires_at:
+            self.audit_logger.log_event(
+                "auth.expired_key",
+                details={"key_prefix": api_key.key_prefix, "name": api_key.name}
+            )
             logger.warning(f"Expired API key used: {api_key.name}")
             return False
 
         # Check endpoint permissions
         if api_key.allowed_endpoints and endpoint:
             if endpoint not in api_key.allowed_endpoints:
+                self.audit_logger.log_event(
+                    "auth.endpoint_denied",
+                    details={"key_prefix": api_key.key_prefix, "endpoint": endpoint}
+                )
                 logger.warning(f"Unauthorized endpoint access: {api_key.name} -> {endpoint}")
                 return False
 
@@ -138,15 +197,59 @@ class APIKeyManager:
 
         return True
 
+    def get_key(self, key: str) -> Optional[APIKey]:
+        """Retrieve API key record from a raw key."""
+        key_hash = self._hash_key(key)
+        return self.keys_by_hash.get(key_hash)
+
     def revoke_key(self, key: str):
         """Revoke an API key."""
-        if key in self.keys:
-            self.keys[key].is_active = False
-            logger.info(f"Revoked API key: {self.keys[key].name}")
+        key_hash = self._hash_key(key)
+        if key_hash in self.keys_by_hash:
+            self.keys_by_hash[key_hash].is_active = False
+            logger.info(f"Revoked API key: {self.keys_by_hash[key_hash].name}")
+
+    def rotate_key(
+        self,
+        old_key: str,
+        name: Optional[str] = None,
+        rate_limit: Optional[int] = None,
+        allowed_endpoints: Optional[List[str]] = None,
+        expires_in_days: Optional[int] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """Rotate an existing API key and revoke the old one."""
+        existing = self.get_key(old_key)
+        if not existing:
+            raise ValueError("Old API key not found for rotation.")
+
+        new_key = self.generate_key(
+            name=name or existing.name,
+            rate_limit=rate_limit or existing.rate_limit,
+            allowed_endpoints=allowed_endpoints or existing.allowed_endpoints,
+            expires_in_days=expires_in_days,
+            metadata=metadata or existing.metadata
+        )
+
+        new_record = self.get_key(new_key)
+        if new_record:
+            new_record.rotated_from = existing.key_prefix
+
+        self.revoke_key(old_key)
+        self.audit_logger.log_event(
+            "auth.key_rotated",
+            details={
+                "old_key_prefix": existing.key_prefix,
+                "new_key_prefix": self._key_prefix(new_key)
+            }
+        )
+
+        return new_key
 
     def get_usage_stats(self, key: str) -> Dict[str, Any]:
         """Get usage statistics for a key."""
-        return self.usage_stats.get(key, {
+        key_hash = self._hash_key(key)
+        return self.usage_stats.get(key_hash, {
             "total_requests": 0,
             "requests_today": 0,
             "last_request": None,
@@ -269,7 +372,12 @@ async def verify_api_key(
             detail="Invalid or expired API key"
         )
 
-    api_key = api_key_manager.keys[token]
+    api_key = api_key_manager.get_key(token)
+    if not api_key:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired API key"
+        )
 
     # Check rate limit
     allowed, info = rate_limiter.check_rate_limit(
@@ -410,8 +518,10 @@ class RequestSigner:
             HMAC signature
         """
         message = f"{method}:{path}:{body}:{timestamp}"
-        signature = hashlib.sha256(
-            f"{message}:{self.secret_key}".encode()
+        signature = hmac.new(
+            self.secret_key.encode(),
+            message.encode(),
+            hashlib.sha256
         ).hexdigest()
 
         return signature
