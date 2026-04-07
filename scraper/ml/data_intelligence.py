@@ -49,7 +49,7 @@ class DataQualityAnalyzer:
             'timeliness': self._calculate_timeliness(items),
         }
 
-        # Overall quality score (0-100)
+        # Overall quality score (0-1)
         weights = {
             'completeness': 0.25,
             'consistency': 0.20,
@@ -65,6 +65,8 @@ class DataQualityAnalyzer:
 
         # Identify issues
         issues = self._identify_issues(metrics, items)
+        issue_penalty = min(0.2 * len(issues), 0.6)
+        quality_score = max(quality_score - issue_penalty, 0.0)
 
         return {
             'quality_score': round(quality_score, 2),
@@ -74,7 +76,7 @@ class DataQualityAnalyzer:
         }
 
     def _calculate_completeness(self, items: List[Dict]) -> float:
-        """Calculate data completeness (0-100)."""
+        """Calculate data completeness (0-1)."""
         if not items:
             return 0
 
@@ -88,12 +90,12 @@ class DataQualityAnalyzer:
                 if value is not None and value != '' and value != []:
                     filled_cells += 1
 
-        return (filled_cells / total_cells * 100) if total_cells > 0 else 0
+        return (filled_cells / total_cells) if total_cells > 0 else 0
 
     def _calculate_consistency(self, items: List[Dict]) -> float:
-        """Calculate format consistency (0-100)."""
+        """Calculate format consistency (0-1)."""
         if len(items) < 2:
-            return 100
+            return 1.0
 
         consistency_scores = []
 
@@ -123,7 +125,7 @@ class DataQualityAnalyzer:
 
             consistency_scores.append((type_consistency + format_consistency) / 2)
 
-        return (sum(consistency_scores) / len(consistency_scores) * 100) if consistency_scores else 100
+        return (sum(consistency_scores) / len(consistency_scores)) if consistency_scores else 1.0
 
     def _detect_format_patterns(self, values: List[str]) -> Counter:
         """Detect common format patterns in strings."""
@@ -138,7 +140,7 @@ class DataQualityAnalyzer:
         return Counter(patterns)
 
     def _calculate_validity(self, items: List[Dict]) -> float:
-        """Calculate data validity (0-100)."""
+        """Calculate data validity (0-1)."""
         validity_scores = []
 
         for item in items:
@@ -169,14 +171,14 @@ class DataQualityAnalyzer:
                     if len(str(value).strip()) > 0 and len(str(value)) < 10000:
                         item_score += 1
 
-            validity_scores.append((item_score / checks * 100) if checks > 0 else 100)
+            validity_scores.append((item_score / checks) if checks > 0 else 1.0)
 
-        return sum(validity_scores) / len(validity_scores) if validity_scores else 100
+        return sum(validity_scores) / len(validity_scores) if validity_scores else 1.0
 
     def _calculate_uniqueness(self, items: List[Dict]) -> float:
-        """Calculate data uniqueness (0-100)."""
+        """Calculate data uniqueness (0-1)."""
         if len(items) < 2:
-            return 100
+            return 1.0
 
         # Create hash of each item
         hashes = []
@@ -186,10 +188,10 @@ class DataQualityAnalyzer:
             hashes.append(hash(item_str))
 
         unique_count = len(set(hashes))
-        return (unique_count / len(items) * 100)
+        return unique_count / len(items)
 
     def _calculate_timeliness(self, items: List[Dict]) -> float:
-        """Calculate data timeliness (0-100)."""
+        """Calculate data timeliness (0-1)."""
         # Look for date fields
         date_fields = []
 
@@ -205,7 +207,7 @@ class DataQualityAnalyzer:
                         pass
 
         if not date_fields:
-            return 100  # No date fields to check
+            return 1.0  # No date fields to check
 
         # Calculate how recent the data is
         now = datetime.utcnow()
@@ -215,33 +217,33 @@ class DataQualityAnalyzer:
 
         # Score based on age (fresher = better)
         if avg_age_days < 1:
-            return 100
+            return 1.0
         elif avg_age_days < 7:
-            return 90
+            return 0.9
         elif avg_age_days < 30:
-            return 75
+            return 0.75
         elif avg_age_days < 90:
-            return 60
+            return 0.6
         elif avg_age_days < 365:
-            return 40
+            return 0.4
         else:
-            return 20
+            return 0.2
 
     def _identify_issues(self, metrics: Dict, items: List[Dict]) -> List[str]:
         """Identify specific data quality issues."""
         issues = []
 
-        if metrics['completeness'] < 80:
-            issues.append(f"Low completeness ({metrics['completeness']:.1f}%) - many missing values")
+        if metrics['completeness'] < 0.8:
+            issues.append(f"Low completeness ({metrics['completeness'] * 100:.1f}%) - many missing values")
 
-        if metrics['consistency'] < 70:
-            issues.append(f"Poor consistency ({metrics['consistency']:.1f}%) - mixed formats detected")
+        if metrics['consistency'] < 0.7:
+            issues.append(f"Poor consistency ({metrics['consistency'] * 100:.1f}%) - mixed formats detected")
 
-        if metrics['validity'] < 80:
-            issues.append(f"Validity concerns ({metrics['validity']:.1f}%) - invalid data detected")
+        if metrics['validity'] < 0.8:
+            issues.append(f"Validity concerns ({metrics['validity'] * 100:.1f}%) - invalid data detected")
 
-        if metrics['uniqueness'] < 90:
-            duplicate_pct = 100 - metrics['uniqueness']
+        if metrics['uniqueness'] < 0.9:
+            duplicate_pct = (1 - metrics['uniqueness']) * 100
             issues.append(f"Duplicates detected ({duplicate_pct:.1f}% of data)")
 
         # Check for outliers in numeric fields
@@ -287,7 +289,7 @@ class DataQualityAnalyzer:
         """Generate actionable recommendations."""
         recommendations = []
 
-        if metrics['completeness'] < 80:
+        if metrics['completeness'] < 0.8:
             recommendations.append(
                 "Improve completeness:\n"
                 "  • Check if selectors are correct\n"
@@ -295,7 +297,7 @@ class DataQualityAnalyzer:
                 "  • Consider using default values for optional fields"
             )
 
-        if metrics['consistency'] < 70:
+        if metrics['consistency'] < 0.7:
             recommendations.append(
                 "Improve consistency:\n"
                 "  • Add data cleaning transformations\n"
@@ -303,7 +305,7 @@ class DataQualityAnalyzer:
                 "  • Use type conversion in field configs"
             )
 
-        if metrics['validity'] < 80:
+        if metrics['validity'] < 0.8:
             recommendations.append(
                 "Improve validity:\n"
                 "  • Add validation rules to field configs\n"
@@ -311,7 +313,7 @@ class DataQualityAnalyzer:
                 "  • Filter out invalid entries"
             )
 
-        if metrics['uniqueness'] < 90:
+        if metrics['uniqueness'] < 0.9:
             recommendations.append(
                 "Remove duplicates:\n"
                 "  • Use deduplication by key fields\n"
@@ -373,15 +375,25 @@ class AnomalyDetector:
 
         Returns anomaly score and details.
         """
+        anomaly_score = 0.0
+        anomalies: List[Dict[str, Any]] = []
+        numeric_outlier_anomalies = self._detect_numeric_outlier_anomalies(items)
+        if numeric_outlier_anomalies:
+            anomalies.extend(numeric_outlier_anomalies)
+            anomaly_score += min(0.25 * len(numeric_outlier_anomalies), 0.5)
+
         if not self.baseline_stats:
-            # First run - set baseline
+            # First run - set baseline and still report obvious outliers
             self.set_baseline(items)
-            return {'anomaly_score': 0, 'anomalies': [], 'is_normal': True}
+            final_score = min(anomaly_score, 1.0)
+            return {
+                'anomaly_score': final_score,
+                'anomalies': anomalies,
+                'is_normal': final_score < 0.3,
+                'severity': self._get_severity_level(final_score),
+            }
 
         current_stats = self._calculate_stats(items)
-
-        anomalies = []
-        anomaly_score = 0
 
         # Compare field counts
         baseline_fields = set(self.baseline_stats['field_counts'].keys())
@@ -397,7 +409,7 @@ class AnomalyDetector:
                 'fields': list(missing_fields),
                 'message': f'Expected fields are missing: {missing_fields}'
             })
-            anomaly_score += 30
+            anomaly_score += 0.3
 
         if new_fields:
             anomalies.append({
@@ -406,7 +418,7 @@ class AnomalyDetector:
                 'fields': list(new_fields),
                 'message': f'Unexpected new fields detected: {new_fields}'
             })
-            anomaly_score += 10
+            anomaly_score += 0.1
 
         # Compare value distributions
         for field in baseline_fields & current_fields:
@@ -424,7 +436,7 @@ class AnomalyDetector:
                     'difference': distribution_diff,
                     'message': f'Unusual value distribution in field: {field}'
                 })
-                anomaly_score += 15
+                anomaly_score += 0.15
 
         # Compare item counts
         baseline_count = self.baseline_stats['item_count']
@@ -440,7 +452,7 @@ class AnomalyDetector:
                 'actual': current_count,
                 'message': f'Item count much lower than expected ({current_count} vs {baseline_count})'
             })
-            anomaly_score += 40
+            anomaly_score += 0.4
 
         elif count_ratio > 2.0:  # More than 200% of expected
             anomalies.append({
@@ -450,14 +462,50 @@ class AnomalyDetector:
                 'actual': current_count,
                 'message': f'Item count much higher than expected ({current_count} vs {baseline_count})'
             })
-            anomaly_score += 20
+            anomaly_score += 0.2
 
+        final_score = min(anomaly_score, 1.0)
         return {
-            'anomaly_score': min(anomaly_score, 100),
+            'anomaly_score': final_score,
             'anomalies': anomalies,
-            'is_normal': anomaly_score < 30,
-            'severity': self._get_severity_level(anomaly_score),
+            'is_normal': final_score < 0.3,
+            'severity': self._get_severity_level(final_score),
         }
+
+    def _detect_numeric_outlier_anomalies(self, items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Detect obvious numeric outliers using IQR and emit anomaly payloads."""
+        anomalies: List[Dict[str, Any]] = []
+        numeric_fields: Dict[str, List[float]] = defaultdict(list)
+
+        for item in items:
+            for key, value in item.items():
+                if isinstance(value, (int, float)):
+                    numeric_fields[key].append(float(value))
+
+        for field, values in numeric_fields.items():
+            if len(values) < 4:
+                continue
+
+            values_array = np.array(values, dtype=float)
+            q1 = np.percentile(values_array, 25)
+            q3 = np.percentile(values_array, 75)
+            iqr = q3 - q1
+            if iqr == 0:
+                continue
+
+            lower_bound = q1 - 1.5 * iqr
+            upper_bound = q3 + 1.5 * iqr
+            outliers = [value for value in values if value < lower_bound or value > upper_bound]
+            if outliers:
+                anomalies.append({
+                    'type': 'numeric_outlier',
+                    'severity': 'medium',
+                    'field': field,
+                    'outlier_count': len(outliers),
+                    'message': f'Outlier values detected in numeric field: {field}',
+                })
+
+        return anomalies
 
     def _calculate_stats(self, items: List[Dict]) -> Dict:
         """Calculate statistics for a dataset."""
@@ -500,11 +548,11 @@ class AnomalyDetector:
 
     def _get_severity_level(self, score: float) -> str:
         """Get severity level from anomaly score."""
-        if score < 20:
+        if score < 0.2:
             return 'low'
-        elif score < 50:
+        elif score < 0.5:
             return 'medium'
-        elif score < 80:
+        elif score < 0.8:
             return 'high'
         else:
             return 'critical'
@@ -538,11 +586,13 @@ class SmartCategorizer:
             logger.warning("scikit-learn not installed. Install with: pip install scikit-learn")
             return [(item, 'uncategorized', 0.0) for item in items]
 
-        # Extract text
-        texts = [item.get(text_field, '') for item in items]
-        texts = [str(text) for text in texts if text]
+        # Extract text while preserving item alignment
+        texts = [str(item.get(text_field, '') or '') for item in items]
 
-        if len(texts) < num_categories:
+        if not any(texts):
+            return [(item, 'category_0', 1.0) for item in items]
+
+        if len(items) < num_categories:
             return [(item, f'category_0', 1.0) for item in items]
 
         # TF-IDF vectorization
@@ -564,6 +614,41 @@ class SmartCategorizer:
             results.append((item, category, float(confidence)))
 
         return results
+
+    def categorize(
+        self,
+        items: List[Dict[str, Any]],
+        n_categories: int = 5,
+        text_field: str = 'title',
+    ) -> Dict[str, Any]:
+        """Compatibility wrapper that returns compact category outputs."""
+        if not items:
+            return {'categories': [], 'category_names': []}
+
+        if n_categories < 1:
+            n_categories = 1
+
+        categorized_items = self.auto_categorize(items, text_field=text_field, num_categories=n_categories)
+
+        categories = []
+        for _, category, _ in categorized_items:
+            if category.startswith('category_'):
+                categories.append(int(category.split('_', 1)[1]))
+            else:
+                categories.append(0)
+
+        suggested_names = self.suggest_category_names(categorized_items, text_field=text_field)
+        category_names = [
+            suggested_names.get(f'category_{index}', f'category_{index}')
+            for index in range(n_categories)
+        ]
+
+        self.categories = {
+            'categories': categories,
+            'category_names': category_names,
+        }
+
+        return self.categories
 
     def suggest_category_names(
         self,
