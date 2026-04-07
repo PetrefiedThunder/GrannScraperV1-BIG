@@ -15,6 +15,9 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
+OUTLIER_SCORE_PER_ANOMALY = 0.25
+MAX_OUTLIER_SCORE = 0.5
+
 
 class DataQualityAnalyzer:
     """
@@ -65,6 +68,7 @@ class DataQualityAnalyzer:
 
         # Identify issues
         issues = self._identify_issues(metrics, items)
+        # Penalize aggregate score when concrete quality issues are detected.
         issue_penalty = min(0.2 * len(issues), 0.6)
         quality_score = max(quality_score - issue_penalty, 0.0)
 
@@ -380,7 +384,10 @@ class AnomalyDetector:
         numeric_outlier_anomalies = self._detect_numeric_outlier_anomalies(items)
         if numeric_outlier_anomalies:
             anomalies.extend(numeric_outlier_anomalies)
-            anomaly_score += min(0.25 * len(numeric_outlier_anomalies), 0.5)
+            anomaly_score += min(
+                OUTLIER_SCORE_PER_ANOMALY * len(numeric_outlier_anomalies),
+                MAX_OUTLIER_SCORE,
+            )
 
         if not self.baseline_stats:
             # First run - set baseline and still report obvious outliers
@@ -590,9 +597,10 @@ class SmartCategorizer:
         texts = [str(item.get(text_field, '') or '') for item in items]
 
         if not any(texts):
-            return [(item, 'category_0', 1.0) for item in items]
+            return [(item, 'category_0', 0.0) for item in items]
 
-        if len(items) < num_categories:
+        non_empty_text_count = sum(1 for text in texts if text)
+        if non_empty_text_count < num_categories:
             return [(item, f'category_0', 1.0) for item in items]
 
         # TF-IDF vectorization
@@ -633,9 +641,12 @@ class SmartCategorizer:
         categories = []
         for _, category, _ in categorized_items:
             if category.startswith('category_'):
-                categories.append(int(category.split('_', 1)[1]))
-            else:
-                categories.append(0)
+                _, _, raw_category = category.partition('_')
+                if raw_category.isdigit():
+                    categories.append(int(raw_category))
+                    continue
+                logger.warning("Unexpected category format generated: %s", category)
+            categories.append(0)
 
         suggested_names = self.suggest_category_names(categorized_items, text_field=text_field)
         category_names = [
@@ -643,12 +654,10 @@ class SmartCategorizer:
             for index in range(n_categories)
         ]
 
-        self.categories = {
+        return {
             'categories': categories,
             'category_names': category_names,
         }
-
-        return self.categories
 
     def suggest_category_names(
         self,
