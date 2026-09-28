@@ -99,7 +99,6 @@ def _typesafe_text_with_boundaries(snippet_soup: BeautifulSoup) -> str:
     )
     parts: list[str] = []
     pending_boundary = 0
-    previous_had_trailing_space = False
     for token in tokens:
         if token == _BLOCK_BOUNDARY_MARKER:
             pending_boundary = 2
@@ -108,23 +107,18 @@ def _typesafe_text_with_boundaries(snippet_soup: BeautifulSoup) -> str:
             pending_boundary = max(pending_boundary, 1)
             continue
 
-        has_leading_space = bool(token) and token[0].isspace()
-        has_trailing_space = bool(token) and token[-1].isspace()
         normalized = " ".join(token.split())
         if not normalized:
             continue
         if parts:
             if pending_boundary == 2:
                 parts.append("\n\n")
-            elif pending_boundary == 1 and not (
-                previous_had_trailing_space or has_leading_space
-            ):
+            elif pending_boundary == 1:
                 parts.append("\n")
             else:
                 parts.append(" ")
         parts.append(normalized)
         pending_boundary = 0
-        previous_had_trailing_space = has_trailing_space
     return "".join(parts)
 
 

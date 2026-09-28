@@ -436,7 +436,7 @@ unsigned, dot-decimal values prefixed by `$`, `€`, `£`, or `¥`, or suffixed 
 `EUR`, `GBP`, or `JPY`. Signed, comma-decimal, and values longer than 308 digits fail
 closed to the field default. Unicode whitespace or invisible format controls that
 split numeric tokens, and Unicode dash-punctuation signs, also fail closed. Other
-field types continue to use Anthropic when
+field types and multi-value `currency` fields continue to use Anthropic when
 `ANTHROPIC_API_KEY` is configured; otherwise they return their configured default.
 Transport failures and `408`, `429`, and `5xx` responses receive two
 exponential-backoff retries before the field falls back to its default.

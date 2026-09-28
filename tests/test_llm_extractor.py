@@ -350,18 +350,29 @@ async def test_typesafe_fails_closed_for_signs_split_across_inline_elements() ->
 
 
 @pytest.mark.asyncio
-async def test_typesafe_fails_closed_for_currency_split_across_inline_elements() -> None:
+@pytest.mark.parametrize(
+    ("html", "fabricated_candidate"),
+    [
+        (
+            "<p>Total: <span>$1</span><span>234</span><span>.56</span></p>",
+            "$1234.56",
+        ),
+        ("<p>Total: <span>$ </span><span>19.99</span></p>", "$ 19.99"),
+        ("<p>Total: <span>19.99 </span><span>USD</span></p>", "19.99 USD"),
+    ],
+)
+async def test_typesafe_fails_closed_for_currency_split_across_inline_elements(
+    html: str,
+    fabricated_candidate: str,
+) -> None:
     """Inline fragments cannot be joined into a fabricated shorter amount."""
-    client = RecordingHttpClient(FakeResponse(typesafe_choice("$1234.56", 0.99)))
+    client = RecordingHttpClient(FakeResponse(typesafe_choice(fabricated_candidate, 0.99)))
     extractor = LLMExtractor(
         typesafe_api_key="test-key",
         provider="typesafe",
         http_client=client,
     )
-    soup = BeautifulSoup(
-        "<p>Total: <span>$1</span><span>234</span><span>.56</span></p>",
-        "lxml",
-    )
+    soup = BeautifulSoup(html, "lxml")
 
     result = await extractor.extract(soup, "total", currency_field(-1.0))
 
@@ -701,15 +712,27 @@ def test_typesafe_signed_chain_validation_work_is_bounded(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Repeated signed tokens cannot make candidate validation recurse quadratically."""
-    original = typesafe_currency._is_unsigned_currency_match
+    original_has_left_operand = typesafe_currency._has_left_operand
+    original_pattern = typesafe_currency._LEFT_CURRENCY_OPERAND_PATTERN
     call_count = 0
+    searched_prefix_lengths: list[int] = []
 
-    def counted(document: str, match: re.Match[str]) -> bool:
+    def counted(document: str, sign_index: int) -> bool:
         nonlocal call_count
         call_count += 1
-        return original(document, match)
+        return original_has_left_operand(document, sign_index)
 
-    monkeypatch.setattr(typesafe_currency, "_is_unsigned_currency_match", counted)
+    class RecordingPattern:
+        def search(self, prefix: str) -> re.Match[str] | None:
+            searched_prefix_lengths.append(len(prefix))
+            return original_pattern.search(prefix)
+
+    monkeypatch.setattr(typesafe_currency, "_has_left_operand", counted)
+    monkeypatch.setattr(
+        typesafe_currency,
+        "_LEFT_CURRENCY_OPERAND_PATTERN",
+        RecordingPattern(),
+    )
     token_count = 300
     document = " -".join("$1" for _ in range(token_count))
 
@@ -717,6 +740,8 @@ def test_typesafe_signed_chain_validation_work_is_bounded(
 
     assert candidates == ["$1"]
     assert call_count <= token_count * 2
+    assert searched_prefix_lengths
+    assert max(searched_prefix_lengths) <= typesafe_currency._MAX_LEFT_OPERAND_CHARS
 
 
 @pytest.mark.parametrize(
@@ -780,7 +805,7 @@ def test_typesafe_boundary_flattening_is_non_mutating() -> None:
 
     flattened = llm_extractor_module._typesafe_text_with_boundaries(soup)
 
-    assert flattened == "Total: $19.99\n\nTax: $2.00"
+    assert flattened == "Total:\n$19.99\n\nTax:\n$2.00"
     assert str(soup) == original_html
 
 
