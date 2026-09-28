@@ -105,9 +105,7 @@ class TypeSafeCurrencySelector:
                 return None
             if not isinstance(choice, str):
                 return None
-            if isinstance(confidence, bool) or not isinstance(
-                confidence, (int, float)
-            ):
+            if isinstance(confidence, bool) or not isinstance(confidence, (int, float)):
                 return None
             if not math.isfinite(confidence) or not 0.0 <= confidence <= 1.0:
                 return None
@@ -118,8 +116,7 @@ class TypeSafeCurrencySelector:
 
             model = str(body.get("model", "unknown"))[:80]
             logger.debug(
-                "TypeSafe currency selection accepted: model=%s confidence=%.3f "
-                "candidate_count=%d",
+                "TypeSafe currency selection accepted: model=%s confidence=%.3f candidate_count=%d",
                 model,
                 confidence,
                 len(candidates),

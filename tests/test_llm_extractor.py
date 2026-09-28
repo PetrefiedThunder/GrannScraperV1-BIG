@@ -85,9 +85,7 @@ async def test_typesafe_selects_high_confidence_currency_candidate(
     monkeypatch.setenv("SCRAPER_LLM_PROVIDER", "typesafe")
     monkeypatch.delenv("TYPESAFE_BASE_URL", raising=False)
     monkeypatch.delenv("TYPESAFE_DEFAULT_MODEL", raising=False)
-    client = RecordingHttpClient(
-        FakeResponse(typesafe_choice("$1,315.50", 0.93))
-    )
+    client = RecordingHttpClient(FakeResponse(typesafe_choice("$1,315.50", 0.93)))
     extractor = LLMExtractor(
         api_key="test-key",
         http_client=client,
@@ -144,9 +142,7 @@ async def test_typesafe_returns_default_for_no_match_or_low_confidence(
     confidence: float,
 ) -> None:
     """No-match and answers below the configured threshold fail closed."""
-    client = RecordingHttpClient(
-        FakeResponse(typesafe_choice(choice, confidence))
-    )
+    client = RecordingHttpClient(FakeResponse(typesafe_choice(choice, confidence)))
     extractor = LLMExtractor(
         api_key="test-key",
         provider="typesafe",
@@ -164,9 +160,7 @@ async def test_typesafe_returns_default_for_no_match_or_low_confidence(
 @pytest.mark.asyncio
 async def test_typesafe_skips_request_without_currency_candidates() -> None:
     """Candidate-free content does not spend an API request."""
-    client = RecordingHttpClient(
-        FakeResponse(typesafe_choice("__none__", 0.99))
-    )
+    client = RecordingHttpClient(FakeResponse(typesafe_choice("__none__", 0.99)))
     extractor = LLMExtractor(
         api_key="test-key",
         provider="typesafe",
@@ -186,9 +180,7 @@ async def test_typesafe_skips_request_without_api_key(
 ) -> None:
     """Explicit opt-in still fails closed when its credential is absent."""
     monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
-    client = RecordingHttpClient(
-        FakeResponse(typesafe_choice("$19.99", 0.99))
-    )
+    client = RecordingHttpClient(FakeResponse(typesafe_choice("$19.99", 0.99)))
     extractor = LLMExtractor(provider="typesafe", http_client=client)
     soup = BeautifulSoup("<p>Total: $19.99</p>", "lxml")
 
@@ -201,9 +193,7 @@ async def test_typesafe_skips_request_without_api_key(
 @pytest.mark.asyncio
 async def test_typesafe_skips_unsupported_field_type() -> None:
     """The first pilot is limited to single-value currency fields."""
-    client = RecordingHttpClient(
-        FakeResponse(typesafe_choice("$19.99", 0.99))
-    )
+    client = RecordingHttpClient(FakeResponse(typesafe_choice("$19.99", 0.99)))
     extractor = LLMExtractor(
         api_key="test-key",
         provider="typesafe",
@@ -223,9 +213,7 @@ async def test_typesafe_service_error_returns_default(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Provider failures do not fail the scrape."""
-    client = RecordingHttpClient(
-        FakeResponse(error=RuntimeError("private-page-marker"))
-    )
+    client = RecordingHttpClient(FakeResponse(error=RuntimeError("private-page-marker")))
     extractor = LLMExtractor(
         api_key="sensitive-test-key",
         provider="typesafe",
@@ -266,6 +254,7 @@ async def test_anthropic_remains_the_default_provider(
 ) -> None:
     """The existing Claude behavior stays authoritative unless opted out."""
     monkeypatch.delenv("SCRAPER_LLM_PROVIDER", raising=False)
+
     class FakeMessages:
         async def create(
             self,
