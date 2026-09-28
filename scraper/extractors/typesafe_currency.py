@@ -5,6 +5,7 @@ import logging
 import math
 import os
 import re
+import unicodedata
 from typing import Any, Protocol
 
 import httpx
@@ -42,24 +43,55 @@ _MAX_ATTEMPTS = 3
 _RETRY_BASE_DELAY_SECONDS = 0.25
 _SIGN_CHARACTERS = {"-", "+", "−", "﹣", "－", "＋"}
 _NUMBER_GROUP_SEPARATORS = {".", ",", "'", "’"}
-_INLINE_SPACE_CHARACTERS = {" ", "\t", "\u00a0", "\u202f"}
-_SPACED_GROUP_CONTINUATION = re.compile(
-    r"^[ \t\u00a0\u202f]+(?:"
-    r"\d{3}(?:[ \t\u00a0\u202f]\d{3})*(?:[.,]\d+)?(?!\d)"
-    r"|[.,][ \t\u00a0\u202f]*\d{1,3}(?:[.,]\d+)?(?!\d))"
-)
-_SEPARATED_NUMERIC_CONTINUATION = re.compile(
-    r"^[.,'’](?:[ \t\u00a0\u202f]+|\n(?!\n))"
-    r"\d{1,3}(?:[.,]\d+)?(?!\d)"
-)
+
+
+def _is_currency_gap(character: str) -> bool:
+    """Treat Unicode whitespace and invisible format controls as boundaries."""
+    return character.isspace() or unicodedata.category(character) == "Cf"
+
+
+def _is_inline_currency_gap(character: str) -> bool:
+    """Return whether a boundary can occur inside one rendered text line."""
+    return character != "\n" and _is_currency_gap(character)
+
+
+def _is_sign_character(character: str) -> bool:
+    """Recognize explicit signs and every Unicode dash-punctuation character."""
+    return character in _SIGN_CHARACTERS or unicodedata.category(character) == "Pd"
+
+
+def _consume_inline_gap_forward(
+    document: str,
+    start: int,
+) -> tuple[int, bool, bool] | None:
+    """Consume inline gaps, allowing one inline-boundary newline but not a block."""
+    cursor = start
+    saw_gap = False
+    saw_format_control = False
+    saw_newline = False
+    while cursor < len(document):
+        character = document[cursor]
+        if character == "\n":
+            if saw_newline:
+                return None
+            saw_newline = True
+        elif _is_inline_currency_gap(character):
+            saw_format_control |= unicodedata.category(character) == "Cf"
+        else:
+            break
+        saw_gap = True
+        cursor += 1
+    if not saw_gap:
+        return None
+    return cursor, saw_format_control, saw_newline
 
 
 def _has_spaced_group_prefix(document: str, start: int) -> bool:
     """Check only the adjacent inline-spaced token for 1-3 leading digits."""
     cursor = start - 1
-    if cursor < 0 or document[cursor] not in _INLINE_SPACE_CHARACTERS:
+    if cursor < 0 or not _is_inline_currency_gap(document[cursor]):
         return False
-    while cursor >= 0 and document[cursor] in _INLINE_SPACE_CHARACTERS:
+    while cursor >= 0 and _is_inline_currency_gap(document[cursor]):
         cursor -= 1
 
     digit_count = 0
@@ -74,16 +106,34 @@ def _has_spaced_group_prefix(document: str, start: int) -> bool:
 def _has_separated_numeric_prefix(document: str, start: int) -> bool:
     """Detect a short numeric fragment before spaced grouping punctuation."""
     cursor = start - 1
-    if cursor < 0 or document[cursor] not in _INLINE_SPACE_CHARACTERS:
+    if cursor < 0 or not _is_inline_currency_gap(document[cursor]):
         return False
-    while cursor >= 0 and document[cursor] in _INLINE_SPACE_CHARACTERS:
+    while cursor >= 0 and _is_inline_currency_gap(document[cursor]):
         cursor -= 1
     if cursor < 0 or document[cursor] not in _NUMBER_GROUP_SEPARATORS:
         return False
     cursor -= 1
-    while cursor >= 0 and document[cursor] in _INLINE_SPACE_CHARACTERS:
+    while cursor >= 0 and _is_inline_currency_gap(document[cursor]):
         cursor -= 1
     return cursor >= 0 and document[cursor].isdigit()
+
+
+def _has_invisible_numeric_prefix(document: str, start: int) -> bool:
+    """Detect a numeric or currency prefix hidden by Unicode format controls."""
+    cursor = start - 1
+    saw_format_control = False
+    while cursor >= 0 and _is_inline_currency_gap(document[cursor]):
+        saw_format_control |= unicodedata.category(document[cursor]) == "Cf"
+        cursor -= 1
+    return bool(
+        saw_format_control
+        and cursor >= 0
+        and (
+            document[cursor].isdigit()
+            or document[cursor] in _NUMBER_GROUP_SEPARATORS
+            or document[cursor] in "$€£¥"
+        )
+    )
 
 
 def _has_partial_numeric_prefix(document: str, start: int, candidate: str) -> bool:
@@ -91,6 +141,8 @@ def _has_partial_numeric_prefix(document: str, start: int, candidate: str) -> bo
     if not candidate or not candidate[0].isdigit():
         return False
     if _has_inline_numeric_prefix(document, start):
+        return True
+    if _has_invisible_numeric_prefix(document, start):
         return True
 
     leading_digits = re.match(r"\d+", candidate)
@@ -103,8 +155,11 @@ def _has_partial_numeric_prefix(document: str, start: int, candidate: str) -> bo
 
 def _has_left_operand(document: str, sign_index: int) -> bool:
     """Return whether a sign follows a complete supported currency operand."""
-    window_start = max(0, sign_index - _MAX_LEFT_OPERAND_CHARS)
-    prefix = document[window_start:sign_index]
+    operand_end = sign_index
+    while operand_end > 0 and _is_inline_currency_gap(document[operand_end - 1]):
+        operand_end -= 1
+    window_start = max(0, operand_end - _MAX_LEFT_OPERAND_CHARS)
+    prefix = document[window_start:operand_end]
     match = _LEFT_CURRENCY_OPERAND_PATTERN.search(prefix)
     if match is None:
         return False
@@ -115,35 +170,83 @@ def _has_left_operand(document: str, sign_index: int) -> bool:
 
     cursor = match.start() - 1
     newline_count = 0
-    while cursor >= 0 and prefix[cursor].isspace():
+    while cursor >= 0 and _is_currency_gap(prefix[cursor]):
         if prefix[cursor] == "\n":
             newline_count += 1
             if newline_count == 2:
                 return True
         cursor -= 1
-    return cursor < 0 or prefix[cursor] not in _SIGN_CHARACTERS | {"("}
+    return cursor < 0 or (not _is_sign_character(prefix[cursor]) and prefix[cursor] != "(")
 
 
 def _has_right_context(document: str, sign_index: int) -> bool:
     """Return whether a sign is followed by another value or separator label."""
     cursor = sign_index + 1
-    while cursor < len(document) and document[cursor] in _INLINE_SPACE_CHARACTERS:
+    while cursor < len(document) and _is_inline_currency_gap(document[cursor]):
         cursor += 1
     return cursor < len(document) and (document[cursor].isalnum() or document[cursor] in "$€£¥(")
 
 
 def _has_inline_numeric_prefix(document: str, start: int) -> bool:
     """Detect a numeric fragment immediately before one inline boundary."""
-    boundary = start - 1
-    if boundary <= 0 or document[boundary] != "\n" or document[boundary - 1] == "\n":
+    cursor = start - 1
+    saw_newline = False
+    while cursor >= 0:
+        character = document[cursor]
+        if character == "\n":
+            if saw_newline:
+                return False
+            saw_newline = True
+        elif not _is_inline_currency_gap(character):
+            break
+        cursor -= 1
+    if not saw_newline or cursor < 0:
         return False
-    previous = document[boundary - 1]
+    previous = document[cursor]
     return previous.isdigit() or previous in _NUMBER_GROUP_SEPARATORS | {"$", "€", "£", "¥"}
+
+
+def _has_spaced_numeric_suffix(document: str, end: int) -> bool:
+    """Detect a numeric continuation separated by inline Unicode boundaries."""
+    cursor = end
+    separator_before_gap = False
+    if cursor < len(document) and document[cursor] in _NUMBER_GROUP_SEPARATORS:
+        separator_before_gap = True
+        cursor += 1
+    consumed_gap = _consume_inline_gap_forward(document, cursor)
+    if consumed_gap is None:
+        return False
+    cursor, saw_format_control, saw_newline = consumed_gap
+    if cursor >= len(document):
+        return False
+
+    if document[cursor].isdigit():
+        digit_start = cursor
+        while cursor < len(document) and document[cursor].isdigit():
+            cursor += 1
+        digit_count = cursor - digit_start
+        if saw_format_control or saw_newline:
+            return True
+        if separator_before_gap:
+            return digit_count <= 3
+        return digit_count == 3
+
+    if document[cursor] not in _NUMBER_GROUP_SEPARATORS:
+        return False
+    cursor += 1
+    while cursor < len(document) and _is_inline_currency_gap(document[cursor]):
+        saw_format_control |= unicodedata.category(document[cursor]) == "Cf"
+        cursor += 1
+    digit_start = cursor
+    while cursor < len(document) and document[cursor].isdigit():
+        cursor += 1
+    digit_count = cursor - digit_start
+    return digit_count > 0 if saw_format_control or saw_newline else 1 <= digit_count <= 3
 
 
 def _has_inline_numeric_suffix(document: str, end: int) -> bool:
     """Detect a numeric continuation immediately after one inline boundary."""
-    if _SEPARATED_NUMERIC_CONTINUATION.match(document[end:]):
+    if _has_spaced_numeric_suffix(document, end):
         return True
     boundary = end
     if boundary < len(document) and document[boundary] in _NUMBER_GROUP_SEPARATORS:
@@ -172,22 +275,22 @@ def _is_unsigned_currency_match(document: str, match: re.Match[str]) -> bool:
         prefix_character = document[prefix_index]
         if prefix_character == "(":
             return False
-        if prefix_character in _SIGN_CHARACTERS and not _has_left_operand(document, prefix_index):
+        if _is_sign_character(prefix_character) and not _has_left_operand(document, prefix_index):
             return False
         if candidate[0].isdigit() and (
             prefix_character.isdigit() or prefix_character in _NUMBER_GROUP_SEPARATORS
         ):
             return False
 
-    if prefix_index >= 0 and document[prefix_index].isspace():
+    if prefix_index >= 0 and _is_currency_gap(document[prefix_index]):
         previous_nonspace = prefix_index
-        while previous_nonspace >= 0 and document[previous_nonspace].isspace():
+        while previous_nonspace >= 0 and _is_currency_gap(document[previous_nonspace]):
             previous_nonspace -= 1
         if previous_nonspace >= 0:
             prefix_character = document[previous_nonspace]
             if prefix_character == "(":
                 return False
-            if prefix_character in _SIGN_CHARACTERS and not _has_left_operand(
+            if _is_sign_character(prefix_character) and not _has_left_operand(
                 document, previous_nonspace
             ):
                 return False
@@ -200,26 +303,22 @@ def _is_unsigned_currency_match(document: str, match: re.Match[str]) -> bool:
     suffix_character = document[suffix_index]
     if suffix_character.isdigit():
         return False
-    if suffix_character in _SIGN_CHARACTERS and not _has_right_context(document, suffix_index):
+    if _is_sign_character(suffix_character) and not _has_right_context(document, suffix_index):
         return False
-    if suffix_character.isspace():
+    if _is_currency_gap(suffix_character):
         next_nonspace = suffix_index
-        while next_nonspace < len(document) and document[next_nonspace].isspace():
+        while next_nonspace < len(document) and _is_currency_gap(document[next_nonspace]):
             next_nonspace += 1
         if (
             next_nonspace < len(document)
-            and document[next_nonspace] in _SIGN_CHARACTERS
+            and _is_sign_character(document[next_nonspace])
             and not _has_right_context(document, next_nonspace)
         ):
             return False
-    if (
+    return not (
         suffix_character in _NUMBER_GROUP_SEPARATORS
         and suffix_index + 1 < len(document)
         and document[suffix_index + 1].isdigit()
-    ):
-        return False
-    return not (
-        candidate[0] in "$€£¥" and _SPACED_GROUP_CONTINUATION.match(document[suffix_index:])
     )
 
 

@@ -8,7 +8,7 @@ import re
 from typing import Any, Optional
 
 from bs4 import BeautifulSoup
-from bs4.element import Tag
+from bs4.element import CData, NavigableString, PageElement, Tag
 
 from scraper.config.models import FieldConfig, FieldType
 from scraper.extractors.base_extractor import BaseExtractor
@@ -61,20 +61,38 @@ def _is_structural_text_boundary(tag: Tag) -> bool:
 
 def _typesafe_text_with_boundaries(snippet_soup: BeautifulSoup) -> str:
     """Flatten text without synthesizing tokens across rendered boundaries."""
-    for text_node in snippet_soup.find_all(string=True):
-        text = str(text_node)
-        text = text.replace(_BLOCK_BOUNDARY_MARKER, " ").replace(
-            _INLINE_BOUNDARY_MARKER, " "
-        )
-        text = re.sub(r"\r\n?|\n", _INLINE_BOUNDARY_MARKER, text)
-        text_node.replace_with(type(text_node)(text))
+    raw_parts: list[str] = []
+    stack: list[tuple[PageElement, bool]] = [(snippet_soup, False)]
+    seen_raw_node = False
 
-    for tag in list(snippet_soup.find_all()):
-        if _is_structural_text_boundary(tag):
-            tag.insert_before(_BLOCK_BOUNDARY_MARKER)
-            tag.insert_after(_BLOCK_BOUNDARY_MARKER)
+    def append_raw_node(value: str) -> None:
+        nonlocal seen_raw_node
+        if seen_raw_node:
+            raw_parts.append(_INLINE_BOUNDARY_MARKER)
+        raw_parts.append(value)
+        seen_raw_node = True
 
-    raw_text = snippet_soup.get_text(separator=_INLINE_BOUNDARY_MARKER, strip=False)
+    while stack:
+        node, closing_boundary = stack.pop()
+        if closing_boundary:
+            append_raw_node(_BLOCK_BOUNDARY_MARKER)
+            continue
+        if isinstance(node, Tag):
+            structural_boundary = _is_structural_text_boundary(node)
+            if structural_boundary:
+                append_raw_node(_BLOCK_BOUNDARY_MARKER)
+                stack.append((node, True))
+            for child in reversed(list(node.children)):
+                stack.append((child, False))
+            continue
+        if type(node) not in {NavigableString, CData}:
+            continue
+
+        text = str(node)
+        text = text.replace(_BLOCK_BOUNDARY_MARKER, " ").replace(_INLINE_BOUNDARY_MARKER, " ")
+        append_raw_node(re.sub(r"\r\n?|\n", _INLINE_BOUNDARY_MARKER, text))
+
+    raw_text = "".join(raw_parts)
     tokens = re.split(
         f"([{_BLOCK_BOUNDARY_MARKER}{_INLINE_BOUNDARY_MARKER}])",
         raw_text,

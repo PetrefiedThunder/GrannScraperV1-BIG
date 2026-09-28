@@ -8,6 +8,7 @@ import pytest
 from bs4 import BeautifulSoup
 
 from scraper.config.models import FieldConfig, FieldType
+from scraper.extractors import llm_extractor as llm_extractor_module
 from scraper.extractors import typesafe_currency
 from scraper.extractors.llm_extractor import LLMExtractor
 
@@ -716,6 +717,71 @@ def test_typesafe_signed_chain_validation_work_is_bounded(
 
     assert candidates == ["$1"]
     assert call_count <= token_count * 2
+
+
+@pytest.mark.parametrize(
+    "document",
+    [
+        "$1\u2009234.56",
+        "1\u2009234.56 USD",
+        "$1\u2007234.56",
+        "$1\u200a234.56",
+        "$1\u2003234.56",
+        "$1\u200b234.56",
+        "1\u200b234.56 USD",
+        "$1\u2060234.56",
+        "$1\ufeff234.56",
+        "$1\r234.56",
+        "1\r234.56 USD",
+        "$1,\r234.56",
+        "$1\n\u200b234.56",
+        "1\n\u200b234.56 USD",
+    ],
+)
+def test_typesafe_unicode_separators_fail_closed(document: str) -> None:
+    """Unicode spacing and format characters cannot expose partial amounts."""
+    assert typesafe_currency.TypeSafeCurrencySelector._find_candidates(document) == []
+
+
+@pytest.mark.parametrize(
+    "document",
+    [
+        "-\u200b$50.00",
+        "−\u200b$50.00",
+        "‐$50.00",
+        "‑$50.00",
+        "‒$50.00",
+        "–$50.00",
+        "—$50.00",
+    ],
+)
+def test_typesafe_unicode_signs_fail_closed(document: str) -> None:
+    """Unicode dash signs and invisible sign separators remain signed."""
+    assert typesafe_currency.TypeSafeCurrencySelector._find_candidates(document) == []
+
+
+def test_typesafe_unicode_gaps_preserve_binary_range_dash() -> None:
+    """Invisible inline gaps cannot turn a range dash into a unary sign."""
+    document = "$50\u200b—\u2060$75"
+
+    candidates = typesafe_currency.TypeSafeCurrencySelector._find_candidates(document)
+
+    assert candidates == ["$50", "$75"]
+
+
+def test_typesafe_boundary_flattening_is_non_mutating() -> None:
+    """Boundary serialization cannot rewrite the caller's DOM."""
+    soup = BeautifulSoup(
+        "<div><p>Total: <span>$19.99</span></p>"
+        "<p>Tax: <strong>$2.00</strong></p><!-- $999 --></div>",
+        "lxml",
+    )
+    original_html = str(soup)
+
+    flattened = llm_extractor_module._typesafe_text_with_boundaries(soup)
+
+    assert flattened == "Total: $19.99\n\nTax: $2.00"
+    assert str(soup) == original_html
 
 
 @pytest.mark.asyncio
