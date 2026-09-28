@@ -83,6 +83,8 @@ async def test_typesafe_selects_high_confidence_currency_candidate(
 ) -> None:
     """A confident Choice answer returns the selected candidate as a float."""
     monkeypatch.setenv("SCRAPER_LLM_PROVIDER", "typesafe")
+    monkeypatch.delenv("TYPESAFE_BASE_URL", raising=False)
+    monkeypatch.delenv("TYPESAFE_DEFAULT_MODEL", raising=False)
     client = RecordingHttpClient(
         FakeResponse(typesafe_choice("$1,315.50", 0.93))
     )
@@ -134,6 +136,7 @@ async def test_typesafe_selects_high_confidence_currency_candidate(
         ("__none__", 0.99),
         ("$19.99", 0.79),
         ("$999.99", 0.99),
+        ("$19.99", 1.01),
     ],
 )
 async def test_typesafe_returns_default_for_no_match_or_low_confidence(
@@ -216,11 +219,35 @@ async def test_typesafe_skips_unsupported_field_type() -> None:
 
 
 @pytest.mark.asyncio
-async def test_typesafe_service_error_returns_default() -> None:
+async def test_typesafe_service_error_returns_default(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     """Provider failures do not fail the scrape."""
     client = RecordingHttpClient(
-        FakeResponse(error=RuntimeError("service unavailable"))
+        FakeResponse(error=RuntimeError("private-page-marker"))
     )
+    extractor = LLMExtractor(
+        api_key="sensitive-test-key",
+        provider="typesafe",
+        http_client=client,
+    )
+    soup = BeautifulSoup(
+        "<p>private-page-marker Total: $19.99</p>",
+        "lxml",
+    )
+
+    result = await extractor.extract(soup, "total", currency_field(-1.0))
+
+    assert result == -1.0
+    assert len(client.calls) == 1
+    assert "private-page-marker" not in caplog.text
+    assert "sensitive-test-key" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_typesafe_malformed_response_returns_default() -> None:
+    """Incomplete response JSON is treated as a provider failure."""
+    client = RecordingHttpClient(FakeResponse({"answers": {}}))
     extractor = LLMExtractor(
         api_key="test-key",
         provider="typesafe",
@@ -231,12 +258,14 @@ async def test_typesafe_service_error_returns_default() -> None:
     result = await extractor.extract(soup, "total", currency_field(-1.0))
 
     assert result == -1.0
-    assert len(client.calls) == 1
 
 
 @pytest.mark.asyncio
-async def test_anthropic_remains_the_default_provider() -> None:
+async def test_anthropic_remains_the_default_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """The existing Claude behavior stays authoritative unless opted out."""
+    monkeypatch.delenv("SCRAPER_LLM_PROVIDER", raising=False)
     class FakeMessages:
         async def create(
             self,

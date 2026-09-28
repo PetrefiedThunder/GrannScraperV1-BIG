@@ -1,8 +1,4 @@
-"""
-LLM-powered extraction using Claude API.
-
-Enables semantic understanding and intelligent field extraction.
-"""
+"""LLM extraction using Anthropic or bounded TypeSafe selection."""
 
 import json
 import logging
@@ -23,13 +19,15 @@ logger = logging.getLogger(__name__)
 
 class LLMExtractor(BaseExtractor):
     """
-    Claude-powered intelligent extraction.
+    Provider-backed intelligent extraction.
 
-    Uses Claude API for:
+    Uses Anthropic by default for:
     - Semantic field detection
     - Natural language queries
     - Schema inference
     - Complex pattern recognition
+
+    An explicit TypeSafe pilot supports bounded single-value currency selection.
     """
 
     def __init__(
@@ -87,7 +85,7 @@ class LLMExtractor(BaseExtractor):
         context: Optional[dict[str, Any]] = None,
     ) -> Any:
         """
-        Extract field using Claude AI.
+        Extract a field using the configured provider.
 
         Args:
             soup: Parsed HTML

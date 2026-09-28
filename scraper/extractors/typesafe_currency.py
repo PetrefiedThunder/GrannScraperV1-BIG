@@ -1,6 +1,7 @@
 """Bounded TypeSafe candidate selection for currency fields."""
 
 import logging
+import math
 import os
 import re
 from typing import Any, Protocol
@@ -107,6 +108,8 @@ class TypeSafeCurrencySelector:
             if isinstance(confidence, bool) or not isinstance(
                 confidence, (int, float)
             ):
+                return None
+            if not math.isfinite(confidence) or not 0.0 <= confidence <= 1.0:
                 return None
             if confidence < self.min_confidence:
                 return None

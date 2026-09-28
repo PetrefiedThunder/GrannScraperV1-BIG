@@ -417,7 +417,9 @@ option, and accepts only a returned candidate at or above the configured confide
 Missing credentials, no candidates, no-match, low confidence, malformed responses,
 and service failures return the field's configured `default` value. Confidence is a
 measure of uncertainty, not proof of correctness; calibrate the threshold with
-labeled examples before using the result for automatic actions.
+labeled examples before using the result for automatic actions. The cleaned page text
+is sent to TypeSafe for evaluation, so review data-handling requirements before using
+the pilot on pages containing personal or regulated data.
 
 ### Data Transformations
 
