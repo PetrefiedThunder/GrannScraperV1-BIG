@@ -13,6 +13,10 @@ from bs4 import BeautifulSoup
 
 from scraper.config.models import FieldConfig
 from scraper.extractors.base_extractor import BaseExtractor
+from scraper.extractors.typesafe_currency import (
+    TypeSafeCurrencySelector,
+    TypeSafeHttpClient,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -28,14 +32,38 @@ class LLMExtractor(BaseExtractor):
     - Complex pattern recognition
     """
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(
+        self,
+        api_key: str | None = None,
+        *,
+        provider: str | None = None,
+        http_client: TypeSafeHttpClient | None = None,
+        min_confidence: float | None = None,
+    ) -> None:
         """
         Initialize LLM extractor.
 
         Args:
-            api_key: Claude API key (defaults to ANTHROPIC_API_KEY env var)
+            api_key: Provider API key (defaults to the provider's env var)
+            provider: ``anthropic`` (default) or the currency-only ``typesafe`` pilot
+            http_client: Optional injected HTTP client for TypeSafe
+            min_confidence: Minimum TypeSafe confidence accepted by the pilot
         """
-        self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
+        configured_provider = (
+            provider or os.getenv("SCRAPER_LLM_PROVIDER") or "anthropic"
+        )
+        self.provider = configured_provider.lower()
+        self._typesafe_selector: TypeSafeCurrencySelector | None
+        if self.provider == "typesafe":
+            self.api_key = api_key or os.getenv("TYPESAFE_API_KEY")
+            self._typesafe_selector = TypeSafeCurrencySelector(
+                api_key=self.api_key,
+                http_client=http_client,
+                min_confidence=min_confidence,
+            )
+        else:
+            self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
+            self._typesafe_selector = None
         self._client = None
 
     def _get_client(self):
@@ -70,6 +98,19 @@ class LLMExtractor(BaseExtractor):
         Returns:
             Extracted value with confidence
         """
+        if self.provider == "typesafe":
+            if self._typesafe_selector is None:
+                return field_config.default
+            html_snippet = self._get_relevant_html(soup, field_config)
+            selected = await self._typesafe_selector.select(
+                html_snippet,
+                field_name,
+                field_config,
+            )
+            if selected is None:
+                return field_config.default
+            return self._parse_llm_response(selected, field_config)
+
         client = self._get_client()
         if not client:
             logger.warning("LLM extraction not available (no API key)")

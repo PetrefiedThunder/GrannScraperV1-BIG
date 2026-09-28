@@ -36,8 +36,14 @@ class RecordingHttpClient:
         self.response = response
         self.calls: list[dict[str, Any]] = []
 
-    async def post(self, url: str, **kwargs: Any) -> FakeResponse:
-        self.calls.append({"url": url, **kwargs})
+    async def post(
+        self,
+        url: str,
+        *,
+        headers: dict[str, str],
+        json: dict[str, Any],
+    ) -> FakeResponse:
+        self.calls.append({"url": url, "headers": headers, "json": json})
         return self.response
 
 
@@ -72,14 +78,16 @@ def currency_field(default: float = 0.0) -> FieldConfig:
 
 
 @pytest.mark.asyncio
-async def test_typesafe_selects_high_confidence_currency_candidate() -> None:
+async def test_typesafe_selects_high_confidence_currency_candidate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """A confident Choice answer returns the selected candidate as a float."""
+    monkeypatch.setenv("SCRAPER_LLM_PROVIDER", "typesafe")
     client = RecordingHttpClient(
         FakeResponse(typesafe_choice("$1,315.50", 0.93))
     )
     extractor = LLMExtractor(
         api_key="test-key",
-        provider="typesafe",
         http_client=client,
         min_confidence=0.8,
     )
@@ -89,6 +97,7 @@ async def test_typesafe_selects_high_confidence_currency_candidate() -> None:
           <p>Subtotal: $1,200.00</p>
           <p>Tax: $115.50</p>
           <p>Total due: $1,315.50</p>
+          <p>Payment summary: $1,315.50</p>
           <p>Available credit: $50.00</p>
         </main>
         """,
@@ -121,7 +130,11 @@ async def test_typesafe_selects_high_confidence_currency_candidate() -> None:
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("choice", "confidence"),
-    [("__none__", 0.99), ("$19.99", 0.79)],
+    [
+        ("__none__", 0.99),
+        ("$19.99", 0.79),
+        ("$999.99", 0.99),
+    ],
 )
 async def test_typesafe_returns_default_for_no_match_or_low_confidence(
     choice: str,
@@ -157,6 +170,24 @@ async def test_typesafe_skips_request_without_currency_candidates() -> None:
         http_client=client,
     )
     soup = BeautifulSoup("<p>Contact us for pricing.</p>", "lxml")
+
+    result = await extractor.extract(soup, "total", currency_field(-1.0))
+
+    assert result == -1.0
+    assert client.calls == []
+
+
+@pytest.mark.asyncio
+async def test_typesafe_skips_request_without_api_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Explicit opt-in still fails closed when its credential is absent."""
+    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    client = RecordingHttpClient(
+        FakeResponse(typesafe_choice("$19.99", 0.99))
+    )
+    extractor = LLMExtractor(provider="typesafe", http_client=client)
+    soup = BeautifulSoup("<p>Total: $19.99</p>", "lxml")
 
     result = await extractor.extract(soup, "total", currency_field(-1.0))
 
@@ -206,18 +237,21 @@ async def test_typesafe_service_error_returns_default() -> None:
 @pytest.mark.asyncio
 async def test_anthropic_remains_the_default_provider() -> None:
     """The existing Claude behavior stays authoritative unless opted out."""
-    messages = SimpleNamespace(
-        create=lambda **_: None,
-    )
+    class FakeMessages:
+        async def create(
+            self,
+            *,
+            model: str,
+            max_tokens: int,
+            messages: list[dict[str, str]],
+        ) -> SimpleNamespace:
+            assert model == "claude-3-5-sonnet-20241022"
+            assert max_tokens == 1024
+            assert messages[0]["role"] == "user"
+            return SimpleNamespace(content=[SimpleNamespace(text="$19.99")])
 
-    async def create_message(**_: Any) -> Any:
-        return SimpleNamespace(
-            content=[SimpleNamespace(text="$19.99")],
-        )
-
-    messages.create = create_message
     extractor = LLMExtractor(api_key="test-key")
-    extractor._client = SimpleNamespace(messages=messages)
+    extractor._client = SimpleNamespace(messages=FakeMessages())
     soup = BeautifulSoup("<p>Total: $19.99</p>", "lxml")
 
     result = await extractor.extract(soup, "total", currency_field())

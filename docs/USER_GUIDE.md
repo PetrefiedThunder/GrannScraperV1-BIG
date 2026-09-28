@@ -389,6 +389,36 @@ fields:
 - Set `ANTHROPIC_API_KEY` environment variable
 - Install: `pip install anthropic`
 
+#### TypeSafe currency pilot
+
+TypeSafe can select a single currency amount from the page's detected candidates.
+This path is off by default and does not change the Claude configuration above.
+
+```yaml
+fields:
+  total_due:
+    use_llm: true
+    llm_description: "Which amount is the total due?"
+    type: "currency"
+    default: null
+```
+
+Configure these environment variables:
+
+- `SCRAPER_LLM_PROVIDER=typesafe` opts into the pilot.
+- `TYPESAFE_API_KEY` provides the TypeSafe API credential.
+- `TYPESAFE_MIN_CONFIDENCE` sets the acceptance threshold (default `0.8`).
+- `TYPESAFE_DEFAULT_MODEL` overrides `jev-latest` when model pinning is required.
+- `TYPESAFE_BASE_URL` overrides `https://api.typesafe.ai` for compatible gateways.
+
+The pilot supports only single-value `currency` fields. It detects currency
+candidates in code, sends one TypeSafe Choice question with an explicit no-match
+option, and accepts only a returned candidate at or above the configured confidence.
+Missing credentials, no candidates, no-match, low confidence, malformed responses,
+and service failures return the field's configured `default` value. Confidence is a
+measure of uncertainty, not proof of correctness; calibrate the threshold with
+labeled examples before using the result for automatic actions.
+
 ### Data Transformations
 
 Apply transformations programmatically:
