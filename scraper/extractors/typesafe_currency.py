@@ -14,55 +14,222 @@ from scraper.config.models import FieldConfig, FieldType
 logger = logging.getLogger(__name__)
 
 _CURRENCY_PATTERN = re.compile(
-    r"(?<![\w.,+-])(?:"
-    r"[$€£¥]\s*\d+(?:,\d{3})*(?:\.\d{1,2})?"
-    r"|\d+(?:,\d{3})*(?:\.\d{1,2})?\s*(?:USD|EUR|GBP|JPY)"
+    r"(?<![\w.,$€£¥])(?:"
+    r"[$€£¥][ \t\u00a0\u202f]*\d+(?:,\d{3})*(?:\.\d{1,2})?"
+    r"|\d+(?:,\d{3})*(?:\.\d{1,2})?[ \t\u00a0\u202f]*(?:USD|EUR|GBP|JPY)"
     r")(?!\w|[.,]\d)",
+    re.IGNORECASE,
+)
+_LEFT_CURRENCY_OPERAND_PATTERN = re.compile(
+    r"(?<![\w.,$€£¥])(?:"
+    r"[$€£¥][ \t\u00a0\u202f]*\d+(?:,\d{3})*(?:\.\d{1,2})?"
+    r"(?:[ \t\u00a0\u202f]*(?:USD|EUR|GBP|JPY))?"
+    r"|\d+(?:,\d{3})*(?:\.\d{1,2})?[ \t\u00a0\u202f]*(?:USD|EUR|GBP|JPY))"
+    r"[ \t\u00a0\u202f]*\Z",
     re.IGNORECASE,
 )
 _DEFAULT_BASE_URL = "https://api.typesafe.ai"
 _DEFAULT_MODEL = "jev-latest"
 _DEFAULT_MIN_CONFIDENCE = 0.8
 _MAX_CHOICES = 255
+_MAX_CURRENCY_DIGITS = 308
+_MAX_LEFT_OPERAND_CHARS = (_MAX_CURRENCY_DIGITS * 2) + 32
 _NO_MATCH = "__none__"
 _CONTEXT_RADIUS = 48
 _MAX_STATE_CHARS = 24_000
-_RETRYABLE_STATUS_CODES = {429, 529}
+_RETRYABLE_STATUS_CODES = {408, 429}
 _MAX_ATTEMPTS = 3
 _RETRY_BASE_DELAY_SECONDS = 0.25
 _SIGN_CHARACTERS = {"-", "+", "−", "﹣", "－", "＋"}
-_UNSUPPORTED_PREFIX_CHARACTERS = _SIGN_CHARACTERS | {"("}
 _NUMBER_GROUP_SEPARATORS = {".", ",", "'", "’"}
+_INLINE_SPACE_CHARACTERS = {" ", "\t", "\u00a0", "\u202f"}
+_SPACED_GROUP_CONTINUATION = re.compile(
+    r"^[ \t\u00a0\u202f]+(?:"
+    r"\d{3}(?:[ \t\u00a0\u202f]\d{3})*(?:[.,]\d+)?(?!\d)"
+    r"|[.,][ \t\u00a0\u202f]*\d{1,3}(?:[.,]\d+)?(?!\d))"
+)
+_SEPARATED_NUMERIC_CONTINUATION = re.compile(
+    r"^[.,'’](?:[ \t\u00a0\u202f]+|\n(?!\n))"
+    r"\d{1,3}(?:[.,]\d+)?(?!\d)"
+)
+
+
+def _has_spaced_group_prefix(document: str, start: int) -> bool:
+    """Check only the adjacent inline-spaced token for 1-3 leading digits."""
+    cursor = start - 1
+    if cursor < 0 or document[cursor] not in _INLINE_SPACE_CHARACTERS:
+        return False
+    while cursor >= 0 and document[cursor] in _INLINE_SPACE_CHARACTERS:
+        cursor -= 1
+
+    digit_count = 0
+    while cursor >= 0 and document[cursor].isdigit():
+        digit_count += 1
+        if digit_count > 3:
+            return False
+        cursor -= 1
+    return digit_count > 0
+
+
+def _has_separated_numeric_prefix(document: str, start: int) -> bool:
+    """Detect a short numeric fragment before spaced grouping punctuation."""
+    cursor = start - 1
+    if cursor < 0 or document[cursor] not in _INLINE_SPACE_CHARACTERS:
+        return False
+    while cursor >= 0 and document[cursor] in _INLINE_SPACE_CHARACTERS:
+        cursor -= 1
+    if cursor < 0 or document[cursor] not in _NUMBER_GROUP_SEPARATORS:
+        return False
+    cursor -= 1
+    while cursor >= 0 and document[cursor] in _INLINE_SPACE_CHARACTERS:
+        cursor -= 1
+    return cursor >= 0 and document[cursor].isdigit()
+
+
+def _has_partial_numeric_prefix(document: str, start: int, candidate: str) -> bool:
+    """Reject a code-suffixed tail split from a preceding numeric fragment."""
+    if not candidate or not candidate[0].isdigit():
+        return False
+    if _has_inline_numeric_prefix(document, start):
+        return True
+
+    leading_digits = re.match(r"\d+", candidate)
+    if leading_digits is None or len(leading_digits.group()) > 3:
+        return False
+    if len(leading_digits.group()) == 3 and _has_spaced_group_prefix(document, start):
+        return True
+    return _has_separated_numeric_prefix(document, start)
+
+
+def _has_left_operand(document: str, sign_index: int) -> bool:
+    """Return whether a sign follows a complete supported currency operand."""
+    window_start = max(0, sign_index - _MAX_LEFT_OPERAND_CHARS)
+    prefix = document[window_start:sign_index]
+    match = _LEFT_CURRENCY_OPERAND_PATTERN.search(prefix)
+    if match is None:
+        return False
+    if sum(character.isdigit() for character in match.group()) > _MAX_CURRENCY_DIGITS:
+        return False
+    if _has_partial_numeric_prefix(prefix, match.start(), match.group()):
+        return False
+
+    cursor = match.start() - 1
+    newline_count = 0
+    while cursor >= 0 and prefix[cursor].isspace():
+        if prefix[cursor] == "\n":
+            newline_count += 1
+            if newline_count == 2:
+                return True
+        cursor -= 1
+    return cursor < 0 or prefix[cursor] not in _SIGN_CHARACTERS | {"("}
+
+
+def _has_right_context(document: str, sign_index: int) -> bool:
+    """Return whether a sign is followed by another value or separator label."""
+    cursor = sign_index + 1
+    while cursor < len(document) and document[cursor] in _INLINE_SPACE_CHARACTERS:
+        cursor += 1
+    return cursor < len(document) and (document[cursor].isalnum() or document[cursor] in "$€£¥(")
+
+
+def _has_inline_numeric_prefix(document: str, start: int) -> bool:
+    """Detect a numeric fragment immediately before one inline boundary."""
+    boundary = start - 1
+    if boundary <= 0 or document[boundary] != "\n" or document[boundary - 1] == "\n":
+        return False
+    previous = document[boundary - 1]
+    return previous.isdigit() or previous in _NUMBER_GROUP_SEPARATORS | {"$", "€", "£", "¥"}
+
+
+def _has_inline_numeric_suffix(document: str, end: int) -> bool:
+    """Detect a numeric continuation immediately after one inline boundary."""
+    if _SEPARATED_NUMERIC_CONTINUATION.match(document[end:]):
+        return True
+    boundary = end
+    if boundary < len(document) and document[boundary] in _NUMBER_GROUP_SEPARATORS:
+        boundary += 1
+    if boundary >= len(document) or document[boundary] != "\n":
+        return False
+    continuation = boundary + 1
+    if continuation >= len(document) or document[continuation] == "\n":
+        return False
+    if document[continuation].isdigit():
+        return True
+    return (
+        document[continuation] in _NUMBER_GROUP_SEPARATORS
+        and continuation + 1 < len(document)
+        and document[continuation + 1].isdigit()
+    )
 
 
 def _is_unsigned_currency_match(document: str, match: re.Match[str]) -> bool:
     """Reject signed or partially matched formatted numbers."""
+    candidate = match.group()
+    if _has_partial_numeric_prefix(document, match.start(), candidate):
+        return False
     prefix_index = match.start() - 1
-    while prefix_index >= 0 and document[prefix_index].isspace():
-        prefix_index -= 1
     if prefix_index >= 0:
         prefix_character = document[prefix_index]
-        if prefix_character in _UNSUPPORTED_PREFIX_CHARACTERS:
+        if prefix_character == "(":
             return False
-        if match.group()[0].isdigit() and (
+        if prefix_character in _SIGN_CHARACTERS and not _has_left_operand(document, prefix_index):
+            return False
+        if candidate[0].isdigit() and (
             prefix_character.isdigit() or prefix_character in _NUMBER_GROUP_SEPARATORS
         ):
             return False
 
+    if prefix_index >= 0 and document[prefix_index].isspace():
+        previous_nonspace = prefix_index
+        while previous_nonspace >= 0 and document[previous_nonspace].isspace():
+            previous_nonspace -= 1
+        if previous_nonspace >= 0:
+            prefix_character = document[previous_nonspace]
+            if prefix_character == "(":
+                return False
+            if prefix_character in _SIGN_CHARACTERS and not _has_left_operand(
+                document, previous_nonspace
+            ):
+                return False
+
     suffix_index = match.end()
-    while suffix_index < len(document) and document[suffix_index].isspace():
-        suffix_index += 1
     if suffix_index >= len(document):
         return True
-
-    suffix_character = document[suffix_index]
-    if suffix_character in _SIGN_CHARACTERS or suffix_character.isdigit():
+    if candidate[0] in "$€£¥" and _has_inline_numeric_suffix(document, suffix_index):
         return False
-    return not (
+    suffix_character = document[suffix_index]
+    if suffix_character.isdigit():
+        return False
+    if suffix_character in _SIGN_CHARACTERS and not _has_right_context(document, suffix_index):
+        return False
+    if suffix_character.isspace():
+        next_nonspace = suffix_index
+        while next_nonspace < len(document) and document[next_nonspace].isspace():
+            next_nonspace += 1
+        if (
+            next_nonspace < len(document)
+            and document[next_nonspace] in _SIGN_CHARACTERS
+            and not _has_right_context(document, next_nonspace)
+        ):
+            return False
+    if (
         suffix_character in _NUMBER_GROUP_SEPARATORS
         and suffix_index + 1 < len(document)
         and document[suffix_index + 1].isdigit()
+    ):
+        return False
+    return not (
+        candidate[0] in "$€£¥" and _SPACED_GROUP_CONTINUATION.match(document[suffix_index:])
     )
+
+
+def _choice_confidence_floor(probabilities: list[float]) -> float:
+    """Calculate a conservative normalized top-probability confidence floor."""
+    option_count = len(probabilities)
+    if option_count == 1:
+        return 1.0
+    uniform_probability = 1.0 / option_count
+    return (max(probabilities) - uniform_probability) / (1.0 - uniform_probability)
 
 
 class TypeSafeHttpResponse(Protocol):
@@ -96,7 +263,7 @@ class TypeSafeCurrencySelector:
         http_client: TypeSafeHttpClient | None = None,
         min_confidence: float | None = None,
     ) -> None:
-        self.api_key = api_key or os.getenv("TYPESAFE_API_KEY")
+        self.api_key = os.getenv("TYPESAFE_API_KEY") if api_key is None else api_key
         self.http_client = http_client
         self.base_url = os.getenv("TYPESAFE_BASE_URL", _DEFAULT_BASE_URL).rstrip("/")
         self.model = os.getenv("TYPESAFE_DEFAULT_MODEL", _DEFAULT_MODEL)
@@ -172,9 +339,10 @@ class TypeSafeCurrencySelector:
                 abs_tol=1e-6,
             ):
                 return None
+            confidence_floor = _choice_confidence_floor(probability_values)
             if probabilities[choice] < max(probability_values):
                 return None
-            if confidence < self.min_confidence:
+            if confidence < self.min_confidence or confidence_floor < self.min_confidence:
                 return None
             if choice == _NO_MATCH or choice not in candidates:
                 return None
@@ -211,15 +379,25 @@ class TypeSafeCurrencySelector:
         payload: dict[str, Any],
     ) -> TypeSafeHttpResponse:
         for attempt in range(_MAX_ATTEMPTS):
-            response = await client.post(
-                f"{self.base_url}/v1/systemone",
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "Content-Type": "application/json",
-                },
-                json=payload,
+            try:
+                response = await client.post(
+                    f"{self.base_url}/v1/systemone",
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json=payload,
+                )
+            except (httpx.TransportError, TimeoutError):
+                if attempt == _MAX_ATTEMPTS - 1:
+                    raise
+                await asyncio.sleep(_RETRY_BASE_DELAY_SECONDS * (2**attempt))
+                continue
+            retryable_status = (
+                response.status_code in _RETRYABLE_STATUS_CODES
+                or 500 <= response.status_code <= 599
             )
-            if response.status_code not in _RETRYABLE_STATUS_CODES or attempt == _MAX_ATTEMPTS - 1:
+            if not retryable_status or attempt == _MAX_ATTEMPTS - 1:
                 return response
             await asyncio.sleep(_RETRY_BASE_DELAY_SECONDS * (2**attempt))
         raise RuntimeError("unreachable TypeSafe retry state")
@@ -233,6 +411,8 @@ class TypeSafeCurrencySelector:
             if not _is_unsigned_currency_match(document, match):
                 continue
             candidate = match.group().strip()
+            if sum(character.isdigit() for character in candidate) > _MAX_CURRENCY_DIGITS:
+                continue
             if candidate not in seen:
                 if len(candidates) == _MAX_CHOICES - 1:
                     return []
@@ -246,10 +426,8 @@ class TypeSafeCurrencySelector:
         candidates: list[str],
     ) -> str | None:
         """Keep bounded source context around each candidate, including page tails."""
-        snippets: list[str] = []
+        ranges: list[tuple[int, int]] = []
         candidate_set = set(candidates)
-        seen_snippets: set[str] = set()
-        state_length = 0
         for match in _CURRENCY_PATTERN.finditer(document):
             if not _is_unsigned_currency_match(document, match):
                 continue
@@ -258,6 +436,16 @@ class TypeSafeCurrencySelector:
                 continue
             start = max(0, match.start() - _CONTEXT_RADIUS)
             end = min(len(document), match.end() + _CONTEXT_RADIUS)
+            if ranges and start <= ranges[-1][1]:
+                previous_start, previous_end = ranges[-1]
+                ranges[-1] = (previous_start, max(previous_end, end))
+            else:
+                ranges.append((start, end))
+
+        snippets: list[str] = []
+        seen_snippets: set[str] = set()
+        state_length = 0
+        for start, end in ranges:
             snippet = document[start:end].strip()
             if snippet in seen_snippets:
                 continue
@@ -279,6 +467,12 @@ class TypeSafeCurrencySelector:
                 str(_DEFAULT_MIN_CONFIDENCE),
             )
         )
+        if isinstance(raw_value, bool):
+            logger.warning(
+                "Invalid TYPESAFE_MIN_CONFIDENCE; using %.1f",
+                _DEFAULT_MIN_CONFIDENCE,
+            )
+            return _DEFAULT_MIN_CONFIDENCE
         try:
             confidence = float(raw_value)
         except (TypeError, ValueError):

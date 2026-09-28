@@ -417,20 +417,27 @@ option, and accepts only a returned candidate at or above the configured confide
 Missing credentials, no candidates, no-match, low confidence, malformed responses,
 and service failures return the field's configured `default` value. Confidence is a
 measure of uncertainty, not proof of correctness; calibrate the threshold with
-labeled examples before using the result for automatic actions. Bounded excerpts of
-the cleaned page text around detected candidates are sent to TypeSafe, so review
-data-handling requirements before using the pilot on pages containing personal or
-regulated data.
+labeled examples before using the result for automatic actions. The pilot requires both
+the returned confidence and a conservative normalized top-probability score to clear
+the same threshold, so an inconsistent high confidence value cannot override a flat
+distribution. Bounded excerpts of the cleaned page text around detected candidates are
+sent to TypeSafe, so review data-handling requirements before using the pilot on pages
+containing personal or regulated data.
 
 Candidate detection scans all cleaned selected content and accepts at most 254 unique
 options, plus no-match. More candidates, or candidate context above 24,000 characters,
 fail closed instead of sending an incomplete request. Use a field selector to narrow
-large pages. Detection currently accepts unsigned, dot-decimal values prefixed by
-`$`, `€`, `£`, or `¥`, or suffixed by `USD`, `EUR`, `GBP`, or `JPY`. Signed and
-comma-decimal values fail closed to the field default. Other field types continue to
-use Anthropic when `ANTHROPIC_API_KEY` is configured; otherwise they return their
-configured default. TypeSafe `429` and `529` responses receive two exponential-backoff
-retries before the field falls back to its default.
+large pages; if a configured selector matches nothing, the TypeSafe field fails closed
+instead of widening to the full page. Overlapping candidate contexts are merged before
+the size limit is applied. Block, table, button, semantic-cell, grid, and flex
+boundaries remain separate. Currency tokens split across inline elements or source
+newlines fail closed instead of being joined into a value. Detection currently accepts
+unsigned, dot-decimal values prefixed by `$`, `€`, `£`, or `¥`, or suffixed by `USD`,
+`EUR`, `GBP`, or `JPY`. Signed, comma-decimal, and values longer than 308 digits fail
+closed to the field default. Other field types continue to use Anthropic when
+`ANTHROPIC_API_KEY` is configured; otherwise they return their configured default.
+Transport failures and `408`, `429`, and `5xx` responses receive two
+exponential-backoff retries before the field falls back to its default.
 
 ### Data Transformations
 

@@ -1,5 +1,6 @@
 """Tests for LLM-backed extraction providers."""
 
+import re
 from types import SimpleNamespace
 from typing import Any
 
@@ -37,7 +38,10 @@ class FakeResponse:
 class RecordingHttpClient:
     """Record requests and return a configured response."""
 
-    def __init__(self, response: FakeResponse | list[FakeResponse]) -> None:
+    def __init__(
+        self,
+        response: FakeResponse | Exception | list[FakeResponse | Exception],
+    ) -> None:
         self.responses = response if isinstance(response, list) else [response]
         self.calls: list[dict[str, Any]] = []
 
@@ -50,7 +54,16 @@ class RecordingHttpClient:
     ) -> FakeResponse:
         self.calls.append({"url": url, "headers": headers, "json": json})
         response_index = min(len(self.calls) - 1, len(self.responses) - 1)
-        return self.responses[response_index]
+        response = self.responses[response_index]
+        if isinstance(response, Exception):
+            raise response
+        return response
+
+
+@pytest.fixture(autouse=True)
+def clear_typesafe_confidence_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep confidence behavior independent of the developer's shell."""
+    monkeypatch.delenv("TYPESAFE_MIN_CONFIDENCE", raising=False)
 
 
 def typesafe_choice(
@@ -68,9 +81,11 @@ def typesafe_choice(
     if "__none__" not in response_options:
         response_options.append("__none__")
     other_options = [option for option in response_options if option != choice]
-    remainder = (1.0 - confidence) / len(other_options)
+    option_count = len(response_options)
+    top_probability = confidence * (1.0 - (1.0 / option_count)) + (1.0 / option_count)
+    remainder = (1.0 - top_probability) / len(other_options)
     probabilities = {
-        option: confidence if option == choice else remainder for option in response_options
+        option: top_probability if option == choice else remainder for option in response_options
     }
     return {
         "model": model,
@@ -239,6 +254,471 @@ async def test_typesafe_invalid_selector_returns_default() -> None:
 
 
 @pytest.mark.asyncio
+async def test_typesafe_unmatched_selector_returns_default() -> None:
+    """A configured selector cannot silently widen TypeSafe's data scope."""
+    client = RecordingHttpClient(FakeResponse(typesafe_choice("$19.99", 0.99)))
+    extractor = LLMExtractor(
+        typesafe_api_key="test-key",
+        provider="typesafe",
+        http_client=client,
+    )
+    field = currency_field(-1.0).model_copy(update={"selector": ".invoice-total"})
+    soup = BeautifulSoup(
+        '<div class="private-profile">SSN context and balance: $19.99</div>',
+        "lxml",
+    )
+
+    result = await extractor.extract(soup, "total", field)
+
+    assert result == -1.0
+    assert client.calls == []
+
+
+@pytest.mark.asyncio
+async def test_typesafe_keeps_valid_amounts_near_numbers_and_operators() -> None:
+    """Nearby dates, percentages, labels, and ranges do not erase candidates."""
+    options = ["$50", "$100", "$20", "$80", "$75", "50 USD", "__none__"]
+    client = RecordingHttpClient(FakeResponse(typesafe_choice("$80", 0.99, options=options)))
+    extractor = LLMExtractor(
+        typesafe_api_key="test-key",
+        provider="typesafe",
+        http_client=client,
+    )
+    soup = BeautifulSoup(
+        "<p>Price $50 2026 edition; $50 20% off.</p>"
+        "<p>Subtotal: $100 - Discount: $20; Total $80.</p>"
+        "<p>Range: $50 - $75. Invoice 123 50 USD.</p>",
+        "lxml",
+    )
+
+    result = await extractor.extract(soup, "total", currency_field(-1.0))
+
+    assert result == 80.0
+    assert list(client.calls[0]["json"]["questions"]["currency_value"]["criteria"]) == options
+
+
+@pytest.mark.asyncio
+async def test_typesafe_preserves_element_boundaries_near_three_digit_cells() -> None:
+    """Adjacent table cells cannot be mistaken for grouped currency digits."""
+    options = ["$50.00", "234.56 USD", "__none__"]
+    client = RecordingHttpClient(FakeResponse(typesafe_choice("$50.00", 0.99, options=options)))
+    extractor = LLMExtractor(
+        typesafe_api_key="test-key",
+        provider="typesafe",
+        http_client=client,
+    )
+    soup = BeautifulSoup(
+        "<table><tr><td>$50.00</td><td>123</td><td>1</td><td>234.56 USD</td></tr></table>",
+        "lxml",
+    )
+
+    result = await extractor.extract(soup, "total", currency_field(-1.0))
+
+    assert result == 50.0
+    assert list(client.calls[0]["json"]["questions"]["currency_value"]["criteria"]) == options
+
+
+@pytest.mark.asyncio
+async def test_typesafe_fails_closed_for_signs_split_across_inline_elements() -> None:
+    """Ambiguous signed and range values split across inline markup are skipped."""
+    client = RecordingHttpClient(
+        FakeResponse(
+            typesafe_choice(
+                "$75.00",
+                0.99,
+                options=["$50.00", "$75.00", "__none__"],
+            )
+        )
+    )
+    extractor = LLMExtractor(
+        typesafe_api_key="test-key",
+        provider="typesafe",
+        http_client=client,
+    )
+    soup = BeautifulSoup(
+        "<p><span>-</span><span>$20.00</span></p>"
+        "<p><span>(</span><span>$30.00</span><span>)</span></p>"
+        "<p><span>$50.00</span><span>-</span><span>$75.00</span></p>",
+        "lxml",
+    )
+
+    result = await extractor.extract(soup, "range_end", currency_field(-1.0))
+
+    assert result == -1.0
+    assert client.calls == []
+
+
+@pytest.mark.asyncio
+async def test_typesafe_fails_closed_for_currency_split_across_inline_elements() -> None:
+    """Inline fragments cannot be joined into a fabricated shorter amount."""
+    client = RecordingHttpClient(FakeResponse(typesafe_choice("$1234.56", 0.99)))
+    extractor = LLMExtractor(
+        typesafe_api_key="test-key",
+        provider="typesafe",
+        http_client=client,
+    )
+    soup = BeautifulSoup(
+        "<p>Total: <span>$1</span><span>234</span><span>.56</span></p>",
+        "lxml",
+    )
+
+    result = await extractor.extract(soup, "total", currency_field(-1.0))
+
+    assert result == -1.0
+    assert client.calls == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "html",
+    ["<p>Total: $19\n.99</p>", "<p>Total: $1\n234.56</p>"],
+)
+async def test_typesafe_fails_closed_for_currency_split_by_source_newline(
+    html: str,
+) -> None:
+    """Literal source newlines cannot truncate or regroup a currency value."""
+    client = RecordingHttpClient(FakeResponse(typesafe_choice("$19", 0.99)))
+    extractor = LLMExtractor(
+        typesafe_api_key="test-key",
+        provider="typesafe",
+        http_client=client,
+    )
+
+    result = await extractor.extract(
+        BeautifulSoup(html, "lxml"),
+        "total",
+        currency_field(-1.0),
+    )
+
+    assert result == -1.0
+    assert client.calls == []
+
+
+@pytest.mark.asyncio
+async def test_typesafe_separates_buttons_and_semantic_grid_cells() -> None:
+    """Rendered item boundaries prevent adjacent digits from being fabricated."""
+    options = ["$10", "20 USD", "234 USD", "__none__"]
+    client = RecordingHttpClient(FakeResponse(typesafe_choice("234 USD", 0.99, options=options)))
+    extractor = LLMExtractor(
+        typesafe_api_key="test-key",
+        provider="typesafe",
+        http_client=client,
+    )
+    soup = BeautifulSoup(
+        "<button>$10</button><button>20 USD</button>"
+        '<div role="row" style="display:grid;gap:1rem">'
+        '<span role="cell">Items: 1</span><span role="cell">234 USD</span>'
+        "</div>",
+        "lxml",
+    )
+
+    result = await extractor.extract(soup, "total", currency_field(-1.0))
+
+    assert result == 234.0
+    criteria = client.calls[0]["json"]["questions"]["currency_value"]["criteria"]
+    assert list(criteria) == options
+
+
+@pytest.mark.asyncio
+async def test_typesafe_does_not_promote_html_comments_to_page_text() -> None:
+    """Boundary normalization cannot expose comment-only candidates."""
+    client = RecordingHttpClient(FakeResponse(typesafe_choice("$19.99", 0.99)))
+    extractor = LLMExtractor(
+        typesafe_api_key="test-key",
+        provider="typesafe",
+        http_client=client,
+    )
+    soup = BeautifulSoup(
+        "<!-- internal adjustment: $999.99 --><p>Total: $19.99</p>",
+        "lxml",
+    )
+
+    result = await extractor.extract(soup, "total", currency_field(-1.0))
+
+    assert result == 19.99
+    criteria = client.calls[0]["json"]["questions"]["currency_value"]["criteria"]
+    assert list(criteria) == ["$19.99", "__none__"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("document", ["$50.00 -", "$50.00\t+"])
+async def test_typesafe_rejects_whitespace_separated_trailing_sign(
+    document: str,
+) -> None:
+    """A separated postfix sign cannot turn a signed amount positive."""
+    client = RecordingHttpClient(FakeResponse(typesafe_choice("$50.00", 0.99)))
+    extractor = LLMExtractor(
+        typesafe_api_key="test-key",
+        provider="typesafe",
+        http_client=client,
+    )
+    soup = BeautifulSoup(f"<p>{document}</p>", "lxml")
+
+    result = await extractor.extract(soup, "total", currency_field(-1.0))
+
+    assert result == -1.0
+    assert client.calls == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "html",
+    [
+        "<p>Balance $50.00 -</p><p>Status closed</p>",
+        "<p>Balance 50.00 USD +</p><p>Status closed</p>",
+    ],
+)
+async def test_typesafe_rejects_trailing_sign_at_block_boundary(html: str) -> None:
+    """Later page blocks cannot make a postfix sign look binary."""
+    client = RecordingHttpClient(FakeResponse(typesafe_choice("$50.00", 0.99)))
+    extractor = LLMExtractor(
+        typesafe_api_key="test-key",
+        provider="typesafe",
+        http_client=client,
+    )
+
+    result = await extractor.extract(
+        BeautifulSoup(html, "lxml"),
+        "total",
+        currency_field(-1.0),
+    )
+
+    assert result == -1.0
+    assert client.calls == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("prefix", ["Invoice 1", "Paid in USD"])
+async def test_typesafe_block_boundary_terminates_left_operand(prefix: str) -> None:
+    """A prior block cannot convert the next block's unary minus to binary."""
+    client = RecordingHttpClient(FakeResponse(typesafe_choice("$50.00", 0.99)))
+    extractor = LLMExtractor(
+        typesafe_api_key="test-key",
+        provider="typesafe",
+        http_client=client,
+    )
+    soup = BeautifulSoup(f"<p>{prefix}</p><p>- $50.00</p>", "lxml")
+
+    result = await extractor.extract(soup, "total", currency_field(-1.0))
+
+    assert result == -1.0
+    assert client.calls == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "document",
+    ["Invoice 123 -$50.00", "Order 2026 + $75.00"],
+)
+async def test_typesafe_unrelated_number_is_not_a_binary_left_operand(
+    document: str,
+) -> None:
+    """Identifiers and dates cannot turn a unary sign into subtraction."""
+    client = RecordingHttpClient(FakeResponse(typesafe_choice("$50.00", 0.99)))
+    extractor = LLMExtractor(
+        typesafe_api_key="test-key",
+        provider="typesafe",
+        http_client=client,
+    )
+
+    result = await extractor.extract(
+        BeautifulSoup(f"<p>{document}</p>", "lxml"),
+        "total",
+        currency_field(-1.0),
+    )
+
+    assert result == -1.0
+    assert client.calls == []
+
+
+@pytest.mark.asyncio
+async def test_typesafe_inline_whitespace_cannot_expose_partial_decimal() -> None:
+    """Whitespace around an inline boundary cannot truncate a price."""
+    client = RecordingHttpClient(FakeResponse(typesafe_choice("$19", 0.99)))
+    extractor = LLMExtractor(
+        typesafe_api_key="test-key",
+        provider="typesafe",
+        http_client=client,
+    )
+    soup = BeautifulSoup(
+        "<p><span>$19 </span><span>.99</span></p>",
+        "lxml",
+    )
+
+    result = await extractor.extract(soup, "total", currency_field(-1.0))
+
+    assert result == -1.0
+    assert client.calls == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("html", "truncated_candidate"),
+    [
+        ("<p><span>$1,</span><span>234.56</span></p>", "$1"),
+        ("<p><span>$19.</span><span>99</span></p>", "$19"),
+        ("<p><span>$1, </span><span>234.56</span></p>", "$1"),
+        ("<p><span>$19. </span><span>99</span></p>", "$19"),
+    ],
+)
+async def test_typesafe_inline_punctuation_cannot_expose_partial_amount(
+    html: str,
+    truncated_candidate: str,
+) -> None:
+    """Punctuation before an inline boundary cannot truncate an amount."""
+    client = RecordingHttpClient(FakeResponse(typesafe_choice(truncated_candidate, 0.99)))
+    extractor = LLMExtractor(
+        typesafe_api_key="test-key",
+        provider="typesafe",
+        http_client=client,
+    )
+
+    result = await extractor.extract(
+        BeautifulSoup(html, "lxml"),
+        "total",
+        currency_field(-1.0),
+    )
+
+    assert result == -1.0
+    assert client.calls == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "document",
+    [
+        "-$50.00 -$75.00",
+        "+$50.00 -$75.00",
+        "SKU123$50.00 -$75.00",
+        "-$50 USD -$75.00",
+        "+$50 USD -$75.00",
+        "$1\n234 USD-$75.00",
+    ],
+)
+async def test_typesafe_invalid_left_token_cannot_authorize_signed_amount(
+    document: str,
+) -> None:
+    """Only a valid unsigned currency operand can make a later sign binary."""
+    client = RecordingHttpClient(FakeResponse(typesafe_choice("$75.00", 0.99)))
+    extractor = LLMExtractor(
+        typesafe_api_key="test-key",
+        provider="typesafe",
+        http_client=client,
+    )
+
+    result = await extractor.extract(
+        BeautifulSoup(f"<p>{document}</p>", "lxml"),
+        "total",
+        currency_field(-1.0),
+    )
+
+    assert result == -1.0
+    assert client.calls == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("document", "overlapping_candidate"),
+    [
+        ("-$50USD", "50USD"),
+        ("-€50EUR", "50EUR"),
+        ("($50USD)", "50USD"),
+    ],
+)
+async def test_typesafe_currency_code_cannot_overlap_signed_symbol_amount(
+    document: str,
+    overlapping_candidate: str,
+) -> None:
+    """A code-suffixed match cannot start inside a signed symbol amount."""
+    client = RecordingHttpClient(FakeResponse(typesafe_choice(overlapping_candidate, 0.99)))
+    extractor = LLMExtractor(
+        typesafe_api_key="test-key",
+        provider="typesafe",
+        http_client=client,
+    )
+
+    result = await extractor.extract(
+        BeautifulSoup(f"<p>{document}</p>", "lxml"),
+        "total",
+        currency_field(-1.0),
+    )
+
+    assert result == -1.0
+    assert client.calls == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("document", "truncated_candidate"),
+    [("$19. 99 USD", "99 USD"), ("1, 234.56 USD", "234.56 USD")],
+)
+async def test_typesafe_currency_code_cannot_start_in_partial_amount(
+    document: str,
+    truncated_candidate: str,
+) -> None:
+    """A code-suffixed tail cannot survive rejection of its numeric prefix."""
+    client = RecordingHttpClient(FakeResponse(typesafe_choice(truncated_candidate, 0.99)))
+    extractor = LLMExtractor(
+        typesafe_api_key="test-key",
+        provider="typesafe",
+        http_client=client,
+    )
+
+    result = await extractor.extract(
+        BeautifulSoup(f"<p>{document}</p>", "lxml"),
+        "total",
+        currency_field(-1.0),
+    )
+
+    assert result == -1.0
+    assert client.calls == []
+
+
+@pytest.mark.asyncio
+async def test_typesafe_valid_symbol_operand_can_precede_range_endpoint() -> None:
+    """An unsigned symbol amount with a currency label remains a valid operand."""
+    options = ["$50", "$75.00", "__none__"]
+    client = RecordingHttpClient(FakeResponse(typesafe_choice("$75.00", 0.99, options=options)))
+    extractor = LLMExtractor(
+        typesafe_api_key="test-key",
+        provider="typesafe",
+        http_client=client,
+    )
+
+    result = await extractor.extract(
+        BeautifulSoup("<p>$50 USD -$75.00</p>", "lxml"),
+        "range_end",
+        currency_field(-1.0),
+    )
+
+    assert result == 75.0
+    criteria = client.calls[0]["json"]["questions"]["currency_value"]["criteria"]
+    assert list(criteria) == options
+
+
+def test_typesafe_signed_chain_validation_work_is_bounded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Repeated signed tokens cannot make candidate validation recurse quadratically."""
+    original = typesafe_currency._is_unsigned_currency_match
+    call_count = 0
+
+    def counted(document: str, match: re.Match[str]) -> bool:
+        nonlocal call_count
+        call_count += 1
+        return original(document, match)
+
+    monkeypatch.setattr(typesafe_currency, "_is_unsigned_currency_match", counted)
+    token_count = 300
+    document = " -".join("$1" for _ in range(token_count))
+
+    candidates = typesafe_currency.TypeSafeCurrencySelector._find_candidates(document)
+
+    assert candidates == ["$1"]
+    assert call_count <= token_count * 2
+
+
+@pytest.mark.asyncio
 async def test_typesafe_finds_candidate_after_claude_text_limit() -> None:
     """Candidate discovery is not limited by Claude's 4,000-character prompt cap."""
     client = RecordingHttpClient(FakeResponse(typesafe_choice("$19.99", 0.99)))
@@ -340,6 +820,27 @@ async def test_typesafe_skips_request_when_choice_limit_would_overflow() -> None
 
 
 @pytest.mark.asyncio
+async def test_typesafe_accepts_full_documented_choice_limit() -> None:
+    """All 254 candidates plus no-match fit in one bounded Choice request."""
+    candidates = [f"${value}.00" for value in range(254)]
+    options = [*candidates, "__none__"]
+    client = RecordingHttpClient(FakeResponse(typesafe_choice("$253.00", 0.99, options=options)))
+    extractor = LLMExtractor(
+        typesafe_api_key="test-key",
+        provider="typesafe",
+        http_client=client,
+    )
+    soup = BeautifulSoup(f"<p>{' '.join(candidates)}</p>", "lxml")
+
+    result = await extractor.extract(soup, "total", currency_field(-1.0))
+
+    assert result == 253.0
+    request = client.calls[0]["json"]
+    assert list(request["questions"]["currency_value"]["criteria"]) == options
+    assert len(request["state"]["document"]) < 24_000
+
+
+@pytest.mark.asyncio
 async def test_typesafe_skips_request_without_api_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -348,6 +849,44 @@ async def test_typesafe_skips_request_without_api_key(
     client = RecordingHttpClient(FakeResponse(typesafe_choice("$19.99", 0.99)))
     extractor = LLMExtractor(provider="typesafe", http_client=client)
     soup = BeautifulSoup("<p>Total: $19.99</p>", "lxml")
+
+    result = await extractor.extract(soup, "total", currency_field(-1.0))
+
+    assert result == -1.0
+    assert client.calls == []
+
+
+@pytest.mark.asyncio
+async def test_typesafe_explicit_empty_api_key_does_not_use_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An explicitly empty credential cannot fall back to an ambient key."""
+    monkeypatch.setenv("TYPESAFE_API_KEY", "ambient-test-key")
+    client = RecordingHttpClient(FakeResponse(typesafe_choice("$19.99", 0.99)))
+    extractor = LLMExtractor(
+        typesafe_api_key="",
+        provider="typesafe",
+        http_client=client,
+    )
+    soup = BeautifulSoup("<p>Total: $19.99</p>", "lxml")
+
+    result = await extractor.extract(soup, "total", currency_field(-1.0))
+
+    assert result == -1.0
+    assert client.calls == []
+
+
+@pytest.mark.asyncio
+async def test_typesafe_rejects_currency_too_large_for_finite_float() -> None:
+    """An oversized amount cannot become infinity downstream."""
+    candidate = f"${'9' * 400}"
+    client = RecordingHttpClient(FakeResponse(typesafe_choice(candidate, 0.99)))
+    extractor = LLMExtractor(
+        typesafe_api_key="test-key",
+        provider="typesafe",
+        http_client=client,
+    )
+    soup = BeautifulSoup(f"<p>Total: {candidate}</p>", "lxml")
 
     result = await extractor.extract(soup, "total", currency_field(-1.0))
 
@@ -462,6 +1001,48 @@ async def test_typesafe_retries_transient_rate_limit(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "failure",
+    [FakeResponse(status_code=408), FakeResponse(status_code=503), TimeoutError()],
+)
+async def test_typesafe_retries_other_transient_failures(
+    monkeypatch: pytest.MonkeyPatch,
+    failure: FakeResponse | Exception,
+) -> None:
+    """Bounded retries cover transient HTTP and transport failures."""
+    monkeypatch.setattr(typesafe_currency, "_RETRY_BASE_DELAY_SECONDS", 0.0)
+    client = RecordingHttpClient([failure, FakeResponse(typesafe_choice("$19.99", 0.99))])
+    extractor = LLMExtractor(
+        typesafe_api_key="test-key",
+        provider="typesafe",
+        http_client=client,
+    )
+    soup = BeautifulSoup("<p>Total: $19.99</p>", "lxml")
+
+    result = await extractor.extract(soup, "total", currency_field(-1.0))
+
+    assert result == 19.99
+    assert len(client.calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_typesafe_boolean_confidence_threshold_fails_closed() -> None:
+    """A bool cannot disable the configured uncertainty gate."""
+    client = RecordingHttpClient(FakeResponse(typesafe_choice("$19.99", 0.5)))
+    extractor = LLMExtractor(
+        typesafe_api_key="test-key",
+        provider="typesafe",
+        http_client=client,
+        min_confidence=False,
+    )
+    soup = BeautifulSoup("<p>Total: $19.99</p>", "lxml")
+
+    result = await extractor.extract(soup, "total", currency_field(-1.0))
+
+    assert result == -1.0
+
+
+@pytest.mark.asyncio
 async def test_typesafe_malformed_response_returns_default() -> None:
     """Incomplete response JSON is treated as a provider failure."""
     client = RecordingHttpClient(FakeResponse({"answers": {}}))
@@ -499,6 +1080,40 @@ async def test_typesafe_missing_probabilities_returns_default() -> None:
         http_client=client,
     )
     soup = BeautifulSoup("<p>Total: $19.99</p>", "lxml")
+
+    result = await extractor.extract(soup, "total", currency_field(-1.0))
+
+    assert result == -1.0
+
+
+@pytest.mark.asyncio
+async def test_typesafe_rejects_confidence_inconsistent_with_probabilities() -> None:
+    """A forged high confidence cannot override a nearly flat distribution."""
+    client = RecordingHttpClient(
+        FakeResponse(
+            {
+                "answers": {
+                    "currency_value": {
+                        "type": "choice",
+                        "choice": "$19.99",
+                        "confidence": 0.99,
+                        "probabilities": {
+                            "$19.99": 0.34,
+                            "$20.00": 0.33,
+                            "__none__": 0.33,
+                        },
+                    }
+                }
+            }
+        )
+    )
+    extractor = LLMExtractor(
+        typesafe_api_key="test-key",
+        provider="typesafe",
+        http_client=client,
+        min_confidence=0.8,
+    )
+    soup = BeautifulSoup("<p>Total: $19.99 or $20.00</p>", "lxml")
 
     result = await extractor.extract(soup, "total", currency_field(-1.0))
 
