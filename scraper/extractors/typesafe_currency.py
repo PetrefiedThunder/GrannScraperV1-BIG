@@ -245,18 +245,22 @@ def _has_spaced_numeric_suffix(document: str, end: int) -> bool:
 
 
 def _has_inline_numeric_suffix(document: str, end: int) -> bool:
-    """Detect a numeric continuation immediately after one inline boundary."""
+    """Detect a numeric continuation after an inline or structural boundary."""
     if _has_spaced_numeric_suffix(document, end):
         return True
     boundary = end
+    separator_before_boundary = False
     if boundary < len(document) and document[boundary] in _NUMBER_GROUP_SEPARATORS:
+        separator_before_boundary = True
         boundary += 1
     if boundary >= len(document) or document[boundary] != "\n":
         return False
-    continuation = boundary + 1
-    if continuation >= len(document) or document[continuation] == "\n":
+    continuation = boundary
+    while continuation < len(document) and _is_currency_gap(document[continuation]):
+        continuation += 1
+    if continuation >= len(document):
         return False
-    if document[continuation].isdigit():
+    if separator_before_boundary and document[continuation].isdigit():
         return True
     return (
         document[continuation] in _NUMBER_GROUP_SEPARATORS

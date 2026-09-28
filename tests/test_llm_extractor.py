@@ -597,6 +597,44 @@ async def test_typesafe_inline_punctuation_cannot_expose_partial_amount(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
+    ("html", "truncated_candidate"),
+    [
+        (
+            '<p><span style="display:inline-block">$19</span>'
+            '<span style="display:inline-block">.99</span></p>',
+            "$19",
+        ),
+        (
+            '<p><span style="display:inline-flex">$1,</span>'
+            '<span style="display:inline-grid">234.56</span></p>',
+            "$1",
+        ),
+    ],
+)
+async def test_typesafe_inline_box_cannot_expose_partial_amount(
+    html: str,
+    truncated_candidate: str,
+) -> None:
+    """Inline CSS boxes cannot expose a prefix of one split amount."""
+    client = RecordingHttpClient(FakeResponse(typesafe_choice(truncated_candidate, 0.99)))
+    extractor = LLMExtractor(
+        typesafe_api_key="test-key",
+        provider="typesafe",
+        http_client=client,
+    )
+
+    result = await extractor.extract(
+        BeautifulSoup(html, "lxml"),
+        "total",
+        currency_field(-1.0),
+    )
+
+    assert result == -1.0
+    assert client.calls == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
     "document",
     [
         "-$50.00 -$75.00",
