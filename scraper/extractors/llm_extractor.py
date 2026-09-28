@@ -7,7 +7,7 @@ from typing import Any, Optional
 
 from bs4 import BeautifulSoup
 
-from scraper.config.models import FieldConfig
+from scraper.config.models import FieldConfig, FieldType
 from scraper.extractors.base_extractor import BaseExtractor
 from scraper.extractors.typesafe_currency import (
     TypeSafeCurrencySelector,
@@ -34,6 +34,7 @@ class LLMExtractor(BaseExtractor):
         self,
         api_key: str | None = None,
         *,
+        typesafe_api_key: str | None = None,
         provider: str | None = None,
         http_client: TypeSafeHttpClient | None = None,
         min_confidence: float | None = None,
@@ -42,7 +43,8 @@ class LLMExtractor(BaseExtractor):
         Initialize LLM extractor.
 
         Args:
-            api_key: Provider API key (defaults to the provider's env var)
+            api_key: Anthropic API key (defaults to ``ANTHROPIC_API_KEY``)
+            typesafe_api_key: TypeSafe API key (defaults to ``TYPESAFE_API_KEY``)
             provider: ``anthropic`` (default) or the currency-only ``typesafe`` pilot
             http_client: Optional injected HTTP client for TypeSafe
             min_confidence: Minimum TypeSafe confidence accepted by the pilot
@@ -50,17 +52,18 @@ class LLMExtractor(BaseExtractor):
         configured_provider = (
             provider or os.getenv("SCRAPER_LLM_PROVIDER") or "anthropic"
         )
-        self.provider = configured_provider.lower()
+        self.provider = configured_provider.strip().lower()
+        if self.provider not in {"anthropic", "typesafe"}:
+            raise ValueError(f"Unsupported LLM provider: {self.provider}")
+        self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
         self._typesafe_selector: TypeSafeCurrencySelector | None
         if self.provider == "typesafe":
-            self.api_key = api_key or os.getenv("TYPESAFE_API_KEY")
             self._typesafe_selector = TypeSafeCurrencySelector(
-                api_key=self.api_key,
+                api_key=typesafe_api_key,
                 http_client=http_client,
                 min_confidence=min_confidence,
             )
         else:
-            self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
             self._typesafe_selector = None
         self._client = None
 
@@ -96,18 +99,33 @@ class LLMExtractor(BaseExtractor):
         Returns:
             Extracted value with confidence
         """
-        if self.provider == "typesafe":
+        if (
+            self.provider == "typesafe"
+            and field_config.type == FieldType.CURRENCY
+            and not field_config.multiple
+        ):
             if self._typesafe_selector is None:
                 return field_config.default
-            html_snippet = self._get_relevant_html(soup, field_config)
-            selected = await self._typesafe_selector.select(
-                html_snippet,
-                field_name,
-                field_config,
-            )
-            if selected is None:
+            try:
+                html_snippet = self._get_relevant_html(
+                    soup,
+                    field_config,
+                    max_chars=None,
+                )
+                selected = await self._typesafe_selector.select(
+                    html_snippet,
+                    field_name,
+                    field_config,
+                )
+                if selected is None:
+                    return field_config.default
+                return self._parse_llm_response(selected, field_config)
+            except Exception as error:
+                logger.warning(
+                    "TypeSafe extraction preparation failed (%s)",
+                    type(error).__name__,
+                )
                 return field_config.default
-            return self._parse_llm_response(selected, field_config)
 
         client = self._get_client()
         if not client:
@@ -143,7 +161,10 @@ class LLMExtractor(BaseExtractor):
             return field_config.default
 
     def _get_relevant_html(
-        self, soup: BeautifulSoup, field_config: FieldConfig
+        self,
+        soup: BeautifulSoup,
+        field_config: FieldConfig,
+        max_chars: int | None = 4000,
     ) -> str:
         """
         Get relevant HTML snippet for LLM processing.
@@ -151,6 +172,7 @@ class LLMExtractor(BaseExtractor):
         Args:
             soup: Full page soup
             field_config: Field config
+            max_chars: Optional text limit; ``None`` preserves all cleaned text
 
         Returns:
             HTML snippet (simplified)
@@ -177,8 +199,7 @@ class LLMExtractor(BaseExtractor):
         simplified = snippet_soup.get_text(separator=" ", strip=True)
 
         # Truncate if too long (keep token count reasonable)
-        max_chars = 4000
-        if len(simplified) > max_chars:
+        if max_chars is not None and len(simplified) > max_chars:
             simplified = simplified[:max_chars] + "..."
 
         return simplified
@@ -237,8 +258,6 @@ Extracted value:"""
             return field_config.default
 
         # Try to parse based on field type
-        from scraper.config.models import FieldType
-
         field_type = field_config.type
 
         try:
