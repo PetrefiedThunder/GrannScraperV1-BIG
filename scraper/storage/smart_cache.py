@@ -212,7 +212,7 @@ class SmartCache:
 
             conn.commit()
 
-    def cache_incremental_items(self, items: List[Dict[str, Any]], source_url: str):
+    def cache_incremental_items(self, items: list[dict[str, Any]], source_url: str) -> None:
         """Persist a successful extraction snapshot and its freshness together."""
         # Keep the existing item index populated; page metadata is authoritative
         # for replay because item hashes alone do not preserve source or order.
@@ -236,7 +236,7 @@ class SmartCache:
                 json.dumps(metadata),
             ))
 
-    def get_cached_items(self, source_url: str) -> List[Dict[str, Any]]:
+    def get_cached_items(self, source_url: str) -> list[dict[str, Any]]:
         """Return the exact extraction snapshot, or legacy cached items."""
         with sqlite3.connect(str(self.db_path)) as conn:
             page = conn.execute(
@@ -244,7 +244,8 @@ class SmartCache:
             ).fetchone()
             metadata = json.loads(page[0]) if page and page[0] else {}
             if "_incremental_items" in metadata:
-                return metadata["_incremental_items"]
+                items: list[dict[str, Any]] = metadata["_incremental_items"]
+                return items
             rows = conn.execute(
                 "SELECT data FROM item_cache WHERE source_url = ? ORDER BY rowid",
                 (source_url,),

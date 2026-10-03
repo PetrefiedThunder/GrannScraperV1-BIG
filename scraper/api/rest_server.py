@@ -251,7 +251,7 @@ async def _execute_job(
             urls = await engine._generate_urls(job)
 
             # Scrape incrementally
-            async def scrape_incremental_url(url):
+            async def scrape_incremental_url(url: str) -> list[dict[str, Any]]:
                 page_job = job.model_copy(deep=True)
                 page_job.start_url = url
                 if page_job.pagination.mode == "url_pattern":
@@ -276,6 +276,7 @@ async def _execute_job(
                 pages_visited=result_data['stats']['urls_scraped'],
                 start_time=start_time,
                 end_time=datetime.utcnow(),
+                duration_seconds=None,
                 data=items,
                 metadata=result_data['stats']
             )
