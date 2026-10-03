@@ -39,3 +39,9 @@ test('FE-001 root dashboard resolves its script and initializes jobs', async t =
   assert.match(document.querySelector('#job-list').textContent, /No jobs yet/);
   assert.equal(document.querySelector('#job-list-loading').classList.contains('hidden'), true);
 });
+
+test('FE-004 dashboard requests use the serving origin', async t => {
+  const { state } = await dashboard(t);
+  assert.ok(state.requests.length > 0);
+  assert.deepEqual([...new Set(state.requests.map(request => request.url.origin))], ['http://127.0.0.1:18765']);
+});

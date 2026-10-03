@@ -135,7 +135,6 @@ for (const format of ['json', 'excel']) {
 test('FE-004 dashboard API requests use the serving origin', async ({ page }) => {
   const state = await setup(page);
   await openWorkingAssetPath(page);
-  test.fail(true, 'FE-004: API_BASE is permanently http://localhost:8000/api/v1');
   expect([...new Set(state.requests.map(request => new URL(request.url).origin))]).toEqual([new URL(page.url()).origin]);
 });
 
