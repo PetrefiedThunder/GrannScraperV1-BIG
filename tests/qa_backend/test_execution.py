@@ -30,7 +30,6 @@ async def test_standard_api_run_persists_success(client, job, monkeypatch):
     assert status["is_running"] is False
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-002: concurrent workers never exit once active_workers reaches zero")
 async def test_concurrent_scraper_finishes_after_completed_work(job, monkeypatch):
     scraper = ConcurrentScraper(job, max_workers=2)
     await scraper.add_urls([job.start_url])
