@@ -1,0 +1,14 @@
+[
+  {
+    "text": "Error: Temporary QA fixture outage",
+    "role": null,
+    "live": null,
+    "ancestorLive": false
+  },
+  {
+    "text": "Failed to start scrape: Temporary QA fixture outage",
+    "role": null,
+    "live": null,
+    "ancestorLive": false
+  }
+]

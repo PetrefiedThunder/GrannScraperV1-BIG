@@ -1,0 +1,1180 @@
+"""
+Core scraping engine.
+
+Orchestrates fetchers, extractors, pagination, and data flow.
+"""
+
+import asyncio
+import logging
+from datetime import datetime
+from typing import Any, Optional
+from urllib.parse import urljoin
+
+from bs4 import BeautifulSoup
+
+from scraper.config.models import (
+    FieldType,
+    PaginationMode,
+    ScrapeJob,
+    ScrapeResult,
+)
+from scraper.core.fetcher_browser import BrowserFetcher
+from scraper.core.fetcher_static import StaticFetcher
+from scraper.core.rate_limiter import RateLimiter, SessionManager
+from scraper.extractors.selector_extractor import (
+    MediaExtractor,
+    SelectorExtractor,
+    TableExtractor,
+)
+from scraper.extractors.llm_extractor import LLMExtractor
+
+logger = logging.getLogger(__name__)
+
+
+class ScraperEngine:
+    """
+    Main scraping engine.
+
+    Coordinates:
+    - Fetching (static or browser)
+    - Extraction (selectors, tables, media, LLM)
+    - Pagination (next button, URL pattern, infinite scroll)
+    - Rate limiting & session management
+    - Result aggregation
+    """
+
+    def __init__(self):
+        """Initialize scraper engine."""
+        self.session_manager = SessionManager()
+
+    async def run_job(self, job: ScrapeJob) -> ScrapeResult:
+        """
+        Execute a complete scrape job.
+
+        Args:
+            job: ScrapeJob configuration
+
+        Returns:
+            ScrapeResult with scraped data and metadata
+        """
+        logger.info(f"Starting job: {job.name}")
+        start_time = datetime.utcnow()
+
+        result = ScrapeResult(
+            job_id=job.id,
+            status="success",
+            start_time=start_time,
+        )
+
+        try:
+            # Initialize components
+            rate_limiter = RateLimiter(job.rate_limit)
+            selector_extractor = SelectorExtractor()
+            table_extractor = TableExtractor()
+            media_extractor = MediaExtractor()
+            llm_extractor = LLMExtractor() if self._has_llm_fields(job) else None
+
+            # Choose fetcher based on job config
+            use_browser = job.browser.enabled or self._needs_browser(job)
+
+            if use_browser:
+                logger.info("Using browser fetcher")
+                fetcher = BrowserFetcher(job)
+            else:
+                logger.info("Using static fetcher")
+                fetcher = StaticFetcher(job)
+
+            async with fetcher:
+                # Generate URLs to scrape
+                urls = await self._generate_urls(job)
+
+                logger.info(f"Will scrape {len(urls)} URLs")
+
+                # Scrape each URL
+                for i, url in enumerate(urls):
+                    if job.max_items and len(result.data) >= job.max_items:
+                        logger.info(f"Reached max items limit: {job.max_items}")
+                        break
+
+                    # Rate limiting
+                    from urllib.parse import urlparse
+                    domain = urlparse(url).netloc
+                    await rate_limiter.acquire(domain)
+
+                    try:
+                        # Fetch page
+                        soup, html = await fetcher.fetch(url)
+
+                        if not soup:
+                            result.errors.append(f"Failed to fetch {url}")
+                            self.session_manager.mark_failed(url)
+                            continue
+
+                        self.session_manager.mark_visited(url)
+                        result.pages_visited += 1
+
+                        # Extract items from page
+                        items = await self._extract_items(
+                            soup,
+                            html,
+                            job,
+                            url,
+                            selector_extractor,
+                            table_extractor,
+                            media_extractor,
+                            llm_extractor,
+                        )
+
+                        result.data.extend(items)
+                        result.items_scraped += len(items)
+
+                        logger.info(
+                            f"Page {i + 1}/{len(urls)}: "
+                            f"Extracted {len(items)} items "
+                            f"(total: {result.items_scraped})"
+                        )
+
+                    except Exception as e:
+                        error_msg = f"Error scraping {url}: {e}"
+                        logger.error(error_msg)
+                        result.errors.append(error_msg)
+                        self.session_manager.mark_failed(url)
+
+                    finally:
+                        rate_limiter.release(domain)
+
+            # Finalize result
+            result.end_time = datetime.utcnow()
+            result.duration_seconds = (
+                result.end_time - result.start_time
+            ).total_seconds()
+
+            if result.errors:
+                result.status = "partial" if result.data else "failed"
+
+            result.metadata = {
+                "session_stats": self.session_manager.get_stats(),
+                "job_name": job.name,
+                "job_id": job.id,
+            }
+
+            logger.info(
+                f"Job completed: {result.items_scraped} items, "
+                f"{result.pages_visited} pages, "
+                f"{len(result.errors)} errors"
+            )
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Job failed: {e}")
+            result.end_time = datetime.utcnow()
+            result.status = "failed"
+            result.errors.append(str(e))
+            return result
+
+    async def _generate_urls(self, job: ScrapeJob) -> list[str]:
+        """
+        Generate list of URLs to scrape based on pagination config.
+
+        Args:
+            job: ScrapeJob configuration
+
+        Returns:
+            List of URLs
+        """
+        urls = [job.start_url]
+
+        pagination = job.pagination
+
+        if pagination.mode == PaginationMode.NONE:
+            return urls
+
+        elif pagination.mode == PaginationMode.URL_PATTERN:
+            # Generate URLs from pattern
+            if pagination.url_pattern:
+                urls = []
+                for page_num in range(
+                    pagination.start_page,
+                    pagination.start_page + pagination.max_pages
+                ):
+                    url = pagination.url_pattern.format(page=page_num)
+                    urls.append(url)
+
+        elif pagination.mode == PaginationMode.NEXT_BUTTON:
+            # Will handle dynamically during scraping
+            # For now, return start URL
+            pass
+
+        elif pagination.mode == PaginationMode.INFINITE_SCROLL:
+            # Handled by browser fetcher
+            # Return single URL
+            pass
+
+        return urls
+
+    async def _extract_items(
+        self,
+        soup: BeautifulSoup,
+        html: str,
+        job: ScrapeJob,
+        url: str,
+        selector_extractor: SelectorExtractor,
+        table_extractor: TableExtractor,
+        media_extractor: MediaExtractor,
+        llm_extractor: Optional[LLMExtractor],
+    ) -> list[dict[str, Any]]:
+        """
+        Extract items from a page.
+
+        Args:
+            soup: Parsed HTML
+            html: Raw HTML
+            job: Job configuration
+            url: Current URL
+            selector_extractor: Selector extractor
+            table_extractor: Table extractor
+            media_extractor: Media extractor
+            llm_extractor: Optional LLM extractor
+
+        Returns:
+            List of extracted items (dicts)
+        """
+        items = []
+
+        # If item_selector is provided, extract multiple items
+        if job.item_selector:
+            item_elements = soup.select(job.item_selector)
+            logger.debug(f"Found {len(item_elements)} items with selector {job.item_selector}")
+
+            for item_element in item_elements:
+                # Create a soup for just this item
+                item_soup = BeautifulSoup(str(item_element), "lxml")
+
+                # Extract fields from this item
+                item_data = await self._extract_fields(
+                    item_soup,
+                    job,
+                    url,
+                    selector_extractor,
+                    table_extractor,
+                    media_extractor,
+                    llm_extractor,
+                )
+
+                if item_data:
+                    items.append(item_data)
+
+        else:
+            # Extract from entire page (single item)
+            item_data = await self._extract_fields(
+                soup,
+                job,
+                url,
+                selector_extractor,
+                table_extractor,
+                media_extractor,
+                llm_extractor,
+            )
+
+            if item_data:
+                items.append(item_data)
+
+        return items
+
+    async def _extract_fields(
+        self,
+        soup: BeautifulSoup,
+        job: ScrapeJob,
+        url: str,
+        selector_extractor: SelectorExtractor,
+        table_extractor: TableExtractor,
+        media_extractor: MediaExtractor,
+        llm_extractor: Optional[LLMExtractor],
+    ) -> dict[str, Any]:
+        """
+        Extract all configured fields from soup.
+
+        Args:
+            soup: Parsed HTML (for single item or full page)
+            job: Job configuration
+            url: Current URL
+            selector_extractor: Selector extractor
+            table_extractor: Table extractor
+            media_extractor: Media extractor
+            llm_extractor: Optional LLM extractor
+
+        Returns:
+            Dict of field values
+        """
+        data = {}
+        context = {"url": url}
+
+        for field_name, field_config in job.fields.items():
+            try:
+                # Choose extractor based on config
+                if field_config.use_llm and llm_extractor:
+                    value = await llm_extractor.extract(
+                        soup, field_name, field_config, context
+                    )
+                elif field_config.selector and "table" in field_config.selector.lower():
+                    # Heuristic: if selector contains "table", use table extractor
+                    value = await table_extractor.extract(
+                        soup, field_name, field_config, context
+                    )
+                elif field_config.type in (FieldType.URL,) or "img" in str(field_config.selector):
+                    # Use media extractor for images/videos
+                    value = await media_extractor.extract(
+                        soup, field_name, field_config, context
+                    )
+                else:
+                    # Default: selector extractor
+                    value = await selector_extractor.extract(
+                        soup, field_name, field_config, context
+                    )
+
+                # Type conversion
+                if value is not None:
+                    value = self._convert_type(value, field_config.type)
+
+                data[field_name] = value
+"""
+High-performance concurrent scraping engine.
+
+Intelligently parallelizes scraping with:
+- Smart queue management
+- Automatic retry with backoff
+- Domain-aware concurrency limits
+- Progress tracking
+- Memory-efficient streaming
+"""
+
+import asyncio
+import logging
+from collections import defaultdict
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any, Callable, Dict, List, Optional
+from urllib.parse import urlparse
+
+from scraper.config.models import ScrapeJob, ScrapeResult
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ScrapeTask:
+    """Individual scrape task."""
+    url: str
+    priority: int = 0
+    retry_count: int = 0
+    metadata: Dict[str, Any] = None
+
+
+class ConcurrentScraper:
+    """
+    High-performance concurrent scraper with intelligent queuing.
+
+    Features:
+    - Domain-aware concurrency (don't overwhelm single domain)
+    - Priority queue for important pages first
+    - Automatic retry with exponential backoff
+    - Progress tracking and estimation
+    - Memory-efficient streaming results
+    """
+
+    def __init__(self, job: ScrapeJob, max_workers: int = 10):
+        self.job = job
+        self.max_workers = max_workers
+        self.max_workers_per_domain = 2  # Politeness: max 2 concurrent per domain
+
+        self.task_queue: asyncio.Queue = asyncio.Queue()
+        self.result_queue: asyncio.Queue = asyncio.Queue()
+
+        self.domain_semaphores: Dict[str, asyncio.Semaphore] = defaultdict(
+            lambda: asyncio.Semaphore(self.max_workers_per_domain)
+        )
+
+        self.active_workers = 0
+        self.completed_tasks = 0
+        self.failed_tasks = 0
+        self.total_tasks = 0
+
+        self.start_time: Optional[datetime] = None
+        self.stats = {
+            'domains_scraped': set(),
+            'total_bytes': 0,
+            'total_items': 0,
+        }
+
+    async def add_task(self, task: ScrapeTask):
+        """Add task to queue."""
+        await self.task_queue.put(task)
+        self.total_tasks += 1
+
+    async def add_urls(self, urls: List[str], priority: int = 0):
+        """Add multiple URLs to queue."""
+        for url in urls:
+            await self.add_task(ScrapeTask(url=url, priority=priority))
+
+    async def worker(self, worker_id: int, scrape_func: Callable):
+        """Worker that processes tasks from queue."""
+        logger.debug(f"Worker {worker_id} started")
+
+        while True:
+            try:
+                # Get task with timeout to allow graceful shutdown
+                task = await asyncio.wait_for(
+                    self.task_queue.get(),
+                    timeout=5.0
+                )
+            except asyncio.TimeoutError:
+                # Check if queue is empty and no workers active
+                if self.task_queue.empty() and self.active_workers == 1:
+                    break
+                continue
+
+            self.active_workers += 1
+
+            try:
+                # Get domain for rate limiting
+                domain = urlparse(task.url).netloc
+                self.stats['domains_scraped'].add(domain)
+
+                # Acquire domain semaphore (rate limit per domain)
+                async with self.domain_semaphores[domain]:
+                    logger.info(f"Worker {worker_id} scraping: {task.url}")
+
+                    # Execute scrape
+                    result = await scrape_func(task.url)
+
+                    if result:
+                        # Success
+                        await self.result_queue.put({
+                            'status': 'success',
+                            'url': task.url,
+                            'data': result,
+                            'task': task
+                        })
+                        self.completed_tasks += 1
+
+                    else:
+                        # Failed but might retry
+                        if task.retry_count < self.job.retry.max_retries:
+                            # Re-queue with backoff
+                            task.retry_count += 1
+                            backoff = self.job.retry.backoff_factor ** task.retry_count
+                            await asyncio.sleep(backoff)
+                            await self.add_task(task)
+                            logger.info(f"Retry {task.retry_count} for {task.url}")
+                        else:
+                            # Max retries exceeded
+                            await self.result_queue.put({
+                                'status': 'failed',
+                                'url': task.url,
+                                'error': 'Max retries exceeded',
+                                'task': task
+                            })
+                            self.failed_tasks += 1
+
+            except Exception as e:
+                logger.error(f"Worker {worker_id} error on {task.url}: {e}")
+                await self.result_queue.put({
+                    'status': 'error',
+                    'url': task.url,
+                    'error': str(e),
+                    'task': task
+                })
+                self.failed_tasks += 1
+
+            finally:
+                self.active_workers -= 1
+                self.task_queue.task_done()
+
+        logger.debug(f"Worker {worker_id} finished")
+
+    async def run(self, scrape_func: Callable) -> ScrapeResult:
+        """
+        Run concurrent scraping.
+
+        Args:
+            scrape_func: Async function that takes URL and returns scraped data
+
+        Returns:
+            ScrapeResult
+        """
+        self.start_time = datetime.utcnow()
+
+        result = ScrapeResult(
+            job_id=self.job.id,
+            status='success',
+            start_time=self.start_time,
+        )
+
+        # Start workers
+        workers = [
+            asyncio.create_task(self.worker(i, scrape_func))
+            for i in range(self.max_workers)
+        ]
+
+        # Process results as they come in
+        results_processed = 0
+        while results_processed < self.total_tasks:
+            try:
+                # Get result with timeout
+                item = await asyncio.wait_for(
+                    self.result_queue.get(),
+                    timeout=10.0
+                )
+
+                results_processed += 1
+
+                if item['status'] == 'success':
+                    if isinstance(item['data'], list):
+                        result.data.extend(item['data'])
+                        result.items_scraped += len(item['data'])
+                    else:
+                        result.data.append(item['data'])
+                        result.items_scraped += 1
+
+                    result.pages_visited += 1
+
+                else:
+                    error_msg = f"{item['url']}: {item.get('error', 'Unknown error')}"
+                    result.errors.append(error_msg)
+
+                # Progress update
+                progress = (results_processed / self.total_tasks) * 100
+                logger.info(f"Progress: {progress:.1f}% ({results_processed}/{self.total_tasks})")
+
+            except asyncio.TimeoutError:
+                # Check if all tasks are done
+                if self.task_queue.empty() and self.active_workers == 0:
+                    break
+
+        # Wait for all workers to finish
+        await asyncio.gather(*workers, return_exceptions=True)
+
+        # Finalize result
+        result.end_time = datetime.utcnow()
+        result.duration_seconds = (result.end_time - result.start_time).total_seconds()
+
+        result.metadata = {
+            'job_name': self.job.name,
+            'job_id': self.job.id,
+            'completed_tasks': self.completed_tasks,
+            'failed_tasks': self.failed_tasks,
+            'total_tasks': self.total_tasks,
+            'domains_scraped': len(self.stats['domains_scraped']),
+            'average_speed': result.items_scraped / result.duration_seconds if result.duration_seconds > 0 else 0,
+        }
+
+        if result.errors:
+            result.status = 'partial' if result.data else 'failed'
+
+        logger.info(
+            f"Concurrent scraping completed: "
+            f"{result.items_scraped} items, "
+            f"{result.pages_visited} pages, "
+            f"{len(result.errors)} errors, "
+            f"{result.duration_seconds:.2f}s"
+        )
+
+        return result
+
+    def get_progress(self) -> Dict[str, Any]:
+        """Get current progress statistics."""
+        if not self.start_time:
+            return {}
+
+        elapsed = (datetime.utcnow() - self.start_time).total_seconds()
+        tasks_done = self.completed_tasks + self.failed_tasks
+
+        return {
+            'total_tasks': self.total_tasks,
+            'completed': self.completed_tasks,
+            'failed': self.failed_tasks,
+            'pending': self.total_tasks - tasks_done,
+            'active_workers': self.active_workers,
+            'elapsed_seconds': elapsed,
+            'tasks_per_second': tasks_done / elapsed if elapsed > 0 else 0,
+            'estimated_remaining_seconds': (
+                (self.total_tasks - tasks_done) / (tasks_done / elapsed)
+                if elapsed > 0 and tasks_done > 0 else None
+            ),
+        }
+
+
+class StreamingScraper:
+    """
+    Memory-efficient streaming scraper for large datasets.
+
+    Processes and exports results as they're scraped, without
+    holding everything in memory.
+    """
+
+    def __init__(self, job: ScrapeJob):
+        self.job = job
+        self.item_count = 0
+        self.page_count = 0
+
+    async def stream_to_file(
+        self,
+        scrape_func: Callable,
+        urls: List[str],
+        output_file: str
+    ):
+        """
+        Stream results directly to file without loading all in memory.
+
+        Perfect for scraping millions of items.
+        """
+        import aiofiles
+        import json
+
+        async with aiofiles.open(output_file, 'w') as f:
+            # Write header
+            await f.write('[\n')
+
+            first_item = True
+
+"""
+Intelligent caching and incremental scraping.
+
+Only scrapes what has changed since last run,
+saving massive amounts of time and bandwidth.
+"""
+
+import hashlib
+import json
+import logging
+import sqlite3
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Set, Tuple
+
+logger = logging.getLogger(__name__)
+
+
+class SmartCache:
+    """
+    Intelligent caching system for scraped data.
+
+    Features:
+    - Content-based change detection
+    - Incremental updates (only scrape what changed)
+    - Version tracking
+    - TTL (time-to-live) support
+    - Cache statistics
+    """
+
+    def __init__(self, cache_dir: Optional[Path] = None):
+        self.cache_dir = cache_dir or (Path.home() / ".grandma-scraper" / "cache")
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+
+        self.db_path = self.cache_dir / "cache.db"
+        self._init_database()
+
+    def _init_database(self):
+        """Initialize cache database."""
+        with sqlite3.connect(str(self.db_path)) as conn:
+            cursor = conn.cursor()
+
+            # Page cache table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS page_cache (
+                    url TEXT PRIMARY KEY,
+                    content_hash TEXT NOT NULL,
+                    content TEXT,
+                    scraped_at TIMESTAMP NOT NULL,
+                    last_modified TIMESTAMP,
+                    etag TEXT,
+                    metadata TEXT
+                )
+            """)
+
+            # Item cache table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS item_cache (
+                    item_hash TEXT PRIMARY KEY,
+                    source_url TEXT NOT NULL,
+                    data TEXT NOT NULL,
+                    scraped_at TIMESTAMP NOT NULL,
+                    version INTEGER DEFAULT 1
+                )
+            """)
+
+            # Change log table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS change_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    url TEXT NOT NULL,
+                    change_type TEXT NOT NULL,
+                    detected_at TIMESTAMP NOT NULL,
+                    details TEXT
+                )
+            """)
+
+            # Statistics table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS cache_stats (
+                    date DATE PRIMARY KEY,
+                    pages_cached INTEGER DEFAULT 0,
+                    cache_hits INTEGER DEFAULT 0,
+                    cache_misses INTEGER DEFAULT 0,
+                    bytes_saved INTEGER DEFAULT 0
+                )
+            """)
+
+            conn.commit()
+
+    def should_scrape(
+        self,
+        url: str,
+        ttl_seconds: Optional[int] = None
+    ) -> Tuple[bool, Optional[str]]:
+        """
+        Check if URL should be scraped.
+
+        Returns:
+            (should_scrape, reason)
+        """
+        with sqlite3.connect(str(self.db_path)) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute(
+                "SELECT content_hash, scraped_at FROM page_cache WHERE url = ?",
+                (url,)
+            )
+            result = cursor.fetchone()
+
+            if not result:
+                return True, "not_in_cache"
+
+            content_hash, scraped_at = result
+            scraped_time = datetime.fromisoformat(scraped_at)
+
+            # Check TTL
+            if ttl_seconds:
+                age = (datetime.utcnow() - scraped_time).total_seconds()
+                if age > ttl_seconds:
+                    return True, f"ttl_expired (age: {age:.0f}s)"
+
+            return False, "cache_valid"
+
+    def get_cached_content(self, url: str) -> Optional[str]:
+        """Get cached HTML content for URL."""
+        with sqlite3.connect(str(self.db_path)) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute(
+                "SELECT content FROM page_cache WHERE url = ?",
+                (url,)
+            )
+            result = cursor.fetchone()
+
+            return result[0] if result else None
+
+    def cache_page(
+        self,
+        url: str,
+        content: str,
+        etag: Optional[str] = None,
+        last_modified: Optional[str] = None,
+        metadata: Optional[Dict] = None
+    ):
+        """Cache page content with metadata."""
+        content_hash = self._hash_content(content)
+
+        with sqlite3.connect(str(self.db_path)) as conn:
+            cursor = conn.cursor()
+
+            # Check if content changed
+            cursor.execute(
+                "SELECT content_hash FROM page_cache WHERE url = ?",
+                (url,)
+            )
+            existing = cursor.fetchone()
+
+            if existing and existing[0] != content_hash:
+                # Content changed - log it
+                self._log_change(
+                    url,
+                    "content_modified",
+                    {"old_hash": existing[0], "new_hash": content_hash}
+                )
+
+            # Update or insert
+            cursor.execute("""
+                INSERT OR REPLACE INTO page_cache
+                (url, content_hash, content, scraped_at, last_modified, etag, metadata)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                url,
+                content_hash,
+                content,
+                datetime.utcnow().isoformat(),
+                last_modified,
+                etag,
+                json.dumps(metadata) if metadata else None
+            ))
+
+            conn.commit()
+
+    def cache_items(self, items: List[Dict[str, Any]], source_url: str):
+        """Cache extracted items."""
+        with sqlite3.connect(str(self.db_path)) as conn:
+            cursor = conn.cursor()
+
+            for item in items:
+                item_hash = self._hash_content(json.dumps(item, sort_keys=True))
+
+                # Check if item exists
+                cursor.execute(
+                    "SELECT version FROM item_cache WHERE item_hash = ?",
+                    (item_hash,)
+                )
+                existing = cursor.fetchone()
+
+                version = (existing[0] + 1) if existing else 1
+
+                cursor.execute("""
+                    INSERT OR REPLACE INTO item_cache
+                    (item_hash, source_url, data, scraped_at, version)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (
+                    item_hash,
+                    source_url,
+                    json.dumps(item),
+                    datetime.utcnow().isoformat(),
+                    version
+                ))
+
+            conn.commit()
+
+    def get_changed_urls(
+        self,
+        urls: List[str],
+        ttl_seconds: Optional[int] = None
+    ) -> List[str]:
+        """
+        Get list of URLs that need scraping.
+
+        Only returns URLs that:
+        - Are not cached
+        - Have expired TTL
+        - Content might have changed
+        """
+        changed = []
+
+        for url in urls:
+            should_scrape, reason = self.should_scrape(url, ttl_seconds)
+            if should_scrape:
+                changed.append(url)
+                logger.debug(f"URL needs scraping: {url} (reason: {reason})")
+
+        return changed
+
+    def _hash_content(self, content: str) -> str:
+        """Create hash of content for change detection."""
+        return hashlib.sha256(content.encode()).hexdigest()
+
+    def _log_change(self, url: str, change_type: str, details: Optional[Dict] = None):
+        """Log a detected change."""
+        with sqlite3.connect(str(self.db_path)) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                INSERT INTO change_log (url, change_type, detected_at, details)
+                VALUES (?, ?, ?, ?)
+            """, (
+    # Limits
+    max_items: Optional[int] = Field(
+        None, description="Maximum items to scrape"
+    )
+
+    # Export
+    export: ExportConfig = Field(
+        default_factory=ExportConfig, description="Export config"
+    )
+
+    # Advanced
+    custom_headers: dict[str, str] = Field(
+        default_factory=dict, description="Custom HTTP headers"
+    )
+    cookies: dict[str, str] = Field(
+        default_factory=dict, description="Custom cookies"
+    )
+
+    # Timestamps
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow, description="Creation timestamp"
+    )
+    updated_at: datetime = Field(
+        default_factory=datetime.utcnow, description="Last update timestamp"
+    )
+
+    @field_validator("start_url")
+    @classmethod
+    def validate_url(cls, v: str) -> str:
+        """Basic URL validation."""
+        if not v.startswith(("http://", "https://")):
+            raise ValueError("start_url must begin with http:// or https://")
+        return v
+
+    @model_validator(mode="after")
+    def set_allowed_domains(self) -> "ScrapeJob":
+        """Auto-populate allowed_domains from start_url if empty."""
+        if not self.allowed_domains and self.start_url:
+            from urllib.parse import urlparse
+            domain = urlparse(self.start_url).netloc
+            if domain:
+                self.allowed_domains = [domain]
+        return self
+
+
+class WorkflowStep(BaseModel):
+    """A single step in a workflow."""
+
+    id: str = Field(..., description="Step identifier")
+    type: Literal["scrape", "transform", "export", "condition"] = Field(
+        ..., description="Step type"
+    )
+    job_id: Optional[str] = Field(None, description="ScrapeJob ID for scrape steps")
+    depends_on: list[str] = Field(
+        default_factory=list, description="IDs of steps this depends on"
+    )
+    condition: Optional[str] = Field(
+        None, description="Python expression for conditional execution"
+    )
+    config: dict[str, Any] = Field(
+        default_factory=dict, description="Step-specific configuration"
+    )
+
+
+class Workflow(BaseModel):
+    """
+    Multi-step workflow / DAG configuration.
+
+    Allows chaining jobs, transforms, and exports with dependencies.
+    """
+
+    id: str = Field(
+        default_factory=lambda: f"workflow_{datetime.utcnow().timestamp()}",
+        description="Unique workflow identifier",
+    )
+    name: str = Field(..., description="Workflow name")
+    description: Optional[str] = Field(None, description="Workflow description")
+    enabled: bool = Field(True, description="Whether workflow is enabled")
+
+    steps: list[WorkflowStep] = Field(
+        ..., description="Workflow steps"
+    )
+
+    schedule: Optional[str] = Field(
+        None, description="Cron expression for scheduling"
+    )
+
+    retry_policy: RetryConfig = Field(
+        default_factory=RetryConfig, description="Workflow-level retry policy"
+    )
+
+    notifications: dict[str, Any] = Field(
+        default_factory=dict, description="Notification settings"
+    )
+
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow, description="Creation timestamp"
+    )
+
+    @model_validator(mode="after")
+    def validate_dag(self) -> "Workflow":
+        """Ensure steps form a valid DAG (no cycles)."""
+        # Build dependency graph
+        step_ids = {step.id for step in self.steps}
+
+        # Check all dependencies exist
+        for step in self.steps:
+            for dep in step.depends_on:
+                if dep not in step_ids:
+                    raise ValueError(f"Step {step.id} depends on non-existent step {dep}")
+
+        # Simple cycle detection (could be more sophisticated)
+        visited = set()
+        rec_stack = set()
+
+        def has_cycle(step_id: str) -> bool:
+            visited.add(step_id)
+            rec_stack.add(step_id)
+
+            # Find step
+            step = next((s for s in self.steps if s.id == step_id), None)
+            if not step:
+                return False
+
+            for dep in step.depends_on:
+                if dep not in visited:
+                    if has_cycle(dep):
+                        return True
+                elif dep in rec_stack:
+                    return True
+
+            rec_stack.remove(step_id)
+            return False
+
+        for step in self.steps:
+            if step.id not in visited:
+                if has_cycle(step.id):
+                    raise ValueError(f"Workflow contains cycle involving step {step.id}")
+
+        return self
+
+"""
+Export manager - coordinates multiple export formats.
+"""
+
+import logging
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+from scraper.config.models import ExportConfig, ScrapeResult
+from scraper.export.csv_exporter import CSVExporter
+from scraper.export.excel_exporter import ExcelExporter
+from scraper.export.json_exporter import JSONExporter, NDJSONExporter
+from scraper.export.sqlite_exporter import SQLiteExporter
+
+logger = logging.getLogger(__name__)
+
+
+class ExportManager:
+    """
+    Manages exporting data to multiple formats.
+
+    Coordinates various exporters and handles file naming.
+    """
+
+    def __init__(self, config: ExportConfig):
+        """
+        Initialize export manager.
+
+        Args:
+            config: Export configuration
+        """
+        self.config = config
+
+    async def export_result(self, result: ScrapeResult) -> dict[str, Path]:
+        """
+        Export scrape result to configured formats.
+
+        Args:
+            result: ScrapeResult to export
+
+        Returns:
+            Dict mapping format name to exported file path
+        """
+        exported_files = {}
+
+        if not result.data:
+            logger.warning("No data to export")
+            return exported_files
+
+        # Generate base filename
+        timestamp = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S")
+        filename_vars = {
+            "job_name": result.metadata.get("job_name", "scrape"),
+            "timestamp": timestamp,
+            "job_id": result.job_id,
+        }
+        base_filename = self.config.filename_template.format(**filename_vars)
+
+        # Ensure base directory exists
+        self.config.base_path.mkdir(parents=True, exist_ok=True)
+
+        # Export to each format
+        for export_format in self.config.formats:
+            try:
+                file_path = await self._export_format(
+                    export_format,
+                    base_filename,
+                    result.data,
+                    result.metadata,
+                )
+                if file_path:
+                    exported_files[export_format] = file_path
+            except Exception as e:
+                logger.error(f"Failed to export to {export_format}: {e}")
+
+        return exported_files
+
+    async def _export_format(
+        self,
+        export_format: str,
+        base_filename: str,
+        data: list[dict[str, Any]],
+        metadata: dict[str, Any],
+    ) -> Path:
+        """
+        Export to specific format.
+
+        Args:
+            export_format: Format name (csv, json, excel, etc.)
+            base_filename: Base filename (without extension)
+            data: Data to export
+            metadata: Metadata
+
+        Returns:
+            Path to exported file
+        """
+        format_lower = export_format.lower()
+
+        if format_lower == "csv":
+            output_path = self.config.base_path / f"{base_filename}.csv"
+            exporter = CSVExporter(output_path)
+            return await exporter.export(data, metadata)
+
+        elif format_lower == "json":
+            output_path = self.config.base_path / f"{base_filename}.json"
+            exporter = JSONExporter(output_path)
+            return await exporter.export(data, metadata)
+
+        elif format_lower == "ndjson":
+            output_path = self.config.base_path / f"{base_filename}.ndjson"
+            exporter = NDJSONExporter(output_path)
+            return await exporter.export(data, metadata)
+
+        elif format_lower in ("excel", "xlsx"):
+            output_path = self.config.base_path / f"{base_filename}.xlsx"
+            exporter = ExcelExporter(output_path)
+            return await exporter.export(data, metadata)
+
+        elif format_lower in ("sqlite", "db"):
+            output_path = self.config.base_path / f"{base_filename}.db"
+            exporter = SQLiteExporter(output_path)
+            return await exporter.export(data, metadata)
+
+        else:
+            logger.warning(f"Unknown export format: {export_format}")
+            return None
+3:const API_BASE = 'http://localhost:8000/api/v1';
+85:            body: JSON.stringify({ url, max_pages: 1 }),
+93:        const jobData = {
+97:                start_url: url,
+100:                pagination: analysis.pagination || {},
+101:                max_pages: maxPages,
+114:        const jobId = createResult.job_id;
+153:        const jobs = data.jobs;
+166:                            <strong>URL:</strong> ${job.start_url}<br>
+261:                    if (results.pagination.has_more) {
+Exit 0; 0.02s; [output](artifacts/backend-inspect-model-engine-tests-5920e9ce.txt).
+
+### 2026-10-03T01:48:35Z — baseline-suite
+
+Command (argv): `['/private/tmp/grann-qa-20261002/venv/bin/python', '-m', 'pytest', 'tests', '--disable-socket', '--allow-unix-socket', '--cov=scraper', '--cov-branch', '--cov-report=term', '--cov-report=json:docs/qa/2026-10-02/artifacts/backend-coverage-before.json', '--cov-report=html:docs/qa/2026-10-02/artifacts/backend-coverage-before-html']`
+
+Exit 1; 7.14s; [output](artifacts/backend-baseline-suite-d284977e.txt).
+
+### 2026-10-03T01:48:46Z — inspect-engine-cache
+
+Command (argv): `['/bin/sh', '-c', 'sed -n "1,340p" scraper/core/engine.py; sed -n "1,300p" scraper/core/concurrent_engine.py; sed -n "1,250p" scraper/storage/smart_cache.py; sed -n "300,440p" scraper/config/models.py; sed -n "1,240p" scraper/export/export_manager.py; rg -n "createJob|jobConfig|start_url|api/v1|pagination|max_pages|runJob|const job" scraper/web/static/app.js; tail -12 docs/qa/2026-10-02/BACKEND-SESSION.md']`
+

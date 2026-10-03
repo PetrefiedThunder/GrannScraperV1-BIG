@@ -1,0 +1,641 @@
+1: """
+2: Full-featured REST API server.
+3: 
+4: Expose all scraping capabilities via REST API for:
+5: - Remote job management
+6: - Programmatic access
+7: - Integration with other systems
+8: - Web dashboard backend
+9: """
+10: 
+11: import asyncio
+12: import logging
+13: from datetime import datetime
+14: from pathlib import Path
+15: from typing import Any, Dict, List, Optional
+16: 
+17: from fastapi import FastAPI, HTTPException, BackgroundTasks, Query
+18: from fastapi.middleware.cors import CORSMiddleware
+19: from fastapi.responses import FileResponse, StreamingResponse, HTMLResponse
+20: from fastapi.staticfiles import StaticFiles
+21: from pydantic import BaseModel
+22: 
+23: from scraper.config.models import ScrapeJob, ScrapeResult
+24: from scraper.core.engine import ScraperEngine
+25: from scraper.core.concurrent_engine import ConcurrentScraper
+26: from scraper.export.export_manager import ExportManager
+27: from scraper.ml.data_intelligence import DataQualityAnalyzer, AnomalyDetector
+28: from scraper.storage.smart_cache import SmartCache, IncrementalScraper
+29: from scraper.scheduler.workflow_dag import WorkflowDAG, WorkflowBuilder
+30: 
+31: logger = logging.getLogger(__name__)
+32: 
+33: # Create FastAPI app
+34: app = FastAPI(
+35:     title="GrandmaScrape API",
+36:     description="Enterprise web scraping API - grandma-simple, enterprise-grade",
+37:     version="1.0.0",
+38: )
+39: 
+40: # CORS middleware
+41: import os
+42: ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")
+43: 
+44: app.add_middleware(
+45:     CORSMiddleware,
+46:     allow_origins=ALLOWED_ORIGINS,  # Configured via environment variable
+47:     allow_credentials=True,
+48:     allow_methods=["GET", "POST", "PUT", "DELETE"],
+49:     allow_headers=["Authorization", "Content-Type"],
+50: )
+51: 
+52: # Mount static files for web dashboard
+53: static_path = Path(__file__).parent.parent / "web" / "static"
+54: if static_path.exists():
+55:     app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+56: 
+57: # In-memory storage (use database in production)
+58: jobs_db: Dict[str, ScrapeJob] = {}
+59: results_db: Dict[str, ScrapeResult] = {}
+60: workflows_db: Dict[str, WorkflowDAG] = {}
+61: running_jobs: Dict[str, asyncio.Task] = {}
+62: jobs_lock = asyncio.Lock()  # Protect concurrent access to running_jobs
+63: 
+64: 
+65: # Request/Response models
+66: class JobCreateRequest(BaseModel):
+67:     """Request to create a new scraping job."""
+68:     job: ScrapeJob
+69: 
+70: 
+71: class JobRunRequest(BaseModel):
+72:     """Request to run a job."""
+73:     job_id: str
+74:     concurrent: bool = False
+75:     incremental: bool = False
+76: 
+77: 
+78: class WorkflowCreateRequest(BaseModel):
+79:     """Request to create a workflow."""
+80:     name: str
+81:     nodes: List[Dict[str, Any]]
+82: 
+83: 
+84: class AnalyzeRequest(BaseModel):
+85:     """Request to analyze a URL."""
+86:     url: str
+87:     max_pages: int = 1
+88: 
+89: 
+90: # ============================================================================
+91: # JOB MANAGEMENT ENDPOINTS
+92: # ============================================================================
+93: 
+94: @app.post("/api/v1/jobs")
+95: async def create_job(request: JobCreateRequest) -> Dict[str, Any]:
+96:     """
+97:     Create a new scraping job.
+98: 
+99:     Returns job ID.
+100:     """
+101:     job = request.job
+102: 
+103:     if job.id in jobs_db:
+104:         raise HTTPException(status_code=400, detail="Job ID already exists")
+105: 
+106:     jobs_db[job.id] = job
+107: 
+108:     logger.info(f"Created job: {job.id}")
+109: 
+110:     return {
+111:         "job_id": job.id,
+112:         "status": "created",
+113:         "message": f"Job {job.name} created successfully"
+114:     }
+115: 
+116: 
+117: @app.get("/api/v1/jobs")
+118: async def list_jobs(
+119:     enabled_only: bool = Query(False, description="Only show enabled jobs")
+120: ) -> Dict[str, Any]:
+121:     """
+122:     List all jobs.
+123: 
+124:     Returns list of jobs with metadata.
+125:     """
+126:     jobs = list(jobs_db.values())
+127: 
+128:     if enabled_only:
+129:         jobs = [j for j in jobs if j.enabled]
+130: 
+131:     return {
+132:         "total": len(jobs),
+133:         "jobs": [
+134:             {
+135:                 "id": job.id,
+136:                 "name": job.name,
+137:                 "start_url": job.start_url,
+138:                 "enabled": job.enabled,
+139:                 "created_at": job.created_at.isoformat(),
+140:             }
+141:             for job in jobs
+142:         ]
+143:     }
+144: 
+145: 
+146: @app.get("/api/v1/jobs/{job_id}")
+147: async def get_job(job_id: str) -> ScrapeJob:
+148:     """Get job details."""
+149:     import re
+150:     # Validate job_id format
+151:     if not job_id or not re.match(r'^[a-zA-Z0-9_-]+$', job_id):
+152:         raise HTTPException(status_code=400, detail="Invalid job_id format")
+153: 
+154:     if job_id not in jobs_db:
+155:         raise HTTPException(status_code=404, detail="Job not found")
+156: 
+157:     return jobs_db[job_id]
+158: 
+159: 
+160: @app.delete("/api/v1/jobs/{job_id}")
+161: async def delete_job(job_id: str) -> Dict[str, str]:
+162:     """Delete a job."""
+163:     import re
+164:     # Validate job_id format
+165:     if not job_id or not re.match(r'^[a-zA-Z0-9_-]+$', job_id):
+166:         raise HTTPException(status_code=400, detail="Invalid job_id format")
+167: 
+168:     if job_id not in jobs_db:
+169:         raise HTTPException(status_code=404, detail="Job not found")
+170: 
+171:     # Cancel if running (with lock to prevent race conditions)
+172:     async with jobs_lock:
+173:         if job_id in running_jobs:
+174:             running_jobs[job_id].cancel()
+175:             del running_jobs[job_id]
+176: 
+177:     del jobs_db[job_id]
+178: 
+179:     logger.info(f"Deleted job: {job_id}")
+180: 
+181:     return {"status": "deleted", "job_id": job_id}
+182: 
+183: 
+184: # ============================================================================
+185: # JOB EXECUTION ENDPOINTS
+186: # ============================================================================
+187: 
+188: @app.post("/api/v1/jobs/{job_id}/run")
+189: async def run_job(
+190:     job_id: str,
+191:     background_tasks: BackgroundTasks,
+192:     concurrent: bool = Query(False, description="Use concurrent scraping"),
+193:     incremental: bool = Query(False, description="Use incremental scraping")
+194: ) -> Dict[str, Any]:
+195:     """
+196:     Run a scraping job.
+197: 
+198:     Returns immediately with job status. Use /results endpoint to get results.
+199:     """
+200:     if job_id not in jobs_db:
+201:         raise HTTPException(status_code=404, detail="Job not found")
+202: 
+203:     # Use lock to prevent race conditions when checking and starting jobs
+204:     async with jobs_lock:
+205:         if job_id in running_jobs:
+206:             raise HTTPException(status_code=400, detail="Job already running")
+207: 
+208:         job = jobs_db[job_id]
+209: 
+210:         # Start job in background
+211:         task = asyncio.create_task(
+212:             _execute_job(job_id, job, concurrent, incremental)
+213:         )
+214:         running_jobs[job_id] = task
+215: 
+216:     logger.info(f"Started job: {job_id} (concurrent={concurrent}, incremental={incremental})")
+217: 
+218:     return {
+219:         "job_id": job_id,
+220:         "status": "running",
+221:         "message": f"Job {job.name} started",
+222:         "concurrent": concurrent,
+223:         "incremental": incremental
+224:     }
+225: 
+226: 
+227: async def _execute_job(
+228:     job_id: str,
+229:     job: ScrapeJob,
+230:     concurrent: bool,
+231:     incremental: bool
+232: ) -> ScrapeResult:
+233:     """Execute a job (called in background)."""
+234:     try:
+235:         if incremental:
+236:             # Incremental scraping
+237:             cache = SmartCache()
+238:             incremental_scraper = IncrementalScraper(cache)
+239: 
+240:             # Get URLs to scrape
+241:             from scraper.core.engine import ScraperEngine
+242:             engine = ScraperEngine()
+243:             urls = await engine._generate_urls(job)
+244: 
+245:             # Scrape incrementally
+246:             result_data = await incremental_scraper.scrape_incremental(
+247:                 urls,
+248:                 lambda url: engine.run_job(job),
+249:                 ttl_seconds=3600
+250:             )
+251: 
+252:             # Convert to ScrapeResult
+253:             result = ScrapeResult(
+254:                 job_id=job_id,
+255:                 status="success",
+256:                 items_scraped=len(result_data['new_items']),
+257:                 pages_visited=result_data['stats']['urls_scraped'],
+258:                 data=result_data['new_items'],
+259:                 metadata=result_data['stats']
+260:             )
+261: 
+262:         elif concurrent:
+263:             # Concurrent scraping
+264:             concurrent_scraper = ConcurrentScraper(job, max_workers=10)
+265: 
+266:             # Add URLs
+267:             from scraper.core.engine import ScraperEngine
+268:             engine = ScraperEngine()
+269:             urls = await engine._generate_urls(job)
+270:             await concurrent_scraper.add_urls(urls)
+271: 
+272:             # Execute
+273:             async def scrape_single(url):
+274:                 temp_job = ScrapeJob(
+275:                     name=job.name,
+276:                     start_url=url,
+277:                     item_selector=job.item_selector,
+278:                     fields=job.fields,
+279:                 )
+280:                 r = await engine.run_job(temp_job)
+281:                 return r.data
+282: 
+283:             result = await concurrent_scraper.run(scrape_single)
+284: 
+285:         else:
+286:             # Standard scraping
+287:             engine = ScraperEngine()
+288:             result = await engine.run_job(job)
+289: 
+290:         # Store result
+291:         results_db[job_id] = result
+292: 
+293:         # Export
+294:         export_manager = ExportManager(job.export)
+295:         await export_manager.export_result(result)
+296: 
+297:         return result
+298: 
+299:     finally:
+300:         # Remove from running jobs (with lock to prevent race conditions)
+301:         async with jobs_lock:
+302:             if job_id in running_jobs:
+303:                 del running_jobs[job_id]
+304: 
+305: 
+306: @app.get("/api/v1/jobs/{job_id}/status")
+307: async def get_job_status(job_id: str) -> Dict[str, Any]:
+308:     """Get job execution status."""
+309:     if job_id not in jobs_db:
+310:         raise HTTPException(status_code=404, detail="Job not found")
+311: 
+312:     is_running = job_id in running_jobs
+313:     has_result = job_id in results_db
+314: 
+315:     status = {
+316:         "job_id": job_id,
+317:         "is_running": is_running,
+318:         "has_result": has_result,
+319:     }
+320: 
+321:     if has_result:
+322:         result = results_db[job_id]
+323:         status.update({
+324:             "status": result.status,
+325:             "items_scraped": result.items_scraped,
+326:             "pages_visited": result.pages_visited,
+327:             "errors": len(result.errors),
+328:             "duration": result.duration_seconds,
+329:         })
+330: 
+331:     return status
+332: 
+333: 
+334: @app.get("/api/v1/jobs/{job_id}/results")
+335: async def get_job_results(
+336:     job_id: str,
+337:     limit: int = Query(100, description="Max items to return"),
+338:     offset: int = Query(0, description="Offset for pagination")
+339: ) -> Dict[str, Any]:
+340:     """Get job results with pagination."""
+341:     if job_id not in results_db:
+342:         raise HTTPException(status_code=404, detail="No results found")
+343: 
+344:     result = results_db[job_id]
+345: 
+346:     return {
+347:         "job_id": job_id,
+348:         "status": result.status,
+349:         "total_items": result.items_scraped,
+350:         "pages_visited": result.pages_visited,
+351:         "errors": result.errors,
+352:         "items": result.data[offset:offset + limit],
+353:         "pagination": {
+354:             "limit": limit,
+355:             "offset": offset,
+356:             "has_more": offset + limit < len(result.data)
+357:         }
+358:     }
+359: 
+360: 
+361: # ============================================================================
+362: # SMART FEATURES ENDPOINTS
+363: # ============================================================================
+364: 
+365: @app.post("/api/v1/analyze")
+366: async def analyze_url(request: AnalyzeRequest) -> Dict[str, Any]:
+367:     """
+368:     Analyze a URL and auto-detect structure.
+369: 
+370:     Returns detected selectors, fields, and pagination.
+371:     """
+372:     from scraper.config.models import ScrapeJob
+373:     from scraper.core.fetcher_static import StaticFetcher
+374:     from scraper.strategies.intelligent_extraction import (
+375:         IntelligentExtractor,
+376:         SmartPaginationDetector
+377:     )
+378: 
+379:     # Fetch page
+380:     temp_job = ScrapeJob(name="analysis", start_url=request.url)
+381: 
+382:     async with StaticFetcher(temp_job) as fetcher:
+383:         soup, html = await fetcher.fetch(request.url)
+384: 
+385:         if not soup:
+386:             raise HTTPException(status_code=400, detail="Failed to fetch URL")
+387: 
+388:     # Auto-detect
+389:     extractor = IntelligentExtractor()
+390:     pagination_detector = SmartPaginationDetector()
+391: 
+392:     item_selector = await extractor.auto_detect_item_container(soup)
+393:     detected_fields = await extractor.auto_detect_fields(
+394:         soup,
+395:         item_selector or "body"
+396:     )
+397:     pagination_config = await pagination_detector.detect_pagination(soup, request.url)
+398: 
+399:     return {
+400:         "url": request.url,
+401:         "item_selector": item_selector,
+402:         "fields": detected_fields,
+403:         "pagination": pagination_config,
+404:         "analysis": {
+405:             "html_size": len(html),
+406:             "links": len(soup.find_all('a')),
+407:             "images": len(soup.find_all('img')),
+408:             "title": soup.title.string if soup.title else None
+409:         }
+410:     }
+411: 
+412: 
+413: @app.post("/api/v1/jobs/{job_id}/quality-check")
+414: async def check_data_quality(job_id: str) -> Dict[str, Any]:
+415:     """
+416:     Run data quality analysis on job results.
+417: 
+418:     Returns quality score and recommendations.
+419:     """
+420:     if job_id not in results_db:
+421:         raise HTTPException(status_code=404, detail="No results found")
+422: 
+423:     result = results_db[job_id]
+424: 
+425:     analyzer = DataQualityAnalyzer()
+426:     quality_report = analyzer.analyze_dataset(result.data)
+427: 
+428:     return {
+429:         "job_id": job_id,
+430:         "quality_report": quality_report
+431:     }
+432: 
+433: 
+434: @app.post("/api/v1/jobs/{job_id}/detect-anomalies")
+435: async def detect_anomalies(job_id: str) -> Dict[str, Any]:
+436:     """
+437:     Detect anomalies in job results compared to baseline.
+438: 
+439:     Useful for monitoring if site structure changed.
+440:     """
+441:     if job_id not in results_db:
+442:         raise HTTPException(status_code=404, detail="No results found")
+443: 
+444:     result = results_db[job_id]
+445: 
+446:     detector = AnomalyDetector()
+447:     anomaly_report = detector.detect_anomalies(result.data)
+448: 
+449:     return {
+450:         "job_id": job_id,
+451:         "anomaly_report": anomaly_report
+452:     }
+453: 
+454: 
+455: # ============================================================================
+456: # WORKFLOW ENDPOINTS
+457: # ============================================================================
+458: 
+459: @app.post("/api/v1/workflows")
+460: async def create_workflow(request: WorkflowCreateRequest) -> Dict[str, Any]:
+461:     """Create a new workflow."""
+462:     from scraper.scheduler.workflow_dag import WorkflowNode
+463: 
+464:     workflow = WorkflowDAG(request.name)
+465: 
+466:     for node_data in request.nodes:
+467:         node = WorkflowNode(**node_data)
+468:         workflow.add_node(node)
+469: 
+470:     workflow.build()
+471: 
+472:     workflows_db[request.name] = workflow
+473: 
+474:     return {
+475:         "workflow_name": request.name,
+476:         "nodes": len(workflow.nodes),
+477:         "execution_levels": len(workflow.execution_order),
+478:         "status": "created"
+479:     }
+480: 
+481: 
+482: @app.get("/api/v1/workflows")
+483: async def list_workflows() -> Dict[str, Any]:
+484:     """List all workflows."""
+485:     return {
+486:         "total": len(workflows_db),
+487:         "workflows": [
+488:             {
+489:                 "name": name,
+490:                 "nodes": len(workflow.nodes),
+491:                 "levels": len(workflow.execution_order)
+492:             }
+493:             for name, workflow in workflows_db.items()
+494:         ]
+495:     }
+496: 
+497: 
+498: @app.get("/api/v1/workflows/{workflow_name}")
+499: async def get_workflow(workflow_name: str) -> Dict[str, Any]:
+500:     """Get workflow details."""
+501:     if workflow_name not in workflows_db:
+502:         raise HTTPException(status_code=404, detail="Workflow not found")
+503: 
+504:     workflow = workflows_db[workflow_name]
+505: 
+506:     return {
+507:         "name": workflow.name,
+508:         "nodes": {
+509:             node_id: {
+510:                 "type": node.type,
+511:                 "depends_on": node.depends_on,
+512:                 "status": node.status.value
+513:             }
+514:             for node_id, node in workflow.nodes.items()
+515:         },
+516:         "execution_plan": workflow.get_execution_plan()
+517:     }
+518: 
+519: 
+520: # ============================================================================
+521: # CACHE MANAGEMENT ENDPOINTS
+522: # ============================================================================
+523: 
+524: @app.get("/api/v1/cache/stats")
+525: async def get_cache_stats() -> Dict[str, Any]:
+526:     """Get cache statistics."""
+527:     cache = SmartCache()
+528:     return cache.get_stats()
+529: 
+530: 
+531: @app.delete("/api/v1/cache")
+532: async def clear_cache(
+533:     expired_only: bool = Query(False, description="Only clear expired entries"),
+534:     ttl_seconds: int = Query(3600, description="TTL for expired check")
+535: ) -> Dict[str, Any]:
+536:     """Clear cache."""
+537:     cache = SmartCache()
+538: 
+539:     if expired_only:
+540:         deleted = cache.clear_expired(ttl_seconds)
+541:         return {"status": "cleared", "expired_entries_deleted": deleted}
+542:     else:
+543:         cache.clear_all()
+544:         return {"status": "cleared", "message": "All cache cleared"}
+545: 
+546: 
+547: # ============================================================================
+548: # HEALTH & INFO ENDPOINTS
+549: # ============================================================================
+550: 
+551: @app.get("/api/v1/health")
+552: async def health_check() -> Dict[str, str]:
+553:     """Health check endpoint."""
+554:     return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+555: 
+556: 
+557: @app.get("/api/v1/info")
+558: async def get_info() -> Dict[str, Any]:
+559:     """Get API information and statistics."""
+560:     return {
+561:         "version": "1.0.0",
+562:         "name": "GrandmaScrape API",
+563:         "statistics": {
+564:             "total_jobs": len(jobs_db),
+565:             "running_jobs": len(running_jobs),
+566:             "completed_jobs": len(results_db),
+567:             "workflows": len(workflows_db)
+568:         },
+569:         "features": [
+570:             "auto_detection",
+571:             "concurrent_scraping",
+572:             "incremental_scraping",
+573:             "data_quality_analysis",
+574:             "anomaly_detection",
+575:             "workflow_dag",
+576:             "smart_caching"
+577:         ]
+578:     }
+579: 
+580: 
+581: # ============================================================================
+582: # WEB DASHBOARD
+583: # ============================================================================
+584: 
+585: @app.get("/", response_class=HTMLResponse)
+586: async def serve_dashboard():
+587:     """Serve the web dashboard."""
+588:     base_static_path = Path(__file__).parent.parent / "web" / "static"
+589:     index_path = base_static_path / "index.html"
+590: 
+591:     # Validate path to prevent directory traversal
+592:     try:
+593:         index_path_resolved = index_path.resolve()
+594:         base_path_resolved = base_static_path.resolve()
+595: 
+596:         if not str(index_path_resolved).startswith(str(base_path_resolved)):
+597:             raise HTTPException(status_code=403, detail="Access denied")
+598: 
+599:         if index_path_resolved.exists() and index_path_resolved.is_file():
+600:             return FileResponse(index_path_resolved)
+601:     except Exception as e:
+602:         logger.warning(f"Error serving dashboard: {e}")
+603: 
+604:     return HTMLResponse(
+605:         content="""
+606:         <html>
+607:             <head><title>GrandmaScrape API</title></head>
+608:             <body style="font-family: sans-serif; text-align: center; padding: 50px;">
+609:                 <h1>GrandmaScrape API</h1>
+610:                 <p>API is running!</p>
+611:                 <p>Dashboard not found. Please check web/static/index.html</p>
+612:                 <p><a href="/docs">View API Documentation</a></p>
+613:             </body>
+614:         </html>
+615:         """,
+616:         status_code=200
+617:     )
+618: 
+619: 
+620: # ============================================================================
+621: # RUN SERVER
+622: # ============================================================================
+623: 
+624: def run_server(host: str = "0.0.0.0", port: int = 8000):
+625:     """Run the API server."""
+626:     import uvicorn
+627: 
+628:     logger.info(f"Starting GrandmaScrape API server on {host}:{port}")
+629: 
+630:     uvicorn.run(
+631:         app,
+632:         host=host,
+633:         port=port,
+634:         log_level="info"
+635:     )
+636: 
+637: 
+638: if __name__ == "__main__":
+639:     run_server()
+Instructions: []
+Tests instructions: []

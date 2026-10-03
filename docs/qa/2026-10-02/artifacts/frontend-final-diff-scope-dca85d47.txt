@@ -1,0 +1,3 @@
+?? docs/qa/2026-10-02/FRONTEND-REPORT.md
+?? docs/qa/2026-10-02/FRONTEND-SESSION.md
+?? tests/qa_frontend/

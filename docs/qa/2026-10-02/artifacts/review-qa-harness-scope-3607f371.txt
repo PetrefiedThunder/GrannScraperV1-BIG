@@ -1,0 +1,255 @@
+
+FILE tests/qa_frontend/README.md
+1:# Offline dashboard regression checks
+2:
+3:These tests change no product code. They use fictional data, intercept every API request, abort all other external traffic, and serve only local static assets on `127.0.0.1:18765`. The local static server mirrors the API's `/` and `/static` routes. Downstream UI checks explicitly use `/static/index.html` as a workaround for FE-001.
+4:
+5:Prerequisites: Node.js, `@playwright/test` latest (matching the supplied remote server), a Python environment with this repository's Pydantic dependency, and a Playwright browser server. Set `PW_TEST_CONNECT_WS_ENDPOINT` to its WebSocket URL. Do not launch browsers from these tests. All browser access uses `connectOptions` or `browserType.connect()`.
+6:
+7:If QA dependencies are installed outside the checkout, set `NODE_PATH` to that prefix's `node_modules`. `QA_PYTHON` can select the Python interpreter; its default is `python3`. The recorded session used `/private/tmp/grann-qa-20261002/node/node_modules` and `/private/tmp/grann-qa-20261002/venv/bin/python`; neither is embedded in test code.
+8:
+9:Reproduction commands (also recorded with outcomes in the frontend session log):
+10:
+11:```sh
+12:node "$NODE_PATH/@playwright/test/cli.js" test --config tests/qa_frontend/playwright.config.cjs
+13:node tests/qa_frontend/probe_browsers.cjs
+14:node --check scraper/web/static/app.js
+15:```
+16:
+17:`validate_contract.py` passes the captured form payload through the actual production `ScrapeJob` model; it does not approximate its normalization in JavaScript. Mock response shapes follow `scraper/api/rest_server.py` and `scraper/strategies/intelligent_extraction.py`. Backend QA also verifies the asset path against the actual ASGI routes.
+18:
+19:Known defects use strict Playwright `test.fail` annotations with finding IDs. They fail CI if behavior unexpectedly passes, prompting removal of the expected-failure marker. Setup and preconditions run before these annotations so infrastructure failures remain real failures. Passing tests cover analyze/create/run order, initial and result views, cancellation and confirmation, browser bounds, disabled submission during loading, and recovery after a rejected analysis.
+20:
+21:Reports and fictional screenshots are written to `docs/qa/2026-10-02/artifacts/frontend-*`. The performance diagnostic is unthrottled loopback timing, not a Lighthouse score. Its JavaScript byte coverage covers only the list/details journey, not whole-suite line coverage.
+
+FILE tests/qa_frontend/server.cjs
+1:// Local-only static server matching rest_server.py's / and /static mounts.
+2:const http = require('node:http');
+3:const fs = require('node:fs');
+4:const path = require('node:path');
+5:const root = path.resolve(__dirname, '../../scraper/web/static');
+6:const routes = {
+7:  '/': ['index.html', 'text/html'],
+8:  '/static/index.html': ['index.html', 'text/html'],
+9:  '/static/app.js': ['app.js', 'text/javascript'],
+10:};
+11:http.createServer((req, res) => {
+12:  const target = routes[new URL(req.url, 'http://127.0.0.1').pathname];
+13:  if (!target) {
+14:    res.writeHead(404, { 'Content-Type': 'application/json' });
+15:    return res.end(JSON.stringify({ detail: 'Not Found' }));
+16:  }
+17:  res.writeHead(200, { 'Content-Type': target[1] });
+18:  res.end(fs.readFileSync(path.join(root, target[0])));
+19:}).listen(18765, '127.0.0.1');
+
+FILE tests/qa_frontend/validate_contract.py
+1:"""Normalize fictional dashboard payloads with the production Pydantic model."""
+2:import json
+3:import sys
+4:
+5:from scraper.config.models import ScrapeJob
+6:
+7:payload = json.load(sys.stdin)
+8:job = ScrapeJob.model_validate(payload["job"])
+9:# Only return fields under investigation, never default export paths or env values.
+10:print(json.dumps({"max_pages": job.pagination.max_pages, "formats": job.export.formats}))
+
+FILE tests/qa_ux/test_cli_docs.py
+1:"""Developer-experience contracts using only temporary files and blocked sockets."""
+2:
+3:from pathlib import Path
+4:import re
+5:import socket
+6:from unittest.mock import AsyncMock
+7:
+8:from click.testing import CliRunner
+9:import pytest
+10:import yaml
+11:
+12:from scraper.cli.main import cli
+13:from scraper.config.models import ScrapeJob
+14:
+15:
+16:@pytest.fixture(autouse=True)
+17:def isolate_cli_home_and_network(monkeypatch, tmp_path):
+18:    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+19:
+20:    def blocked(*args, **kwargs):
+21:        raise AssertionError("QA UX tests must not open network connections")
+22:
+23:    monkeypatch.setattr(socket.socket, "connect", blocked)
+24:    monkeypatch.setattr(socket, "create_connection", blocked)
+25:
+26:
+27:def test_cli_help_lists_documented_commands():
+28:    result = CliRunner().invoke(cli, ["--help"])
+29:    assert result.exit_code == 0
+30:    for name in ("easy", "massive", "wizard", "run", "list", "validate", "serve"):
+31:        assert name in result.output
+32:
+33:
+34:@pytest.mark.xfail(strict=True, raises=AssertionError, reason="UX-007: list command shadows built-in list and cannot enumerate saved jobs")
+35:def test_saved_jobs_are_listed(tmp_path):
+36:    jobs = tmp_path / ".grandma-scraper" / "jobs"
+37:    jobs.mkdir(parents=True)
+38:    (jobs / "qa-sample.yaml").write_text(yaml.safe_dump({"name": "QA fictional saved job", "start_url": "https://catalogue.example.invalid"}))
+39:    result = CliRunner().invoke(cli, ["list"])
+40:    assert result.exit_code == 0, result.output
+41:    assert "QA fictional saved job" in result.output
+42:
+43:
+44:@pytest.mark.xfail(strict=True, raises=AssertionError, reason="UX-008: README uses a config pathname but scraper run only accepts a saved-job name")
+45:def test_readme_config_path_can_be_run(monkeypatch, tmp_path):
+46:    config = tmp_path / "config" / "my_job.yaml"
+47:    config.parent.mkdir()
+48:    config.write_text(yaml.safe_dump({"name": "QA README sample", "start_url": "https://catalogue.example.invalid"}))
+49:    runner = AsyncMock()
+50:    monkeypatch.setattr("scraper.cli.main._run_job", runner)
+51:    monkeypatch.chdir(tmp_path)
+52:    result = CliRunner().invoke(cli, ["run", "config/my_job.yaml"])
+53:    assert result.exit_code == 0, result.output
+54:    assert runner.await_count == 1, result.output
+55:
+56:
+57:@pytest.mark.xfail(strict=True, raises=AssertionError, reason="UX-008: README's flat browser/pagination/export keys are silently ignored")
+58:def test_readme_job_config_preserves_documented_settings():
+59:    readme = (Path(__file__).resolve().parents[2] / "README.md").read_text()
+60:    example = re.search(r"```yaml\n(# config/my_job.yaml.*?)```", readme, re.DOTALL)
+61:    assert example is not None
+62:    job = ScrapeJob.model_validate(yaml.safe_load(example.group(1)))
+63:    assert job.browser.enabled is True
+64:    assert job.pagination.mode == "next_button"
+65:    assert job.pagination.max_pages == 50
+66:    assert job.export.formats == ["csv", "json", "excel"]
+67:
+68:
+69:def test_easy_mode_cancel_explains_outcome_without_network():
+70:    result = CliRunner().invoke(cli, ["easy", "https://catalogue.example.invalid"], input="titles\njust one\nqa-file\nn\n")
+71:    assert result.exit_code == 0
+72:    assert "maybe next time" in result.output
+73:
+74:
+75:def test_valid_saved_job_name_reaches_runner(monkeypatch, tmp_path):
+76:    jobs = tmp_path / ".grandma-scraper" / "jobs"
+77:    jobs.mkdir(parents=True)
+78:    (jobs / "qa-sample.yaml").write_text(yaml.safe_dump({"name": "QA fictional saved job", "start_url": "https://catalogue.example.invalid"}))
+79:    runner = AsyncMock()
+80:    monkeypatch.setattr("scraper.cli.main._run_job", runner)
+81:    result = CliRunner().invoke(cli, ["run", "qa-sample"])
+82:    assert result.exit_code == 0
+83:    assert runner.await_count == 1
+
+FILE tests/qa_backend/test_boundaries_exports.py
+1:"""Bounded property tests, real HTTPX mock transport, and local export round trips."""
+2:
+3:import csv
+4:import json
+5:import sqlite3
+6:from types import SimpleNamespace
+7:from unittest.mock import AsyncMock
+8:
+9:import httpx
+10:from hypothesis import given, settings, strategies as st
+11:import pytest
+12:
+13:from scraper.config.models import ScrapeJob, ScrapeResult
+14:from scraper.core import fetcher_static
+15:from scraper.core.engine import ScraperEngine
+16:from scraper.export.export_manager import ExportManager
+17:
+18:
+19:@settings(max_examples=50, derandomize=True, database=None, deadline=None)
+20:@given(start=st.integers(min_value=1, max_value=100), count=st.integers(min_value=1, max_value=30))
+21:async def test_url_pattern_generates_exact_contiguous_window(start, count):
+22:    job = ScrapeJob(
+23:        name="property fixture", start_url="https://fixture.invalid/items/1",
+24:        pagination={"mode": "url_pattern", "url_pattern": "https://fixture.invalid/items/{page}",
+25:                    "start_page": start, "max_pages": count},
+26:    )
+27:    urls = await ScraperEngine()._generate_urls(job)
+28:    assert len(urls) == count
+29:    assert len(set(urls)) == count
+30:    assert urls == [f"https://fixture.invalid/items/{index}" for index in range(start, start + count)]
+31:
+32:
+33:@pytest.mark.parametrize(("statuses", "expected_calls", "success"), [
+34:    ([200], 1, True), ([503, 200], 2, True), ([400], 1, False), ([503, 503], 2, False),
+35:])
+36:async def test_static_fetcher_retry_classes(job, monkeypatch, statuses, expected_calls, success):
+37:    monkeypatch.setattr(fetcher_static, "UserAgent", lambda: SimpleNamespace(random="qa-fixture", chrome="qa-fixture"))
+38:    monkeypatch.setattr(fetcher_static.asyncio, "sleep", AsyncMock())
+39:    job.retry.max_retries = 1
+40:    calls = []
+41:
+42:    def response(request):
+43:        calls.append(request.url)
+44:        return httpx.Response(statuses[min(len(calls) - 1, len(statuses) - 1)], text="<h1>Fixture</h1>")
+45:
+46:    fetcher = fetcher_static.StaticFetcher(job)
+47:    async with httpx.AsyncClient(transport=httpx.MockTransport(response)) as session:
+48:        fetcher.session = session
+49:        soup, html = await fetcher.fetch(job.start_url)
+50:    assert len(calls) == expected_calls
+51:    assert (soup is not None) is success
+52:    assert (html is not None) is success
+53:
+54:
+55:@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-007: proxy-enabled fetch passes unsupported proxies keyword to AsyncClient.get")
+56:async def test_proxy_enabled_fetch_reaches_configured_transport(job, monkeypatch):
+57:    monkeypatch.setattr(fetcher_static, "UserAgent", lambda: SimpleNamespace(random="qa-fixture", chrome="qa-fixture"))
+58:    job.proxy.enabled = True
+59:    job.proxy.proxy_list = ["http://proxy.fixture.invalid:8080"]
+60:    calls = []
+61:
+62:    def response(request):
+63:        calls.append(request.url)
+64:        return httpx.Response(200, text="<h1>Fixture</h1>")
+65:
+66:    fetcher = fetcher_static.StaticFetcher(job)
+67:    async with httpx.AsyncClient(transport=httpx.MockTransport(response)) as session:
+68:        fetcher.session = session
+69:        soup, _ = await fetcher.fetch(job.start_url)
+70:    assert soup is not None, "TypeError from unsupported request-level proxy argument is swallowed"
+71:    assert len(calls) == 1
+72:
+73:
+74:@pytest.mark.parametrize("format_name", ["json", "ndjson", "csv", "sqlite"])
+75:async def test_local_export_round_trip(job, format_name):
+76:    data = [{"title": "Café, one", "quantity": 2}, {"title": 'Line\n"two"', "quantity": 0}]
+77:    job.export.formats = [format_name]
+78:    result = ScrapeResult(
+79:        job_id=job.id, status="success", data=data, items_scraped=2,
+80:        metadata={"job_name": "qa_fixture"},
+81:    )
+82:    exported = await ExportManager(job.export).export_result(result)
+83:    path = exported[format_name]
+84:    assert path.is_relative_to(job.export.base_path)
+85:    if format_name == "json":
+86:        content = json.loads(path.read_text())
+87:        assert content["items"] == data
+88:        assert content["count"] == 2
+89:    elif format_name == "ndjson":
+90:        assert [json.loads(line) for line in path.read_text().splitlines()] == data
+91:    elif format_name == "csv":
+92:        with path.open(newline="") as handle:
+93:            rows = list(csv.DictReader(handle))
+94:        assert rows == [{"title": item["title"], "quantity": str(item["quantity"])} for item in data]
+95:    else:
+96:        with sqlite3.connect(path) as connection:
+97:            rows = connection.execute("SELECT title, quantity FROM scraped_data ORDER BY rowid").fetchall()
+98:        assert rows == [(item["title"], str(item["quantity"])) for item in data]
+
+DIFF
+ pyproject.toml | 2 ++
+ 1 file changed, 2 insertions(+)
+
+
+STATUS
+ M pyproject.toml
+?? docs/qa/
+?? tests/qa_backend/
+?? tests/qa_frontend/
+?? tests/qa_security/
+?? tests/qa_ux/
+

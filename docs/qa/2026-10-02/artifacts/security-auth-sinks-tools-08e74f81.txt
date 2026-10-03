@@ -1,0 +1,691 @@
+scraper/security/__init__.py:15:    from scraper.security import APIKeyManager, RateLimiter, RequestSigner
+scraper/security/__init__.py:18:    key_manager = APIKeyManager()
+scraper/security/__init__.py:26:    rate_limiter = RateLimiter(requests_per_minute=60)
+scraper/security/__init__.py:30:    signer = RequestSigner(secret_key='[REDACTED]')
+scraper/security/__init__.py:36:    APIKeyManager,
+scraper/security/__init__.py:38:    RateLimiter,
+scraper/security/__init__.py:39:    RequestSigner,
+scraper/security/__init__.py:46:    'APIKeyManager',
+scraper/security/__init__.py:48:    'RateLimiter',
+scraper/security/__init__.py:49:    'RequestSigner',
+scraper/security/auth.py:66:class APIKeyManager:
+scraper/security/auth.py:264:class RateLimiter:
+scraper/security/auth.py:349:api_key_manager = APIKeyManager()
+scraper/security/auth.py:350:rate_limiter = RateLimiter()
+scraper/security/auth.py:355:    credentials: HTTPAuthorizationCredentials = Security(security)
+scraper/security/auth.py:362:        async def protected_route(api_key: APIKey = Depends(verify_api_key)):
+scraper/security/auth.py:411:class IPRateLimiter:
+scraper/security/auth.py:420:        self.limiter = RateLimiter()
+scraper/security/auth.py:490:class RequestSigner:
+scraper/security/auth.py:610:    manager = APIKeyManager()
+scraper/security/auth.py:641:    limiter = RateLimiter()
+scraper/core/rate_limiter.py:18:class RateLimiter:
+scraper/core/rate_limiter.py:113:    async def __aenter__(self) -> "RateLimiter":
+scraper/core/engine.py:23:from scraper.core.rate_limiter import RateLimiter, SessionManager
+scraper/core/engine.py:71:            rate_limiter = RateLimiter(job.rate_limit)
+
+FILE scraper/security/auth.py
+250:         """Get usage statistics for a key."""
+251:         key_hash = self._hash_key(key)
+252:         return self.usage_stats.get(key_hash, {
+253:             "total_requests": 0,
+254:             "requests_today": 0,
+255:             "last_request": None,
+256:             "endpoints_used": []
+257:         })
+258: 
+259: 
+260: # ============================================================================
+261: # RATE LIMITING
+262: # ============================================================================
+263: 
+264: class RateLimiter:
+265:     """
+266:     Token bucket rate limiter.
+267: 
+268:     Implements per-key and global rate limiting with sliding window.
+269:     """
+270: 
+271:     def __init__(self):
+272:         """Initialize rate limiter."""
+273:         self.buckets: Dict[str, Dict[str, Any]] = {}
+274:         self.global_limit = 1000  # Global requests per minute
+275: 
+276:     def check_rate_limit(
+277:         self,
+278:         key: str,
+279:         limit: int,
+280:         window_seconds: int = 60
+281:     ) -> tuple[bool, Dict[str, Any]]:
+282:         """
+283:         Check if request is within rate limit.
+284: 
+285:         Args:
+286:             key: Unique identifier (API key, IP, user ID)
+287:             limit: Maximum requests allowed
+288:             window_seconds: Time window in seconds
+289: 
+290:         Returns:
+291:             (allowed, info) - allowed is True if within limit
+292:         """
+293:         now = time.time()
+294: 
+295:         if key not in self.buckets:
+296:             self.buckets[key] = {
+297:                 'requests': [],
+298:                 'total': 0
+299:             }
+300: 
+301:         bucket = self.buckets[key]
+302: 
+303:         # Remove old requests outside the window
+304:         cutoff = now - window_seconds
+305:         bucket['requests'] = [ts for ts in bucket['requests'] if ts > cutoff]
+306: 
+307:         current_count = len(bucket['requests'])
+308: 
+309:         info = {
+310:             'limit': limit,
+311:             'remaining': max(0, limit - current_count),
+312:             'reset_at': int(now + window_seconds),
+313:             'current_count': current_count
+314:         }
+315: 
+316:         if current_count >= limit:
+317:             logger.warning(f"Rate limit exceeded for {key}: {current_count}/{limit}")
+318:             return False, info
+319: 
+320:         # Add current request
+321:         bucket['requests'].append(now)
+322:         bucket['total'] += 1
+323: 
+324:         return True, info
+325: 
+326:     def get_stats(self, key: str) -> Dict[str, Any]:
+327:         """Get rate limit statistics."""
+328:         if key not in self.buckets:
+329:             return {
+330:                 'total_requests': 0,
+331:                 'current_window': 0,
+332:                 'all_time': 0
+333:             }
+334: 
+335:         bucket = self.buckets[key]
+336:         return {
+337:             'total_requests': bucket['total'],
+338:             'current_window': len(bucket['requests']),
+339:             'all_time': bucket['total']
+340:         }
+341: 
+342: 
+343: # ============================================================================
+344: # AUTHENTICATION MIDDLEWARE
+345: # ============================================================================
+346: 
+347: security = HTTPBearer()
+348: 
+349: api_key_manager = APIKeyManager()
+350: rate_limiter = RateLimiter()
+351: 
+352: 
+353: async def verify_api_key(
+354:     request: Request,
+355:     credentials: HTTPAuthorizationCredentials = Security(security)
+356: ) -> APIKey:
+357:     """
+358:     Verify API key from request.
+359: 
+360:     Usage in FastAPI:
+361:         @app.get("/protected")
+362:         async def protected_route(api_key: APIKey = Depends(verify_api_key)):
+363:             ...
+364:     """
+365:     token = credentials.credentials
+366: 
+367:     # Validate key
+368:     endpoint = request.url.path
+369:     if not api_key_manager.validate_key(token, endpoint):
+370:         raise HTTPException(
+371:             status_code=401,
+372:             detail="Invalid or expired API key"
+373:         )
+374: 
+375:     api_key = api_key_manager.get_key(token)
+376:     if not api_key:
+377:         raise HTTPException(
+378:             status_code=401,
+379:             detail="Invalid or expired API key"
+380:         )
+381: 
+382:     # Check rate limit
+383:     allowed, info = rate_limiter.check_rate_limit(
+384:         token,
+385:         api_key.rate_limit,
+386:         window_seconds=60
+387:     )
+388: 
+389:     if not allowed:
+390:         raise HTTPException(
+391:             status_code=429,
+392:             detail=f"Rate limit exceeded. Resets at {info['reset_at']}",
+393:             headers={
+394:                 'X-RateLimit-Limit': str(info['limit']),
+395:                 'X-RateLimit-Remaining': str(info['remaining']),
+396:                 'X-RateLimit-Reset': str(info['reset_at'])
+397:             }
+398:         )
+399: 
+400:     # Add rate limit headers to response (done in middleware)
+401:     request.state.rate_limit_info = info
+402:     request.state.api_key = api_key
+403: 
+404:     return api_key
+405: 
+406: 
+407: # ============================================================================
+408: # IP-BASED RATE LIMITING
+409: # ============================================================================
+410: 
+411: class IPRateLimiter:
+412:     """
+413:     IP-based rate limiting for unauthenticated requests.
+414: 
+415:     Protects against abuse from anonymous users.
+416:     """
+417: 
+418:     def __init__(self):
+419:         """Initialize IP rate limiter."""
+420:         self.limiter = RateLimiter()
+421:         self.default_limit = 60  # 60 requests per minute for unauthenticated
+422: 
+423:     async def check_ip_rate_limit(self, request: Request):
+424:         """Check IP-based rate limit."""
+425:         # Get client IP
+426:         client_ip = request.client.host
+427: 
+428:         # Check rate limit
+429:         allowed, info = self.limiter.check_rate_limit(
+430:             f"ip:{client_ip}",
+431:             self.default_limit,
+432:             window_seconds=60
+433:         )
+434: 
+435:         if not allowed:
+436:             raise HTTPException(
+437:                 status_code=429,
+438:                 detail="Rate limit exceeded for unauthenticated requests. Please use an API key.",
+439:                 headers={
+440:                     'X-RateLimit-Limit': str(info['limit']),
+441:                     'X-RateLimit-Remaining': str(info['remaining']),
+442:                     'X-RateLimit-Reset': str(info['reset_at'])
+443:                 }
+444:             )
+445: 
+446:         request.state.rate_limit_info = info
+447: 
+448: 
+449: # ============================================================================
+450: # CORS SECURITY
+451: # ============================================================================
+452: 
+453: class CORSConfig:
+454:     """
+455:     CORS configuration for production.
+456: 
+457:     Prevents unauthorized cross-origin requests.
+458:     """
+459: 
+460:     @staticmethod
+461:     def get_production_config():
+462:         """Get production CORS configuration."""
+463:         return {
+464:             "allow_origins": [
+465:                 "https://yourdomain.com",
+466:                 "https://app.yourdomain.com"
+467:             ],
+468:             "allow_credentials": True,
+469:             "allow_methods": ["GET", "POST", "PUT", "DELETE"],
+470:             "allow_headers": ["Authorization", "Content-Type"],
+471:             "expose_headers": ["X-RateLimit-Limit", "X-RateLimit-Remaining"],
+472:             "max_age": 3600
+473:         }
+474: 
+475:     @staticmethod
+476:     def get_development_config():
+477:         """Get development CORS configuration."""
+478:         return {
+479:             "allow_origins": ["*"],
+480:             "allow_credentials": True,
+481:             "allow_methods": ["*"],
+482:             "allow_headers": ["*"]
+483:         }
+484: 
+485: 
+486: # ============================================================================
+487: # REQUEST SIGNING
+488: # ============================================================================
+489: 
+490: class RequestSigner:
+491:     """
+492:     Sign requests for enhanced security.
+493: 
+494:     Prevents request tampering and replay attacks.
+495:     """
+496: 
+497:     def __init__(self, secret_key: str):
+498:         """Initialize request signer."""
+499:         self.secret_key = secret_key
+500: 
+
+FILE scraper/export/base_exporter.py
+1: """
+2: Base exporter interface.
+3: 
+4: All exporters inherit from this.
+5: """
+6: 
+7: from abc import ABC, abstractmethod
+8: from pathlib import Path
+9: from typing import Any
+10: 
+11: 
+12: class BaseExporter(ABC):
+13:     """Abstract base class for all exporters."""
+14: 
+15:     def __init__(self, output_path: Path):
+16:         """
+17:         Initialize exporter.
+18: 
+19:         Args:
+20:             output_path: Path to export file
+21:         """
+22:         self.output_path = output_path
+23: 
+24:     @abstractmethod
+25:     async def export(self, data: list[dict[str, Any]], metadata: dict[str, Any]) -> Path:
+26:         """
+27:         Export data to file.
+28: 
+29:         Args:
+30:             data: List of items to export
+31:             metadata: Metadata about the scrape
+32: 
+33:         Returns:
+34:             Path to exported file
+35:         """
+36:         pass
+37: 
+38:     def _ensure_directory(self) -> None:
+39:         """Ensure output directory exists."""
+40:         self.output_path.parent.mkdir(parents=True, exist_ok=True)
+
+FILE scraper/export/json_exporter.py
+1: """
+2: JSON export functionality.
+3: """
+4: 
+5: import json
+6: import logging
+7: from datetime import datetime
+8: from pathlib import Path
+9: from typing import Any
+10: 
+11: from scraper.export.base_exporter import BaseExporter
+12: 
+13: logger = logging.getLogger(__name__)
+14: 
+15: 
+16: class JSONExporter(BaseExporter):
+17:     """Export data to JSON format."""
+18: 
+19:     async def export(self, data: list[dict[str, Any]], metadata: dict[str, Any]) -> Path:
+20:         """
+21:         Export to JSON.
+22: 
+23:         Args:
+24:             data: List of dicts to export
+25:             metadata: Metadata
+26: 
+27:         Returns:
+28:             Path to JSON file
+29:         """
+30:         self._ensure_directory()
+31: 
+32:         export_data = {
+33:             "metadata": metadata,
+34:             "items": data,
+35:             "count": len(data),
+36:             "exported_at": datetime.utcnow().isoformat(),
+37:         }
+38: 
+39:         with open(self.output_path, "w", encoding="utf-8") as f:
+40:             json.dump(
+41:                 export_data,
+42:                 f,
+43:                 indent=2,
+44:                 ensure_ascii=False,
+45:                 default=str,  # Handle datetime, etc.
+46:             )
+47: 
+48:         logger.info(f"Exported {len(data)} items to {self.output_path}")
+49:         return self.output_path
+50: 
+51: 
+52: class NDJSONExporter(BaseExporter):
+53:     """Export data to NDJSON (newline-delimited JSON) format."""
+54: 
+55:     async def export(self, data: list[dict[str, Any]], metadata: dict[str, Any]) -> Path:
+56:         """Export to NDJSON."""
+57:         self._ensure_directory()
+58: 
+59:         with open(self.output_path, "w", encoding="utf-8") as f:
+60:             for item in data:
+61:                 f.write(json.dumps(item, ensure_ascii=False, default=str))
+62:                 f.write("\n")
+63: 
+64:         logger.info(f"Exported {len(data)} items to {self.output_path}")
+65:         return self.output_path
+
+FILE scraper/scheduler/workflow_dag.py
+1: """
+2: Full-featured workflow DAG engine.
+3: 
+4: Create complex scraping workflows with:
+5: - Dependencies between jobs
+6: - Conditional execution
+7: - Parallel execution
+8: - Error handling
+9: - Retries and rollbacks
+10: """
+11: 
+12: import asyncio
+13: import logging
+14: from collections import defaultdict, deque
+15: from dataclasses import dataclass, field
+16: from datetime import datetime
+17: from enum import Enum
+18: from typing import Any, Callable, Dict, List, Optional, Set
+19: 
+20: logger = logging.getLogger(__name__)
+21: 
+22: 
+23: class NodeStatus(Enum):
+24:     """Status of a workflow node."""
+25:     PENDING = "pending"
+26:     RUNNING = "running"
+27:     SUCCESS = "success"
+28:     FAILED = "failed"
+29:     SKIPPED = "skipped"
+30:     CANCELLED = "cancelled"
+31: 
+32: 
+33: @dataclass
+34: class WorkflowNode:
+35:     """
+36:     A node in the workflow DAG.
+37: 
+38:     Can be:
+39:     - Scrape job
+40:     - Transform operation
+41:     - Export task
+42:     - Conditional check
+43:     """
+44:     id: str
+45:     type: str  # scrape, transform, export, condition, python
+46:     config: Dict[str, Any] = field(default_factory=dict)
+47:     depends_on: List[str] = field(default_factory=list)
+48:     condition: Optional[str] = None  # Python expression
+49:     retry_count: int = 3
+50:     timeout_seconds: int = 300
+51: 
+52:     # Runtime state
+53:     status: NodeStatus = NodeStatus.PENDING
+54:     start_time: Optional[datetime] = None
+55:     end_time: Optional[datetime] = None
+56:     result: Any = None
+57:     error: Optional[str] = None
+58:     attempts: int = 0
+59: 
+60: 
+61: class WorkflowDAG:
+62:     """
+63:     Directed Acyclic Graph workflow engine.
+64: 
+65:     Executes complex multi-step workflows with:
+66:     - Automatic dependency resolution
+67:     - Parallel execution where possible
+68:     - Error handling and retries
+69:     - Conditional branching
+70:     - State management
+71:     """
+72: 
+73:     def __init__(self, name: str):
+74:         self.name = name
+75:         self.nodes: Dict[str, WorkflowNode] = {}
+76:         self.execution_order: List[List[str]] = []  # List of parallel batches
+77: 
+78:     def add_node(self, node: WorkflowNode):
+79:         """Add a node to the workflow."""
+80:         if node.id in self.nodes:
+81:             raise ValueError(f"Node {node.id} already exists")
+82: 
+83:         self.nodes[node.id] = node
+84: 
+85:     def build(self):
+86:         """
+87:         Build execution plan.
+88: 
+89:         Determines optimal execution order with maximum parallelism.
+90:         """
+91:         # Validate DAG (no cycles)
+92:         self._validate_dag()
+93: 
+94:         # Topological sort with level assignment
+95:         self.execution_order = self._topological_sort_with_levels()
+96: 
+97:         logger.info(
+98:             f"Workflow built: {len(self.nodes)} nodes in "
+99:             f"{len(self.execution_order)} parallel batches"
+100:         )
+101: 
+102:     def _validate_dag(self):
+103:         """Validate that graph is acyclic."""
+104:         visited = set()
+105:         rec_stack = set()
+106: 
+107:         def has_cycle(node_id: str) -> bool:
+108:             visited.add(node_id)
+109:             rec_stack.add(node_id)
+110: 
+111:             node = self.nodes.get(node_id)
+112:             if not node:
+113:                 return False
+114: 
+115:             for dep_id in node.depends_on:
+116:                 if dep_id not in visited:
+117:                     if has_cycle(dep_id):
+118:                         return True
+119:                 elif dep_id in rec_stack:
+120:                     return True
+121: 
+122:             rec_stack.remove(node_id)
+123:             return False
+124: 
+125:         for node_id in self.nodes:
+126:             if node_id not in visited:
+127:                 if has_cycle(node_id):
+128:                     raise ValueError(f"Workflow contains cycle involving {node_id}")
+129: 
+130:     def _topological_sort_with_levels(self) -> List[List[str]]:
+131:         """
+132:         Topological sort that groups nodes into parallel execution levels.
+133: 
+134:         Returns list of lists, where each inner list can execute in parallel.
+135:         """
+136:         # Calculate in-degree
+137:         in_degree = {node_id: 0 for node_id in self.nodes}
+138:         for node in self.nodes.values():
+139:             for dep in node.depends_on:
+140:                 in_degree[dep] += 1
+141: 
+142:         # Find nodes with no dependencies
+143:         queue = deque([
+144:             node_id for node_id, degree in in_degree.items()
+145:             if degree == 0
+146:         ])
+147: 
+148:         levels = []
+149: 
+150:         while queue:
+151:             # All nodes in queue can execute in parallel
+152:             current_level = list(queue)
+153:             levels.append(current_level)
+154: 
+155:             # Process current level
+156:             next_queue = []
+157:             for node_id in current_level:
+158:                 queue.popleft()
+159: 
+160:                 # Reduce in-degree for dependent nodes
+161:                 for other_id, other_node in self.nodes.items():
+162:                     if node_id in other_node.depends_on:
+163:                         in_degree[other_id] -= 1
+164:                         if in_degree[other_id] == 0:
+165:                             next_queue.append(other_id)
+166: 
+167:             queue.extend(next_queue)
+168: 
+169:         return levels
+170: 
+171:     async def execute(
+172:         self,
+173:         executor_map: Dict[str, Callable],
+174:         context: Optional[Dict[str, Any]] = None
+175:     ) -> Dict[str, Any]:
+176:         """
+177:         Execute the workflow.
+178: 
+179:         Args:
+180:             executor_map: Map of node type to executor function
+181:             context: Shared context passed to all nodes
+182: 
+183:         Returns:
+184:             Workflow execution results
+185:         """
+186:         if not self.execution_order:
+187:             self.build()
+188: 
+189:         context = context or {}
+190:         start_time = datetime.utcnow()
+191: 
+192:         logger.info(f"Starting workflow: {self.name}")
+193: 
+194:         # Execute each level
+195:         for level_idx, level_nodes in enumerate(self.execution_order):
+196:             logger.info(
+197:                 f"Executing level {level_idx + 1}/{len(self.execution_order)}: "
+198:                 f"{len(level_nodes)} nodes"
+199:             )
+200: 
+201:             # Execute nodes in parallel
+202:             tasks = []
+203:             for node_id in level_nodes:
+204:                 task = self._execute_node(node_id, executor_map, context)
+205:                 tasks.append(task)
+206: 
+207:             # Wait for all nodes in level to complete
+208:             results = await asyncio.gather(*tasks, return_exceptions=True)
+209: 
+210:             # Check for failures
+211:             failed = [
+212:                 node_id for node_id in level_nodes
+213:                 if self.nodes[node_id].status == NodeStatus.FAILED
+214:             ]
+215: 
+216:             if failed:
+217:                 logger.error(f"Nodes failed: {failed}")
+218:                 # Handle failure based on error handling policy
+219:                 # For now, continue
+220: 
+221:         # Workflow complete
+222:         end_time = datetime.utcnow()
+223:         duration = (end_time - start_time).total_seconds()
+224: 
+225:         # Collect results
+226:         workflow_result = {
+227:             'name': self.name,
+228:             'status': self._get_overall_status(),
+229:             'start_time': start_time,
+230:             'end_time': end_time,
+231:             'duration_seconds': duration,
+232:             'nodes': {
+233:                 node_id: {
+234:                     'status': node.status.value,
+235:                     'result': node.result,
+236:                     'error': node.error,
+237:                     'attempts': node.attempts,
+238:                 }
+239:                 for node_id, node in self.nodes.items()
+240:             }
+241:         }
+242: 
+243:         logger.info(
+244:             f"Workflow complete: {self.name} "
+245:             f"(status: {workflow_result['status']}, duration: {duration:.2f}s)"
+246:         )
+247: 
+248:         return workflow_result
+249: 
+250:     async def _execute_node(
+251:         self,
+252:         node_id: str,
+253:         executor_map: Dict[str, Callable],
+254:         context: Dict[str, Any]
+255:     ):
+256:         """Execute a single node."""
+257:         node = self.nodes[node_id]
+258: 
+259:         # Check if dependencies succeeded
+260:         for dep_id in node.depends_on:
+261:             dep_node = self.nodes[dep_id]
+262:             if dep_node.status != NodeStatus.SUCCESS:
+263:                 logger.warning(
+264:                     f"Skipping {node_id} - dependency {dep_id} "
+265:                     f"not successful (status: {dep_node.status})"
+266:                 )
+267:                 node.status = NodeStatus.SKIPPED
+268:                 return
+269: 
+270:         # Check condition if present
+271:         if node.condition:
+272:             if not self._evaluate_condition(node.condition, context):
+273:                 logger.info(f"Skipping {node_id} - condition not met")
+274:                 node.status = NodeStatus.SKIPPED
+275:                 return
+276: 
+277:         # Execute with retries
+278:         node.status = NodeStatus.RUNNING
+279:         node.start_time = datetime.utcnow()
+280: 
+281:         executor = executor_map.get(node.type)
+282:         if not executor:
+283:             logger.error(f"No executor for node type: {node.type}")
+284:             node.status = NodeStatus.FAILED
+285:             node.error = f"No executor for type: {node.type}"
+286:             return
+287: 
+288:         # Retry loop
+289:         for attempt in range(node.retry_count):
+290:             node.attempts = attempt + 1
+291: 
+292:             try:
+293:                 logger.debug(
+294:                     f"Executing {node_id} (attempt {attempt + 1}/{node.retry_count})"
+295:                 )
+296: 
+297:                 # Execute with timeout
+298:                 result = await asyncio.wait_for(
+299:                     executor(node, context),
+300:                     timeout=node.timeout_seconds
+TOOLS {'gitleaks': '/opt/homebrew/bin/gitleaks', 'pip-audit': None, 'safety': None, 'uv': '/Users/sellers/.local/bin/uv'}
+VENV_READY True

@@ -1,0 +1,5 @@
+Results by expectation/actual: {('failed', 'failed'): 9, ('passed', 'passed'): 14}
+Result stats {'startTime': '2026-10-03T01:53:55.833Z', 'duration': 20536.797, 'expected': 23, 'skipped': 0, 'unexpected': 0, 'flaky': 0}
+Performance {'domContentLoadedEventEnd': 17, 'loadEventEnd': 17}
+Paint [{'name': 'first-paint', 'entryType': 'paint', 'startTime': 24, 'duration': 0, 'navigationId': 6369, 'paintTime': 15.5, 'presentationTime': 24}, {'name': 'first-contentful-paint', 'entryType': 'paint', 'startTime': 24, 'duration': 0, 'navigationId': 6369, 'paintTime': 15.5, 'presentationTime': 24}]
+Coverage [{'url': 'http://127.0.0.1:18765/static/app.js', 'total_utf16_units': 10747, 'executed_utf16_units': 6087}]

@@ -1,0 +1,109 @@
+/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/scraper/cli/main.py 84 E722 Do not use bare `except`
+/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/scraper/cli/main.py 425 A001 Variable `list` is shadowing a Python builtin
+/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/scraper/export/cloud_storage.py 418 ASYNC101 Async functions should not call `open`, `time.sleep`, or `subprocess` methods
+/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/scraper/export/cloud_storage.py 464 ASYNC101 Async functions should not call `open`, `time.sleep`, or `subprocess` methods
+/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/scraper/export/csv_exporter.py 43 ASYNC101 Async functions should not call `open`, `time.sleep`, or `subprocess` methods
+/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/scraper/export/database_connectors.py 117 S608 Possible SQL injection vector through string-based query construction
+/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/scraper/export/database_connectors.py 164 S608 Possible SQL injection vector through string-based query construction
+/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/scraper/export/database_connectors.py 274 S608 Possible SQL injection vector through string-based query construction
+/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/scraper/export/database_connectors.py 312 S608 Possible SQL injection vector through string-based query construction
+/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/scraper/export/json_exporter.py 39 ASYNC101 Async functions should not call `open`, `time.sleep`, or `subprocess` methods
+/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/scraper/export/json_exporter.py 59 ASYNC101 Async functions should not call `open`, `time.sleep`, or `subprocess` methods
+/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/scraper/export/premium_formats.py 119 ASYNC101 Async functions should not call `open`, `time.sleep`, or `subprocess` methods
+/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/scraper/export/premium_formats.py 251 ASYNC101 Async functions should not call `open`, `time.sleep`, or `subprocess` methods
+/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/scraper/export/premium_formats.py 314 ASYNC101 Async functions should not call `open`, `time.sleep`, or `subprocess` methods
+/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/scraper/export/premium_formats.py 375 ASYNC101 Async functions should not call `open`, `time.sleep`, or `subprocess` methods
+/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/scraper/export/sqlite_exporter.py 65 S608 Possible SQL injection vector through string-based query construction
+/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/scraper/ml/data_intelligence.py 204 E722 Do not use bare `except`
+/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/scraper/ml/data_intelligence.py 348 E722 Do not use bare `except`
+/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/scraper/ml/data_intelligence.py 604 E722 Do not use bare `except`
+/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/scraper/scheduler/advanced_scheduler.py 403 E722 Do not use bare `except`
+/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/scraper/security/auth.py 355 B008 Do not perform function call `Security` in argument defaults; instead, perform the call within the function, or read the default from a module-level singleton variable
+/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/scraper/strategies/intelligent_extraction.py 198 B023 Function definition does not bind loop variable `pattern`
+/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/scraper/strategies/intelligent_extraction.py 293 B023 Function definition does not bind loop variable `date_class`
+/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/scraper/strategies/intelligent_extraction.py 315 B023 Function definition does not bind loop variable `class_name`
+/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/scraper/strategies/intelligent_extraction.py 404 B023 Function definition does not bind loop variable `pattern`
+/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/scraper/strategies/intelligent_extraction.py 406 B023 Function definition does not bind loop variable `pattern`
+/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/scraper/transforms/deduplication.py 157 S324 Probable use of insecure hash functions in `hashlib`: `md5`
+API/core type errors
+scraper/core/rate_limiter.py:117: error: Function is missing a type annotation for one or more arguments  [no-untyped-def]
+scraper/core/rate_limiter.py:129: error: Function is missing a return type annotation  [no-untyped-def]
+scraper/core/rate_limiter.py:129: note: Use "-> None" if function does not return a value
+scraper/core/rate_limiter.py:131: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+scraper/core/rate_limiter.py:132: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+scraper/core/rate_limiter.py:133: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+scraper/core/rate_limiter.py:134: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+scraper/core/concurrent_engine.py:31: error: Incompatible types in assignment (expression has type "None", variable has type "dict[str, Any]")  [assignment]
+scraper/core/concurrent_engine.py:70: error: Function is missing a return type annotation  [no-untyped-def]
+scraper/core/concurrent_engine.py:75: error: Function is missing a return type annotation  [no-untyped-def]
+scraper/core/concurrent_engine.py:80: error: Function is missing a return type annotation  [no-untyped-def]
+scraper/core/concurrent_engine.py:102: error: "object" has no attribute "add"  [attr-defined]
+scraper/core/concurrent_engine.py:168: error: Missing named argument "items_scraped" for "ScrapeResult"  [call-arg]
+scraper/core/concurrent_engine.py:168: error: Missing named argument "pages_visited" for "ScrapeResult"  [call-arg]
+scraper/core/concurrent_engine.py:168: error: Missing named argument "end_time" for "ScrapeResult"  [call-arg]
+scraper/core/concurrent_engine.py:168: error: Missing named argument "duration_seconds" for "ScrapeResult"  [call-arg]
+scraper/core/concurrent_engine.py:228: error: Argument 1 to "len" has incompatible type "object"; expected "Sized"  [arg-type]
+scraper/core/concurrent_engine.py:281: error: Function is missing a return type annotation  [no-untyped-def]
+scraper/core/concurrent_engine.py:292: error: Library stubs not installed for "aiofiles"  [import-untyped]
+scraper/core/concurrent_engine.py:292: note: Hint: "python3 -m pip install types-aiofiles"
+scraper/core/concurrent_engine.py:345: error: Function is missing a return type annotation  [no-untyped-def]
+scraper/core/concurrent_engine.py:345: note: Use "-> None" if function does not return a value
+scraper/core/concurrent_engine.py:346: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+scraper/core/concurrent_engine.py:347: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+scraper/core/concurrent_engine.py:372: error: Function is missing a return type annotation  [no-untyped-def]
+scraper/core/fetcher_browser.py:67: error: Incompatible types in assignment (expression has type "dict[str, str]", target has type "bool")  [assignment]
+scraper/core/fetcher_browser.py:69: error: Argument 1 to "launch" of "BrowserType" has incompatible type "**dict[str, bool]"; expected "Path | str | None"  [arg-type]
+scraper/core/fetcher_browser.py:69: error: Argument 1 to "launch" of "BrowserType" has incompatible type "**dict[str, bool]"; expected "str | None"  [arg-type]
+scraper/core/fetcher_browser.py:69: error: Argument 1 to "launch" of "BrowserType" has incompatible type "**dict[str, bool]"; expected "Sequence[str] | None"  [arg-type]
+scraper/core/fetcher_browser.py:69: error: Argument 1 to "launch" of "BrowserType" has incompatible type "**dict[str, bool]"; expected "dict[str, str | float | bool] | None"  [arg-type]
+scraper/core/fetcher_browser.py:69: note: "Dict" is invariant -- see https://mypy.readthedocs.io/en/stable/common_issues.html#variance
+scraper/core/fetcher_browser.py:69: note: Consider using "Mapping" instead, which is covariant in the value type
+scraper/core/fetcher_browser.py:69: error: Argument 1 to "launch" of "BrowserType" has incompatible type "**dict[str, bool]"; expected "ProxySettings | None"  [arg-type]
+scraper/core/fetcher_browser.py:81: error: Argument 1 to "new_context" of "Browser" has incompatible type "**dict[str, bool | dict[str, int] | str | None]"; expected "ViewportSize | None"  [arg-type]
+scraper/core/fetcher_browser.py:81: error: Argument 1 to "new_context" of "Browser" has incompatible type "**dict[str, bool | dict[str, int] | str | None]"; expected "bool | None"  [arg-type]
+scraper/core/fetcher_browser.py:81: error: Argument 1 to "new_context" of "Browser" has incompatible type "**dict[str, bool | dict[str, int] | str | None]"; expected "str | None"  [arg-type]
+scraper/core/fetcher_browser.py:81: error: Argument 1 to "new_context" of "Browser" has incompatible type "**dict[str, bool | dict[str, int] | str | None]"; expected "Geolocation | None"  [arg-type]
+scraper/core/fetcher_browser.py:81: error: Argument 1 to "new_context" of "Browser" has incompatible type "**dict[str, bool | dict[str, int] | str | None]"; expected "Sequence[str] | None"  [arg-type]
+scraper/core/fetcher_browser.py:81: error: Argument 1 to "new_context" of "Browser" has incompatible type "**dict[str, bool | dict[str, int] | str | None]"; expected "dict[str, str] | None"  [arg-type]
+scraper/core/fetcher_browser.py:81: error: Argument 1 to "new_context" of "Browser" has incompatible type "**dict[str, bool | dict[str, int] | str | None]"; expected "HttpCredentials | Sequence[HttpCredentials] | None"  [arg-type]
+scraper/core/fetcher_browser.py:81: error: Argument 1 to "new_context" of "Browser" has incompatible type "**dict[str, bool | dict[str, int] | str | None]"; expected "float | None"  [arg-type]
+scraper/core/fetcher_browser.py:81: error: Argument 1 to "new_context" of "Browser" has incompatible type "**dict[str, bool | dict[str, int] | str | None]"; expected "Literal['dark', 'light', 'no-preference', 'null'] | None"  [arg-type]
+scraper/core/fetcher_browser.py:81: error: Argument 1 to "new_context" of "Browser" has incompatible type "**dict[str, bool | dict[str, int] | str | None]"; expected "Literal['no-preference', 'null', 'reduce'] | None"  [arg-type]
+scraper/core/fetcher_browser.py:81: error: Argument 1 to "new_context" of "Browser" has incompatible type "**dict[str, bool | dict[str, int] | str | None]"; expected "Literal['active', 'none', 'null'] | None"  [arg-type]
+scraper/core/fetcher_browser.py:81: error: Argument 1 to "new_context" of "Browser" has incompatible type "**dict[str, bool | dict[str, int] | str | None]"; expected "Literal['more', 'no-preference', 'null'] | None"  [arg-type]
+scraper/core/fetcher_browser.py:81: error: Argument 1 to "new_context" of "Browser" has incompatible type "**dict[str, bool | dict[str, int] | str | None]"; expected "ProxySettings | None"  [arg-type]
+scraper/core/fetcher_browser.py:81: error: Argument 1 to "new_context" of "Browser" has incompatible type "**dict[str, bool | dict[str, int] | str | None]"; expected "Path | str | None"  [arg-type]
+scraper/core/fetcher_browser.py:81: error: Argument 1 to "new_context" of "Browser" has incompatible type "**dict[str, bool | dict[str, int] | str | None]"; expected "StorageState | str | Path | None"  [arg-type]
+scraper/core/fetcher_browser.py:81: error: Argument 1 to "new_context" of "Browser" has incompatible type "**dict[str, bool | dict[str, int] | str | None]"; expected "Literal['allow', 'block'] | None"  [arg-type]
+scraper/core/fetcher_browser.py:81: error: Argument 1 to "new_context" of "Browser" has incompatible type "**dict[str, bool | dict[str, int] | str | None]"; expected "Pattern[str] | str | None"  [arg-type]
+scraper/core/fetcher_browser.py:81: error: Argument 1 to "new_context" of "Browser" has incompatible type "**dict[str, bool | dict[str, int] | str | None]"; expected "Literal['full', 'minimal'] | None"  [arg-type]
+scraper/core/fetcher_browser.py:81: error: Argument 1 to "new_context" of "Browser" has incompatible type "**dict[str, bool | dict[str, int] | str | None]"; expected "Literal['attach', 'embed', 'omit'] | None"  [arg-type]
+scraper/core/fetcher_browser.py:81: error: Argument 1 to "new_context" of "Browser" has incompatible type "**dict[str, bool | dict[str, int] | str | None]"; expected "list[ClientCertificate] | None"  [arg-type]
+scraper/core/fetcher_browser.py:89: error: Argument 1 to "add_cookies" of "BrowserContext" has incompatible type "list[dict[str, str]]"; expected "Sequence[SetCookieParam]"  [arg-type]
+scraper/core/fetcher_browser.py:339: error: Returning Any from function declared to return "str | None"  [no-any-return]
+scraper/core/fetcher_static.py:14: error: Skipping analyzing "fake_useragent": module is installed, but missing library stubs or py.typed marker  [import-untyped]
+scraper/core/fetcher_static.py:97: error: Returning Any from function declared to return "str"  [no-any-return]
+scraper/core/fetcher_static.py:101: error: Returning Any from function declared to return "str"  [no-any-return]
+scraper/core/fetcher_static.py:109: error: Returning Any from function declared to return "str"  [no-any-return]
+scraper/core/fetcher_static.py:253: error: Incompatible return value type (got "list[tuple[str, BeautifulSoup | None, str | None] | BaseException]", expected "list[tuple[str, BeautifulSoup | None, str | None]]")  [return-value]
+scraper/core/engine.py:46: error: Function is missing a return type annotation  [no-untyped-def]
+scraper/core/engine.py:46: note: Use "-> None" if function does not return a value
+scraper/core/engine.py:63: error: Missing named argument "items_scraped" for "ScrapeResult"  [call-arg]
+scraper/core/engine.py:63: error: Missing named argument "pages_visited" for "ScrapeResult"  [call-arg]
+scraper/core/engine.py:63: error: Missing named argument "end_time" for "ScrapeResult"  [call-arg]
+scraper/core/engine.py:63: error: Missing named argument "duration_seconds" for "ScrapeResult"  [call-arg]
+scraper/core/engine.py:85: error: Incompatible types in assignment (expression has type "StaticFetcher", variable has type "BrowserFetcher")  [assignment]
+scraper/core/engine.py:119: error: Argument 2 to "_extract_items" of "ScraperEngine" has incompatible type "str | None"; expected "str"  [arg-type]
+scraper/core/engine.py:390: error: Library stubs not installed for "dateutil"  [import-untyped]
+scraper/core/engine.py:390: note: Hint: "python3 -m pip install types-python-dateutil"
+scraper/api/rest_server.py:253: error: Missing named argument "end_time" for "ScrapeResult"  [call-arg]
+scraper/api/rest_server.py:253: error: Missing named argument "duration_seconds" for "ScrapeResult"  [call-arg]
+scraper/api/rest_server.py:273: error: Function is missing a type annotation  [no-untyped-def]
+scraper/api/rest_server.py:380: error: Missing named argument "description" for "ScrapeJob"  [call-arg]
+scraper/api/rest_server.py:380: error: Missing named argument "enabled" for "ScrapeJob"  [call-arg]
+scraper/api/rest_server.py:380: error: Missing named argument "item_selector" for "ScrapeJob"  [call-arg]
+scraper/api/rest_server.py:380: error: Missing named argument "user_agent_strategy" for "ScrapeJob"  [call-arg]
+scraper/api/rest_server.py:380: error: Missing named argument "max_items" for "ScrapeJob"  [call-arg]
+scraper/api/rest_server.py:405: error: Argument 1 to "len" has incompatible type "str | None"; expected "Sized"  [arg-type]
+scraper/api/rest_server.py:586: error: Function is missing a return type annotation  [no-untyped-def]
+scraper/api/rest_server.py:624: error: Function is missing a return type annotation  [no-untyped-def]

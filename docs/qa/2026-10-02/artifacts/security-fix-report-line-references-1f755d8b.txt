@@ -1,0 +1,16 @@
+scraper/security/auth.py:317:            logger.warning(f"Rate limit exceeded for {key}: {current_count}/{limit}")
+scraper/security/auth.py:353:async def verify_api_key(
+scraper/security/auth.py:369:    if not api_key_manager.validate_key(token, endpoint):
+scraper/security/auth.py:384:        token,
+scraper/security/auth.py:438:                detail="Rate limit exceeded for unauthenticated requests. Please use an API key.",
+scraper/api/rest_server.py:95:async def create_job(request: JobCreateRequest) -> Dict[str, Any]:
+scraper/api/rest_server.py:118:async def list_jobs(
+scraper/api/rest_server.py:147:async def get_job(job_id: str) -> ScrapeJob:
+scraper/api/rest_server.py:161:async def delete_job(job_id: str) -> Dict[str, str]:
+scraper/api/rest_server.py:274:                temp_job = ScrapeJob(
+scraper/api/rest_server.py:335:async def get_job_results(
+scraper/api/rest_server.py:366:async def analyze_url(request: AnalyzeRequest) -> Dict[str, Any]:
+scraper/api/rest_server.py:380:    temp_job = ScrapeJob(name="analysis", start_url=request.url)
+scraper/api/rest_server.py:383:        soup, html = await fetcher.fetch(request.url)
+scraper/api/rest_server.py:624:def run_server(host: str = "0.0.0.0", port: int = 8000):
+Updated model and export reference lines from rg evidence

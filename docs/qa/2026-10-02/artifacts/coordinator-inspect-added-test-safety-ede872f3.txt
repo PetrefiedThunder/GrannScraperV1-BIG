@@ -1,0 +1,162 @@
+ M pyproject.toml
+?? docs/qa/
+?? tests/qa_backend/
+?? tests/qa_frontend/
+?? tests/qa_security/
+?? tests/qa_ux/
+tests/qa_ux/playwright.config.cjs
+tests/qa_ux/test_cli_docs.py
+tests/qa_ux/dashboard.spec.cjs
+tests/qa_backend/test_boundaries_exports.py
+tests/qa_backend/test_api_contracts.py
+tests/qa_frontend/playwright.config.cjs
+tests/qa_backend/test_execution.py
+tests/qa_frontend/server.cjs
+tests/qa_backend/conftest.py
+tests/qa_frontend/probe_browsers.cjs
+tests/qa_frontend/README.md
+tests/qa_frontend/validate_contract.py
+tests/qa_frontend/dashboard.spec.cjs
+tests/qa_security/test_security_boundaries.py
+tests/qa_frontend/playwright.config.cjs:21:    connectOptions: { wsEndpoint: process.env.PW_TEST_CONNECT_WS_ENDPOINT || 'ws://127.0.0.1:3950/' },
+tests/qa_ux/test_cli_docs.py:16:@pytest.fixture(autouse=True)
+tests/qa_ux/test_cli_docs.py:17:def isolate_cli_home_and_network(monkeypatch, tmp_path):
+tests/qa_ux/test_cli_docs.py:18:    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+tests/qa_ux/test_cli_docs.py:21:        raise AssertionError("QA UX tests must not open network connections")
+tests/qa_ux/test_cli_docs.py:23:    monkeypatch.setattr(socket.socket, "connect", blocked)
+tests/qa_ux/test_cli_docs.py:24:    monkeypatch.setattr(socket, "create_connection", blocked)
+tests/qa_ux/test_cli_docs.py:34:@pytest.mark.xfail(strict=True, raises=AssertionError, reason="UX-007: list command shadows built-in list and cannot enumerate saved jobs")
+tests/qa_ux/test_cli_docs.py:35:def test_saved_jobs_are_listed(tmp_path):
+tests/qa_ux/test_cli_docs.py:36:    jobs = tmp_path / ".grandma-scraper" / "jobs"
+tests/qa_ux/test_cli_docs.py:44:@pytest.mark.xfail(strict=True, raises=AssertionError, reason="UX-008: README uses a config pathname but scraper run only accepts a saved-job name")
+tests/qa_ux/test_cli_docs.py:45:def test_readme_config_path_can_be_run(monkeypatch, tmp_path):
+tests/qa_ux/test_cli_docs.py:46:    config = tmp_path / "config" / "my_job.yaml"
+tests/qa_ux/test_cli_docs.py:50:    monkeypatch.setattr("scraper.cli.main._run_job", runner)
+tests/qa_ux/test_cli_docs.py:51:    monkeypatch.chdir(tmp_path)
+tests/qa_ux/test_cli_docs.py:57:@pytest.mark.xfail(strict=True, raises=AssertionError, reason="UX-008: README's flat browser/pagination/export keys are silently ignored")
+tests/qa_ux/test_cli_docs.py:75:def test_valid_saved_job_name_reaches_runner(monkeypatch, tmp_path):
+tests/qa_ux/test_cli_docs.py:76:    jobs = tmp_path / ".grandma-scraper" / "jobs"
+tests/qa_ux/test_cli_docs.py:80:    monkeypatch.setattr("scraper.cli.main._run_job", runner)
+tests/qa_backend/test_boundaries_exports.py:23:        name="property fixture", start_url="https://fixture.invalid/items/1",
+tests/qa_backend/test_boundaries_exports.py:24:        pagination={"mode": "url_pattern", "url_pattern": "https://fixture.invalid/items/{page}",
+tests/qa_backend/test_boundaries_exports.py:30:    assert urls == [f"https://fixture.invalid/items/{index}" for index in range(start, start + count)]
+tests/qa_backend/test_boundaries_exports.py:36:async def test_static_fetcher_retry_classes(job, monkeypatch, statuses, expected_calls, success):
+tests/qa_backend/test_boundaries_exports.py:37:    monkeypatch.setattr(fetcher_static, "UserAgent", lambda: SimpleNamespace(random="qa-fixture", chrome="qa-fixture"))
+tests/qa_backend/test_boundaries_exports.py:38:    monkeypatch.setattr(fetcher_static.asyncio, "sleep", AsyncMock())
+tests/qa_backend/test_boundaries_exports.py:55:@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-007: proxy-enabled fetch passes unsupported proxies keyword to AsyncClient.get")
+tests/qa_backend/test_boundaries_exports.py:56:async def test_proxy_enabled_fetch_reaches_configured_transport(job, monkeypatch):
+tests/qa_backend/test_boundaries_exports.py:57:    monkeypatch.setattr(fetcher_static, "UserAgent", lambda: SimpleNamespace(random="qa-fixture", chrome="qa-fixture"))
+tests/qa_backend/test_boundaries_exports.py:59:    job.proxy.proxy_list = ["http://proxy.fixture.invalid:8080"]
+tests/qa_backend/test_boundaries_exports.py:80:        metadata={"job_name": "qa_fixture"},
+tests/qa_backend/test_boundaries_exports.py:96:        with sqlite3.connect(path) as connection:
+tests/qa_backend/test_boundaries_exports.py:97:            rows = connection.execute("SELECT title, quantity FROM scraped_data ORDER BY rowid").fetchall()
+tests/qa_frontend/probe_browsers.cjs:1:// Probe only the supplied browser server. Never launch or install a browser.
+tests/qa_frontend/probe_browsers.cjs:11:      const browser = await browserType.connect(process.env.PW_TEST_CONNECT_WS_ENDPOINT || 'ws://127.0.0.1:3950/', { timeout: 4000 });
+tests/qa_frontend/probe_browsers.cjs:26:  // Closing the process releases client connections; never stop the supplied server.
+tests/qa_backend/test_api_contracts.py:1:"""Real in-process routes; known defects retain desired assertions as strict xfails."""
+tests/qa_backend/test_api_contracts.py:40:@pytest.mark.parametrize("payload", [{}, {"job": {}}, {"job": {"name": "x", "start_url": "file:///tmp/fixture"}}])
+tests/qa_backend/test_api_contracts.py:45:async def test_concurrent_run_requests_start_only_once(client, job, monkeypatch):
+tests/qa_backend/test_api_contracts.py:54:    monkeypatch.setattr(api, "_execute_job", blocked_execute)
+tests/qa_backend/test_api_contracts.py:63:async def test_delete_cancels_active_task(client, job, monkeypatch):
+tests/qa_backend/test_api_contracts.py:66:    monkeypatch.setattr(api, "_execute_job", lambda *args: gate.wait())
+tests/qa_backend/test_api_contracts.py:87:@pytest.mark.xfail(strict=True, reason="BE-004: server-generated IDs contain a dot rejected by detail/delete")
+tests/qa_backend/test_api_contracts.py:98:@pytest.mark.xfail(strict=True, reason="BE-008: results accepts zero/negative limit and negative offset")
+tests/qa_backend/test_api_contracts.py:116:@pytest.mark.xfail(strict=True, reason="BE-005: invalid workflow nodes/DAG errors escape as 500")
+tests/qa_backend/test_api_contracts.py:127:@pytest.mark.xfail(strict=True, reason="FE-001: root dashboard app.js path is not served")
+tests/qa_backend/test_api_contracts.py:144:@pytest.mark.xfail(strict=True, reason="FE-002: dashboard max_pages is an ignored top-level field")
+tests/qa_backend/test_api_contracts.py:153:@pytest.mark.xfail(strict=True, reason="FE-003: dashboard export.format is ignored; CSV default wins")
+tests/qa_frontend/README.md:5:Prerequisites: Node.js, `@playwright/test` latest (matching the supplied remote server), a Python environment with this repository's Pydantic dependency, and a Playwright browser server. Set `PW_TEST_CONNECT_WS_ENDPOINT` to its WebSocket URL. Do not launch browsers from these tests. All browser access uses `connectOptions` or `browserType.connect()`.
+tests/qa_backend/test_execution.py:18:@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-001: standard run fails with UnboundLocalError and leaves no terminal result")
+tests/qa_backend/test_execution.py:19:async def test_standard_api_run_persists_success(client, job, monkeypatch):
+tests/qa_backend/test_execution.py:22:    monkeypatch.setattr(ScraperEngine, "run_job", AsyncMock(return_value=expected))
+tests/qa_backend/test_execution.py:23:    monkeypatch.setattr(api.ExportManager, "export_result", AsyncMock(return_value={}))
+tests/qa_backend/test_execution.py:34:@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-002: concurrent workers never exit once active_workers reaches zero")
+tests/qa_backend/test_execution.py:35:async def test_concurrent_scraper_finishes_after_completed_work(job, monkeypatch):
+tests/qa_backend/test_execution.py:51:    monkeypatch.setattr(asyncio, "wait_for", fast_idle_timeout)
+tests/qa_backend/test_execution.py:64:@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-003: incremental API callback passes ScrapeResult instead of item dicts")
+tests/qa_backend/test_execution.py:65:async def test_incremental_api_run_accepts_engine_result(client, job, monkeypatch):
+tests/qa_backend/test_execution.py:68:    monkeypatch.setattr(ScraperEngine, "run_job", AsyncMock(return_value=expected))
+tests/qa_backend/test_execution.py:69:    monkeypatch.setattr(api.ExportManager, "export_result", AsyncMock(return_value={}))
+tests/qa_backend/test_execution.py:77:@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-003: incremental scraping never caches page freshness, so replay re-fetches all URLs")
+tests/qa_backend/test_execution.py:78:async def test_incremental_repeat_uses_cache(job, tmp_path):
+tests/qa_backend/test_execution.py:79:    scraper = IncrementalScraper(SmartCache(tmp_path / "repeat-cache"))
+tests/qa_backend/test_execution.py:88:@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-003: cached items are omitted from incremental results")
+tests/qa_backend/test_execution.py:89:async def test_incremental_cached_items_are_returned(job, tmp_path):
+tests/qa_backend/test_execution.py:90:    cache = SmartCache(tmp_path / "prepopulated-cache")
+tests/qa_backend/test_execution.py:99:@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-005: DAG plan runs dependents first and drops prerequisites")
+tests/qa_backend/test_execution.py:126:async def test_engine_extracts_and_counts_fixture_items(job, monkeypatch):
+tests/qa_backend/test_execution.py:127:    monkeypatch.setattr(engine_module, "StaticFetcher", FixtureFetcher)
+tests/qa_backend/test_execution.py:135:@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-006: max_items is checked only before a page and allows page overshoot")
+tests/qa_backend/test_execution.py:136:async def test_engine_respects_item_limit_within_page(job, monkeypatch):
+tests/qa_backend/test_execution.py:137:    monkeypatch.setattr(engine_module, "StaticFetcher", FixtureFetcher)
+tests/qa_backend/test_execution.py:145:async def test_engine_converts_transport_failure_to_terminal_result(job, monkeypatch):
+tests/qa_backend/test_execution.py:148:            raise OSError("offline fixture transport unavailable")
+tests/qa_backend/test_execution.py:150:    monkeypatch.setattr(engine_module, "StaticFetcher", FailedFetcher)
+tests/qa_backend/test_execution.py:158:@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-009: next-button pagination never follows the discovered link")
+tests/qa_backend/test_execution.py:159:async def test_engine_follows_next_button(job, monkeypatch):
+tests/qa_backend/test_execution.py:170:    monkeypatch.setattr(engine_module, "StaticFetcher", PaginatedFetcher)
+tests/qa_backend/test_execution.py:176:    assert fetched == ["https://fixture.invalid/page/1", "https://fixture.invalid/page/2"]
+tests/qa_backend/conftest.py:1:"""Offline API fixtures; all state and file outputs are isolated per test."""
+tests/qa_backend/conftest.py:13:@pytest.fixture(autouse=True)
+tests/qa_backend/conftest.py:14:async def isolated_api(monkeypatch, tmp_path):
+tests/qa_backend/conftest.py:15:    monkeypatch.setattr(api, "jobs_db", {})
+tests/qa_backend/conftest.py:16:    monkeypatch.setattr(api, "results_db", {})
+tests/qa_backend/conftest.py:17:    monkeypatch.setattr(api, "workflows_db", {})
+tests/qa_backend/conftest.py:18:    monkeypatch.setattr(api, "running_jobs", {})
+tests/qa_backend/conftest.py:19:    monkeypatch.setattr(api, "jobs_lock", asyncio.Lock())
+tests/qa_backend/conftest.py:22:    monkeypatch.setattr(api, "SmartCache", lambda: real_cache(tmp_path / "cache"))
+tests/qa_backend/conftest.py:31:@pytest.fixture
+tests/qa_backend/conftest.py:38:@pytest.fixture
+tests/qa_backend/conftest.py:39:def job(tmp_path: Path):
+tests/qa_backend/conftest.py:42:        name="QA fixture",
+tests/qa_backend/conftest.py:43:        start_url="https://fixture.invalid/page/1",
+tests/qa_backend/conftest.py:47:        export={"base_path": tmp_path / "exports", "formats": ["json"]},
+tests/qa_frontend/dashboard.spec.cjs:141:  const name = '<strong data-qa-fixture="literal">Literal product name</strong>';
+tests/qa_frontend/dashboard.spec.cjs:146:  await expect(page.locator('[data-qa-fixture="literal"]')).toHaveCount(0);
+tests/qa_frontend/dashboard.spec.cjs:150:  await setup(page, { jobs: [sampleJob], items: [{ '<em data-qa-fixture="field">literal heading</em>': '<strong data-qa-fixture="value">literal value</strong>' }] });
+tests/qa_frontend/dashboard.spec.cjs:155:  await expect(page.locator('[data-qa-fixture]')).toHaveCount(0);
+tests/qa_ux/dashboard.spec.cjs:55:  browser = await chromium.connect(process.env.PW_TEST_CONNECT_WS_ENDPOINT);
+tests/qa_ux/dashboard.spec.cjs:78:      payload = state.errorJobs ? { detail: 'Temporary QA fixture outage' } : { jobs: state.jobs };
+tests/qa_ux/dashboard.spec.cjs:87:    else if (endpoint === '/analyze') { status = 503; payload = { detail: 'Temporary QA fixture outage' }; }
+tests/qa_ux/dashboard.spec.cjs:88:    else { status = 404; payload = { detail: 'Unconfigured QA fixture' }; }
+tests/qa_security/test_security_boundaries.py:1:"""Offline security contracts. Known defects stay strict-xfail until repaired.
+tests/qa_security/test_security_boundaries.py:4:ASGITransport or MockTransport. File proofs modify only pytest tmp_path data.
+tests/qa_security/test_security_boundaries.py:20:@pytest.fixture(autouse=True)
+tests/qa_security/test_security_boundaries.py:21:def isolated_api_state(monkeypatch):
+tests/qa_security/test_security_boundaries.py:23:    monkeypatch.setattr(api, "jobs_db", {})
+tests/qa_security/test_security_boundaries.py:24:    monkeypatch.setattr(api, "results_db", {})
+tests/qa_security/test_security_boundaries.py:25:    monkeypatch.setattr(api, "workflows_db", {})
+tests/qa_security/test_security_boundaries.py:26:    monkeypatch.setattr(api, "running_jobs", {})
+tests/qa_security/test_security_boundaries.py:27:    monkeypatch.setattr(api, "jobs_lock", asyncio.Lock())
+tests/qa_security/test_security_boundaries.py:28:    monkeypatch.setattr(
+tests/qa_security/test_security_boundaries.py:33:@pytest.fixture
+tests/qa_security/test_security_boundaries.py:43:@pytest.mark.xfail(strict=True, reason="BE-010: privileged API routes have no auth dependency")
+tests/qa_security/test_security_boundaries.py:45:    job = ScrapeJob(id="qa_boundary", name="QA fixture", start_url="https://example.test")
+tests/qa_security/test_security_boundaries.py:63:@pytest.mark.xfail(strict=True, reason="BE-010: OpenAPI declares no security on job operations")
+tests/qa_security/test_security_boundaries.py:79:@pytest.mark.xfail(strict=True, reason="BE-011: static fetcher permits nonpublic destinations")
+tests/qa_security/test_security_boundaries.py:85:        return httpx.Response(200, text="<html><body>QA fixture</body></html>")
+tests/qa_security/test_security_boundaries.py:87:    job = ScrapeJob(name="QA fixture", start_url=target)
+tests/qa_security/test_security_boundaries.py:95:@pytest.mark.xfail(strict=True, reason="BE-011: redirect targets are not revalidated")
+tests/qa_security/test_security_boundaries.py:96:async def test_static_fetch_blocks_public_to_private_redirect(monkeypatch):
+tests/qa_security/test_security_boundaries.py:104:        return httpx.Response(200, text="<html><body>QA fixture</body></html>")
+tests/qa_security/test_security_boundaries.py:109:    monkeypatch.setattr(fetcher_static.httpx, "AsyncClient", isolated_client)
+tests/qa_security/test_security_boundaries.py:110:    job = ScrapeJob(name="QA fixture", start_url="https://example.test")
+tests/qa_security/test_security_boundaries.py:116:async def test_static_fetch_public_fixture_positive_control():
+tests/qa_security/test_security_boundaries.py:117:    job = ScrapeJob(name="QA fixture", start_url="https://example.test")
+tests/qa_security/test_security_boundaries.py:120:        lambda request: httpx.Response(200, text="<html><body>QA fixture</body></html>")
+tests/qa_security/test_security_boundaries.py:125:    assert soup.get_text() == "QA fixture"
+tests/qa_security/test_security_boundaries.py:126:    assert "QA fixture" in html
+tests/qa_security/test_security_boundaries.py:129:async def run_stubbed_export_job(client, monkeypatch, tmp_path, filename):
+tests/qa_security/test_security_boundaries.py:145:                data=[{"title": "QA fixture"}], metadata={"job_name": self.job.name},
+tests/qa_security/test_security_boundaries.py:148:    monkeypatch.setattr(engine_module, "ScraperEngine", FixtureEngine)
+tests/qa_security/test_security_boundaries.py:149:    monkeypatch.setattr(api, "ConcurrentScraper", FixtureConcurrentScraper)
+tests/qa_security/test_security_boundaries.py:151:        "id": "qa_export", "name": "QA fixture", "start_url": "https://example.test",
+tests/qa_security/test_security_boundaries.py:153:            "base_path": str(tmp_path / "exports"),
+tests/qa_security/test_security_boundaries.py:166:@pytest.mark.xfail(strict=True, reason="BE-012: API export filename can escape base_path")
+tests/qa_security/test_security_boundaries.py:167:async def test_api_export_cannot_overwrite_sibling_marker(client, monkeypatch, tmp_path):
+tests/qa_security/test_security_boundaries.py:168:    marker = tmp_path / "outside.json"
+tests/qa_security/test_security_boundaries.py:170:    await run_stubbed_export_job(client, monkeypatch, tmp_path, "../outside")
+tests/qa_security/test_security_boundaries.py:174:async def test_api_export_with_safe_filename_positive_control(client, monkeypatch, tmp_path):
+tests/qa_security/test_security_boundaries.py:175:    await run_stubbed_export_job(client, monkeypatch, tmp_path, "inside")
+tests/qa_security/test_security_boundaries.py:176:    assert (tmp_path / "exports" / "inside.json").is_file()
+tests/qa_security/test_security_boundaries.py:179:@pytest.mark.xfail(strict=True, reason="BE-013: pagination has no server-side upper bound")

@@ -1,0 +1,42 @@
+IGNORED QA FILES []
+SCOPED QA GITIGNORE
+# Preserve the requested QA evidence despite repository-wide output patterns.
+!artifacts/
+!artifacts/**
+
+REPORT LOCAL OVERRIDE docs/qa/2026-10-02/artifacts/coverage-after-html/.gitignore '# Created by coverage.py\n*\n# This report is requested QA evidence and must be included in the handoff.\n!*\n'
+REPORT LOCAL OVERRIDE docs/qa/2026-10-02/artifacts/backend-coverage-before-html/.gitignore '# Created by coverage.py\n*\n# This report is requested QA evidence and must be included in the handoff.\n!*\n'
+HANDOFF VALIDATION
+Local markdown links checked 299 missing []
+Still ignored QA evidence none
+Finding rows 28 {'High': 11, 'Medium': 16, 'Low': 1}
+QA artifact files 359 bytes 20877332
+Validation passed.
+
+CORRECTED | BE-005 | High | Backend | Workflow dependencies produce an incomplete, reversed execution plan | Add node `fetch`, then node `export` depending on `fetch`, and call `build()`. Also POST nodes with missing fields, a missing dependency, or a self-cycle to `/api/v1/workflows`. | Expected plan `[[fetch],[export]]` and validation errors for invalid definitions. Actual plan is `[[export]]`, dropping the prerequisite; malformed graphs return 500. | `scraper/scheduler/workflow_dag.py:136`, `:140`, `:162`; `scraper/api/rest_server.py:467,470`; `test_execution.py::test_workflow_orders_prerequisites_before_dependents`; `test_api_contracts.py::test_bad_workflow_returns_validation_error`. | Calculate each node's in-degree from its own prerequisites, validate dependency existence before sorting, require all nodes in the plan, and translate invalid definitions into 400/422. |
+CORRECTED | FE-002 | High | Frontend | Maximum Pages selection is silently ignored | Open `/static/index.html`; enter fictional `https://example.invalid/catalog`; select 1, 2, or 1000 pages; submit with the mocked detected `next_button` pagination; normalize the captured POST `/api/v1/jobs` body using `ScrapeJob`. | Expected `pagination.max_pages` to equal the selected bound. Actual top-level `job.max_pages` is discarded and the persisted limit is 10 for all three cases. The requested one-page cap is not preserved in configuration; actual over-fetching is not established because BE-009 currently stops next-button pagination early. | `scraper/web/static/app.js:100-101`; `scraper/config/models.py:100`; browser tests `FE-002 selected page limit ... survives API model validation`; `tests/qa_backend/test_api_contracts.py:144`; [captured request and normalization](artifacts/frontend-main-flow-chromium.json) | Merge the user limit into `pagination.max_pages`; preserve detected mode/selector. Reject unknown config fields if compatibility permits. |
+UX FINAL
+
+Running 9 tests using 1 worker
+
+  ✓  1 tests/qa_ux/dashboard.spec.cjs:102:1 › baseline: named controls, keyboard operation, native invalid URL, empty/loading semantics evidence (1.6s)
+  ✘  2 tests/qa_ux/dashboard.spec.cjs:130:1 › UX-001: populated mobile page reflows without document horizontal overflow (372ms)
+  ✘  3 tests/qa_ux/dashboard.spec.cjs:143:1 › UX-002: text has WCAG AA contrast in completed results (506ms)
+  ✘  4 tests/qa_ux/dashboard.spec.cjs:153:1 › UX-003: dynamic error is announced to screen readers (308ms)
+  ✘  5 tests/qa_ux/dashboard.spec.cjs:170:1 › UX-004: opening details moves keyboard focus into visible detail context (285ms)
+  ✘  6 tests/qa_ux/dashboard.spec.cjs:183:1 › UX-005: users can retrieve result items beyond the preview (1.7s)
+  ✘  7 tests/qa_ux/dashboard.spec.cjs:193:1 › UX-006: failed job-list load offers an in-app retry (586ms)
+  ✓  8 tests/qa_ux/dashboard.spec.cjs:211:1 › evidence: 200 percent text scale and close focus state (380ms)
+  ✘  9 tests/qa_ux/dashboard.spec.cjs:224:1 › UX-004: closing details restores visible keyboard focus (213ms)
+
+  9 passed (6.4s)
+
+STATUS
+ M pyproject.toml
+?? docs/qa/
+?? tests/qa_backend/
+?? tests/qa_frontend/
+?? tests/qa_security/
+?? tests/qa_ux/
+
+DIFF CHECK 0

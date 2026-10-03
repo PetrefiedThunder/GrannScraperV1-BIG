@@ -1,0 +1,5 @@
+Installed distributions: 143
+Selected: [{'name': 'cryptography', 'version': '50.0.2'}, {'name': 'fastapi', 'version': '0.109.2'}, {'name': 'httpx', 'version': '0.27.2'}, {'name': 'playwright', 'version': '1.63.0'}, {'name': 'pydantic', 'version': '2.13.5'}, {'name': 'starlette', 'version': '0.36.3'}, {'name': 'urllib3', 'version': '2.8.0'}, {'name': 'uvicorn', 'version': '0.27.1'}]
+Inventory: docs/qa/2026-10-02/artifacts/security-dependencies.json
+Tracked lock files:
+Local advisory-cache directories: [('/Users/sellers/.cache/pip-audit', False), ('/Users/sellers/.cache/osv-scanner', False), ('/Users/sellers/.cache/safety', False), ('/Users/sellers/Library/Caches/pip-audit', True), ('/private/tmp/grann-qa-20261002/pip-audit-cache', False)]

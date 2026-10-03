@@ -1,0 +1,1678 @@
+
+FILE scraper/api/rest_server.py
+1:"""
+2:Full-featured REST API server.
+3:
+4:Expose all scraping capabilities via REST API for:
+5:- Remote job management
+6:- Programmatic access
+7:- Integration with other systems
+8:- Web dashboard backend
+9:"""
+10:
+11:import asyncio
+12:import logging
+13:from datetime import datetime
+14:from pathlib import Path
+15:from typing import Any, Dict, List, Optional
+16:
+17:from fastapi import FastAPI, HTTPException, BackgroundTasks, Query
+18:from fastapi.middleware.cors import CORSMiddleware
+19:from fastapi.responses import FileResponse, StreamingResponse, HTMLResponse
+20:from fastapi.staticfiles import StaticFiles
+21:from pydantic import BaseModel
+22:
+23:from scraper.config.models import ScrapeJob, ScrapeResult
+24:from scraper.core.engine import ScraperEngine
+25:from scraper.core.concurrent_engine import ConcurrentScraper
+26:from scraper.export.export_manager import ExportManager
+27:from scraper.ml.data_intelligence import DataQualityAnalyzer, AnomalyDetector
+28:from scraper.storage.smart_cache import SmartCache, IncrementalScraper
+29:from scraper.scheduler.workflow_dag import WorkflowDAG, WorkflowBuilder
+30:
+31:logger = logging.getLogger(__name__)
+32:
+33:# Create FastAPI app
+34:app = FastAPI(
+35:    title="GrandmaScrape API",
+36:    description="Enterprise web scraping API - grandma-simple, enterprise-grade",
+37:    version="1.0.0",
+38:)
+39:
+40:# CORS middleware
+41:import os
+42:ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")
+43:
+44:app.add_middleware(
+45:    CORSMiddleware,
+46:    allow_origins=ALLOWED_ORIGINS,  # Configured via environment variable
+47:    allow_credentials=True,
+48:    allow_methods=["GET", "POST", "PUT", "DELETE"],
+49:    allow_headers=["Authorization", "Content-Type"],
+50:)
+51:
+52:# Mount static files for web dashboard
+53:static_path = Path(__file__).parent.parent / "web" / "static"
+54:if static_path.exists():
+55:    app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+56:
+57:# In-memory storage (use database in production)
+58:jobs_db: Dict[str, ScrapeJob] = {}
+59:results_db: Dict[str, ScrapeResult] = {}
+60:workflows_db: Dict[str, WorkflowDAG] = {}
+61:running_jobs: Dict[str, asyncio.Task] = {}
+62:jobs_lock = asyncio.Lock()  # Protect concurrent access to running_jobs
+63:
+64:
+65:# Request/Response models
+66:class JobCreateRequest(BaseModel):
+67:    """Request to create a new scraping job."""
+68:    job: ScrapeJob
+69:
+70:
+71:class JobRunRequest(BaseModel):
+72:    """Request to run a job."""
+73:    job_id: str
+74:    concurrent: bool = False
+75:    incremental: bool = False
+76:
+77:
+78:class WorkflowCreateRequest(BaseModel):
+79:    """Request to create a workflow."""
+80:    name: str
+81:    nodes: List[Dict[str, Any]]
+82:
+83:
+84:class AnalyzeRequest(BaseModel):
+85:    """Request to analyze a URL."""
+86:    url: str
+87:    max_pages: int = 1
+88:
+89:
+90:# ============================================================================
+91:# JOB MANAGEMENT ENDPOINTS
+92:# ============================================================================
+93:
+94:@app.post("/api/v1/jobs")
+95:async def create_job(request: JobCreateRequest) -> Dict[str, Any]:
+96:    """
+97:    Create a new scraping job.
+98:
+99:    Returns job ID.
+100:    """
+101:    job = request.job
+102:
+103:    if job.id in jobs_db:
+104:        raise HTTPException(status_code=400, detail="Job ID already exists")
+105:
+106:    jobs_db[job.id] = job
+107:
+108:    logger.info(f"Created job: {job.id}")
+109:
+110:    return {
+111:        "job_id": job.id,
+112:        "status": "created",
+113:        "message": f"Job {job.name} created successfully"
+114:    }
+115:
+116:
+117:@app.get("/api/v1/jobs")
+118:async def list_jobs(
+119:    enabled_only: bool = Query(False, description="Only show enabled jobs")
+120:) -> Dict[str, Any]:
+121:    """
+122:    List all jobs.
+123:
+124:    Returns list of jobs with metadata.
+125:    """
+126:    jobs = list(jobs_db.values())
+127:
+128:    if enabled_only:
+129:        jobs = [j for j in jobs if j.enabled]
+130:
+131:    return {
+132:        "total": len(jobs),
+133:        "jobs": [
+134:            {
+135:                "id": job.id,
+136:                "name": job.name,
+137:                "start_url": job.start_url,
+138:                "enabled": job.enabled,
+139:                "created_at": job.created_at.isoformat(),
+140:            }
+141:            for job in jobs
+142:        ]
+143:    }
+144:
+145:
+146:@app.get("/api/v1/jobs/{job_id}")
+147:async def get_job(job_id: str) -> ScrapeJob:
+148:    """Get job details."""
+149:    import re
+150:    # Validate job_id format
+151:    if not job_id or not re.match(r'^[a-zA-Z0-9_-]+$', job_id):
+152:        raise HTTPException(status_code=400, detail="Invalid job_id format")
+153:
+154:    if job_id not in jobs_db:
+155:        raise HTTPException(status_code=404, detail="Job not found")
+156:
+157:    return jobs_db[job_id]
+158:
+159:
+160:@app.delete("/api/v1/jobs/{job_id}")
+161:async def delete_job(job_id: str) -> Dict[str, str]:
+162:    """Delete a job."""
+163:    import re
+164:    # Validate job_id format
+165:    if not job_id or not re.match(r'^[a-zA-Z0-9_-]+$', job_id):
+166:        raise HTTPException(status_code=400, detail="Invalid job_id format")
+167:
+168:    if job_id not in jobs_db:
+169:        raise HTTPException(status_code=404, detail="Job not found")
+170:
+171:    # Cancel if running (with lock to prevent race conditions)
+172:    async with jobs_lock:
+173:        if job_id in running_jobs:
+174:            running_jobs[job_id].cancel()
+175:            del running_jobs[job_id]
+176:
+177:    del jobs_db[job_id]
+178:
+179:    logger.info(f"Deleted job: {job_id}")
+180:
+181:    return {"status": "deleted", "job_id": job_id}
+182:
+183:
+184:# ============================================================================
+185:# JOB EXECUTION ENDPOINTS
+186:# ============================================================================
+187:
+188:@app.post("/api/v1/jobs/{job_id}/run")
+189:async def run_job(
+190:    job_id: str,
+191:    background_tasks: BackgroundTasks,
+192:    concurrent: bool = Query(False, description="Use concurrent scraping"),
+193:    incremental: bool = Query(False, description="Use incremental scraping")
+194:) -> Dict[str, Any]:
+195:    """
+196:    Run a scraping job.
+197:
+198:    Returns immediately with job status. Use /results endpoint to get results.
+199:    """
+200:    if job_id not in jobs_db:
+201:        raise HTTPException(status_code=404, detail="Job not found")
+202:
+203:    # Use lock to prevent race conditions when checking and starting jobs
+204:    async with jobs_lock:
+205:        if job_id in running_jobs:
+206:            raise HTTPException(status_code=400, detail="Job already running")
+207:
+208:        job = jobs_db[job_id]
+209:
+210:        # Start job in background
+211:        task = asyncio.create_task(
+212:            _execute_job(job_id, job, concurrent, incremental)
+213:        )
+214:        running_jobs[job_id] = task
+215:
+216:    logger.info(f"Started job: {job_id} (concurrent={concurrent}, incremental={incremental})")
+217:
+218:    return {
+219:        "job_id": job_id,
+220:        "status": "running",
+221:        "message": f"Job {job.name} started",
+222:        "concurrent": concurrent,
+223:        "incremental": incremental
+224:    }
+225:
+226:
+227:async def _execute_job(
+228:    job_id: str,
+229:    job: ScrapeJob,
+230:    concurrent: bool,
+231:    incremental: bool
+232:) -> ScrapeResult:
+233:    """Execute a job (called in background)."""
+234:    try:
+235:        if incremental:
+236:            # Incremental scraping
+237:            cache = SmartCache()
+238:            incremental_scraper = IncrementalScraper(cache)
+239:
+240:            # Get URLs to scrape
+241:            from scraper.core.engine import ScraperEngine
+242:            engine = ScraperEngine()
+243:            urls = await engine._generate_urls(job)
+244:
+245:            # Scrape incrementally
+246:            result_data = await incremental_scraper.scrape_incremental(
+247:                urls,
+248:                lambda url: engine.run_job(job),
+249:                ttl_seconds=3600
+250:            )
+251:
+252:            # Convert to ScrapeResult
+253:            result = ScrapeResult(
+254:                job_id=job_id,
+255:                status="success",
+256:                items_scraped=len(result_data['new_items']),
+257:                pages_visited=result_data['stats']['urls_scraped'],
+258:                data=result_data['new_items'],
+259:                metadata=result_data['stats']
+260:            )
+261:
+262:        elif concurrent:
+263:            # Concurrent scraping
+264:            concurrent_scraper = ConcurrentScraper(job, max_workers=10)
+265:
+266:            # Add URLs
+267:            from scraper.core.engine import ScraperEngine
+268:            engine = ScraperEngine()
+269:            urls = await engine._generate_urls(job)
+270:            await concurrent_scraper.add_urls(urls)
+271:
+272:            # Execute
+273:            async def scrape_single(url):
+274:                temp_job = ScrapeJob(
+275:                    name=job.name,
+276:                    start_url=url,
+277:                    item_selector=job.item_selector,
+278:                    fields=job.fields,
+279:                )
+280:                r = await engine.run_job(temp_job)
+281:                return r.data
+282:
+283:            result = await concurrent_scraper.run(scrape_single)
+284:
+285:        else:
+286:            # Standard scraping
+287:            engine = ScraperEngine()
+288:            result = await engine.run_job(job)
+289:
+290:        # Store result
+291:        results_db[job_id] = result
+292:
+293:        # Export
+294:        export_manager = ExportManager(job.export)
+295:        await export_manager.export_result(result)
+296:
+297:        return result
+298:
+299:    finally:
+300:        # Remove from running jobs (with lock to prevent race conditions)
+301:        async with jobs_lock:
+302:            if job_id in running_jobs:
+303:                del running_jobs[job_id]
+304:
+305:
+306:@app.get("/api/v1/jobs/{job_id}/status")
+307:async def get_job_status(job_id: str) -> Dict[str, Any]:
+308:    """Get job execution status."""
+309:    if job_id not in jobs_db:
+310:        raise HTTPException(status_code=404, detail="Job not found")
+311:
+312:    is_running = job_id in running_jobs
+313:    has_result = job_id in results_db
+314:
+315:    status = {
+316:        "job_id": job_id,
+317:        "is_running": is_running,
+318:        "has_result": has_result,
+319:    }
+320:
+321:    if has_result:
+322:        result = results_db[job_id]
+323:        status.update({
+324:            "status": result.status,
+325:            "items_scraped": result.items_scraped,
+326:            "pages_visited": result.pages_visited,
+327:            "errors": len(result.errors),
+328:            "duration": result.duration_seconds,
+329:        })
+330:
+331:    return status
+332:
+333:
+334:@app.get("/api/v1/jobs/{job_id}/results")
+335:async def get_job_results(
+336:    job_id: str,
+337:    limit: int = Query(100, description="Max items to return"),
+338:    offset: int = Query(0, description="Offset for pagination")
+339:) -> Dict[str, Any]:
+340:    """Get job results with pagination."""
+341:    if job_id not in results_db:
+342:        raise HTTPException(status_code=404, detail="No results found")
+343:
+344:    result = results_db[job_id]
+345:
+346:    return {
+347:        "job_id": job_id,
+348:        "status": result.status,
+349:        "total_items": result.items_scraped,
+350:        "pages_visited": result.pages_visited,
+351:        "errors": result.errors,
+352:        "items": result.data[offset:offset + limit],
+353:        "pagination": {
+354:            "limit": limit,
+355:            "offset": offset,
+356:            "has_more": offset + limit < len(result.data)
+357:        }
+358:    }
+359:
+360:
+361:# ============================================================================
+362:# SMART FEATURES ENDPOINTS
+363:# ============================================================================
+364:
+365:@app.post("/api/v1/analyze")
+366:async def analyze_url(request: AnalyzeRequest) -> Dict[str, Any]:
+367:    """
+368:    Analyze a URL and auto-detect structure.
+369:
+370:    Returns detected selectors, fields, and pagination.
+371:    """
+372:    from scraper.config.models import ScrapeJob
+373:    from scraper.core.fetcher_static import StaticFetcher
+374:    from scraper.strategies.intelligent_extraction import (
+375:        IntelligentExtractor,
+376:        SmartPaginationDetector
+377:    )
+378:
+379:    # Fetch page
+380:    temp_job = ScrapeJob(name="analysis", start_url=request.url)
+381:
+382:    async with StaticFetcher(temp_job) as fetcher:
+383:        soup, html = await fetcher.fetch(request.url)
+384:
+385:        if not soup:
+386:            raise HTTPException(status_code=400, detail="Failed to fetch URL")
+387:
+388:    # Auto-detect
+389:    extractor = IntelligentExtractor()
+390:    pagination_detector = SmartPaginationDetector()
+391:
+392:    item_selector = await extractor.auto_detect_item_container(soup)
+393:    detected_fields = await extractor.auto_detect_fields(
+394:        soup,
+395:        item_selector or "body"
+396:    )
+397:    pagination_config = await pagination_detector.detect_pagination(soup, request.url)
+398:
+399:    return {
+400:        "url": request.url,
+401:        "item_selector": item_selector,
+402:        "fields": detected_fields,
+403:        "pagination": pagination_config,
+404:        "analysis": {
+405:            "html_size": len(html),
+406:            "links": len(soup.find_all('a')),
+407:            "images": len(soup.find_all('img')),
+408:            "title": soup.title.string if soup.title else None
+409:        }
+410:    }
+411:
+412:
+413:@app.post("/api/v1/jobs/{job_id}/quality-check")
+414:async def check_data_quality(job_id: str) -> Dict[str, Any]:
+415:    """
+416:    Run data quality analysis on job results.
+417:
+418:    Returns quality score and recommendations.
+419:    """
+420:    if job_id not in results_db:
+421:        raise HTTPException(status_code=404, detail="No results found")
+422:
+423:    result = results_db[job_id]
+424:
+425:    analyzer = DataQualityAnalyzer()
+426:    quality_report = analyzer.analyze_dataset(result.data)
+427:
+428:    return {
+429:        "job_id": job_id,
+430:        "quality_report": quality_report
+431:    }
+432:
+433:
+434:@app.post("/api/v1/jobs/{job_id}/detect-anomalies")
+435:async def detect_anomalies(job_id: str) -> Dict[str, Any]:
+436:    """
+437:    Detect anomalies in job results compared to baseline.
+438:
+439:    Useful for monitoring if site structure changed.
+440:    """
+441:    if job_id not in results_db:
+442:        raise HTTPException(status_code=404, detail="No results found")
+443:
+444:    result = results_db[job_id]
+445:
+446:    detector = AnomalyDetector()
+447:    anomaly_report = detector.detect_anomalies(result.data)
+448:
+449:    return {
+450:        "job_id": job_id,
+451:        "anomaly_report": anomaly_report
+452:    }
+453:
+454:
+455:# ============================================================================
+456:# WORKFLOW ENDPOINTS
+457:# ============================================================================
+458:
+459:@app.post("/api/v1/workflows")
+460:async def create_workflow(request: WorkflowCreateRequest) -> Dict[str, Any]:
+461:    """Create a new workflow."""
+462:    from scraper.scheduler.workflow_dag import WorkflowNode
+463:
+464:    workflow = WorkflowDAG(request.name)
+465:
+466:    for node_data in request.nodes:
+467:        node = WorkflowNode(**node_data)
+468:        workflow.add_node(node)
+469:
+470:    workflow.build()
+471:
+472:    workflows_db[request.name] = workflow
+473:
+474:    return {
+475:        "workflow_name": request.name,
+476:        "nodes": len(workflow.nodes),
+477:        "execution_levels": len(workflow.execution_order),
+478:        "status": "created"
+479:    }
+480:
+481:
+482:@app.get("/api/v1/workflows")
+483:async def list_workflows() -> Dict[str, Any]:
+484:    """List all workflows."""
+485:    return {
+486:        "total": len(workflows_db),
+487:        "workflows": [
+488:            {
+489:                "name": name,
+490:                "nodes": len(workflow.nodes),
+491:                "levels": len(workflow.execution_order)
+492:            }
+493:            for name, workflow in workflows_db.items()
+494:        ]
+495:    }
+496:
+497:
+498:@app.get("/api/v1/workflows/{workflow_name}")
+499:async def get_workflow(workflow_name: str) -> Dict[str, Any]:
+500:    """Get workflow details."""
+501:    if workflow_name not in workflows_db:
+502:        raise HTTPException(status_code=404, detail="Workflow not found")
+503:
+504:    workflow = workflows_db[workflow_name]
+505:
+506:    return {
+507:        "name": workflow.name,
+508:        "nodes": {
+509:            node_id: {
+510:                "type": node.type,
+511:                "depends_on": node.depends_on,
+512:                "status": node.status.value
+513:            }
+514:            for node_id, node in workflow.nodes.items()
+515:        },
+516:        "execution_plan": workflow.get_execution_plan()
+517:    }
+518:
+519:
+520:# ============================================================================
+521:# CACHE MANAGEMENT ENDPOINTS
+522:# ============================================================================
+523:
+524:@app.get("/api/v1/cache/stats")
+525:async def get_cache_stats() -> Dict[str, Any]:
+526:    """Get cache statistics."""
+527:    cache = SmartCache()
+528:    return cache.get_stats()
+529:
+530:
+531:@app.delete("/api/v1/cache")
+532:async def clear_cache(
+533:    expired_only: bool = Query(False, description="Only clear expired entries"),
+534:    ttl_seconds: int = Query(3600, description="TTL for expired check")
+535:) -> Dict[str, Any]:
+536:    """Clear cache."""
+537:    cache = SmartCache()
+538:
+539:    if expired_only:
+540:        deleted = cache.clear_expired(ttl_seconds)
+541:        return {"status": "cleared", "expired_entries_deleted": deleted}
+542:    else:
+543:        cache.clear_all()
+544:        return {"status": "cleared", "message": "All cache cleared"}
+545:
+546:
+547:# ============================================================================
+548:# HEALTH & INFO ENDPOINTS
+549:# ============================================================================
+550:
+551:@app.get("/api/v1/health")
+552:async def health_check() -> Dict[str, str]:
+553:    """Health check endpoint."""
+554:    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+555:
+556:
+557:@app.get("/api/v1/info")
+558:async def get_info() -> Dict[str, Any]:
+559:    """Get API information and statistics."""
+560:    return {
+561:        "version": "1.0.0",
+562:        "name": "GrandmaScrape API",
+563:        "statistics": {
+564:            "total_jobs": len(jobs_db),
+565:            "running_jobs": len(running_jobs),
+566:            "completed_jobs": len(results_db),
+567:            "workflows": len(workflows_db)
+568:        },
+569:        "features": [
+570:            "auto_detection",
+571:            "concurrent_scraping",
+572:            "incremental_scraping",
+573:            "data_quality_analysis",
+574:            "anomaly_detection",
+575:            "workflow_dag",
+576:            "smart_caching"
+577:        ]
+578:    }
+579:
+580:
+581:# ============================================================================
+582:# WEB DASHBOARD
+583:# ============================================================================
+584:
+585:@app.get("/", response_class=HTMLResponse)
+586:async def serve_dashboard():
+587:    """Serve the web dashboard."""
+588:    base_static_path = Path(__file__).parent.parent / "web" / "static"
+589:    index_path = base_static_path / "index.html"
+590:
+591:    # Validate path to prevent directory traversal
+592:    try:
+593:        index_path_resolved = index_path.resolve()
+594:        base_path_resolved = base_static_path.resolve()
+595:
+596:        if not str(index_path_resolved).startswith(str(base_path_resolved)):
+597:            raise HTTPException(status_code=403, detail="Access denied")
+598:
+599:        if index_path_resolved.exists() and index_path_resolved.is_file():
+600:            return FileResponse(index_path_resolved)
+601:    except Exception as e:
+602:        logger.warning(f"Error serving dashboard: {e}")
+603:
+604:    return HTMLResponse(
+605:        content="""
+606:        <html>
+607:            <head><title>GrandmaScrape API</title></head>
+608:            <body style="font-family: sans-serif; text-align: center; padding: 50px;">
+609:                <h1>GrandmaScrape API</h1>
+610:                <p>API is running!</p>
+611:                <p>Dashboard not found. Please check web/static/index.html</p>
+612:                <p><a href="/docs">View API Documentation</a></p>
+613:            </body>
+614:        </html>
+615:        """,
+616:        status_code=200
+617:    )
+618:
+619:
+620:# ============================================================================
+621:# RUN SERVER
+622:# ============================================================================
+623:
+624:def run_server(host: str = "0.0.0.0", port: int = 8000):
+625:    """Run the API server."""
+626:    import uvicorn
+627:
+628:    logger.info(f"Starting GrandmaScrape API server on {host}:{port}")
+629:
+630:    uvicorn.run(
+631:        app,
+632:        host=host,
+633:        port=port,
+634:        log_level="info"
+635:    )
+636:
+637:
+638:if __name__ == "__main__":
+639:    run_server()
+
+FILE scraper/core/concurrent_engine.py
+1:"""
+2:High-performance concurrent scraping engine.
+3:
+4:Intelligently parallelizes scraping with:
+5:- Smart queue management
+6:- Automatic retry with backoff
+7:- Domain-aware concurrency limits
+8:- Progress tracking
+9:- Memory-efficient streaming
+10:"""
+11:
+12:import asyncio
+13:import logging
+14:from collections import defaultdict
+15:from dataclasses import dataclass
+16:from datetime import datetime
+17:from typing import Any, Callable, Dict, List, Optional
+18:from urllib.parse import urlparse
+19:
+20:from scraper.config.models import ScrapeJob, ScrapeResult
+21:
+22:logger = logging.getLogger(__name__)
+23:
+24:
+25:@dataclass
+26:class ScrapeTask:
+27:    """Individual scrape task."""
+28:    url: str
+29:    priority: int = 0
+30:    retry_count: int = 0
+31:    metadata: Dict[str, Any] = None
+32:
+33:
+34:class ConcurrentScraper:
+35:    """
+36:    High-performance concurrent scraper with intelligent queuing.
+37:
+38:    Features:
+39:    - Domain-aware concurrency (don't overwhelm single domain)
+40:    - Priority queue for important pages first
+41:    - Automatic retry with exponential backoff
+42:    - Progress tracking and estimation
+43:    - Memory-efficient streaming results
+44:    """
+45:
+46:    def __init__(self, job: ScrapeJob, max_workers: int = 10):
+47:        self.job = job
+48:        self.max_workers = max_workers
+49:        self.max_workers_per_domain = 2  # Politeness: max 2 concurrent per domain
+50:
+51:        self.task_queue: asyncio.Queue = asyncio.Queue()
+52:        self.result_queue: asyncio.Queue = asyncio.Queue()
+53:
+54:        self.domain_semaphores: Dict[str, asyncio.Semaphore] = defaultdict(
+55:            lambda: asyncio.Semaphore(self.max_workers_per_domain)
+56:        )
+57:
+58:        self.active_workers = 0
+59:        self.completed_tasks = 0
+60:        self.failed_tasks = 0
+61:        self.total_tasks = 0
+62:
+63:        self.start_time: Optional[datetime] = None
+64:        self.stats = {
+65:            'domains_scraped': set(),
+66:            'total_bytes': 0,
+67:            'total_items': 0,
+68:        }
+69:
+70:    async def add_task(self, task: ScrapeTask):
+71:        """Add task to queue."""
+72:        await self.task_queue.put(task)
+73:        self.total_tasks += 1
+74:
+75:    async def add_urls(self, urls: List[str], priority: int = 0):
+76:        """Add multiple URLs to queue."""
+77:        for url in urls:
+78:            await self.add_task(ScrapeTask(url=url, priority=priority))
+79:
+80:    async def worker(self, worker_id: int, scrape_func: Callable):
+81:        """Worker that processes tasks from queue."""
+82:        logger.debug(f"Worker {worker_id} started")
+83:
+84:        while True:
+85:            try:
+86:                # Get task with timeout to allow graceful shutdown
+87:                task = await asyncio.wait_for(
+88:                    self.task_queue.get(),
+89:                    timeout=5.0
+90:                )
+91:            except asyncio.TimeoutError:
+92:                # Check if queue is empty and no workers active
+93:                if self.task_queue.empty() and self.active_workers == 1:
+94:                    break
+95:                continue
+96:
+97:            self.active_workers += 1
+98:
+99:            try:
+100:                # Get domain for rate limiting
+101:                domain = urlparse(task.url).netloc
+102:                self.stats['domains_scraped'].add(domain)
+103:
+104:                # Acquire domain semaphore (rate limit per domain)
+105:                async with self.domain_semaphores[domain]:
+106:                    logger.info(f"Worker {worker_id} scraping: {task.url}")
+107:
+108:                    # Execute scrape
+109:                    result = await scrape_func(task.url)
+110:
+111:                    if result:
+112:                        # Success
+113:                        await self.result_queue.put({
+114:                            'status': 'success',
+115:                            'url': task.url,
+116:                            'data': result,
+117:                            'task': task
+118:                        })
+119:                        self.completed_tasks += 1
+120:
+121:                    else:
+122:                        # Failed but might retry
+123:                        if task.retry_count < self.job.retry.max_retries:
+124:                            # Re-queue with backoff
+125:                            task.retry_count += 1
+126:                            backoff = self.job.retry.backoff_factor ** task.retry_count
+127:                            await asyncio.sleep(backoff)
+128:                            await self.add_task(task)
+129:                            logger.info(f"Retry {task.retry_count} for {task.url}")
+130:                        else:
+131:                            # Max retries exceeded
+132:                            await self.result_queue.put({
+133:                                'status': 'failed',
+134:                                'url': task.url,
+135:                                'error': 'Max retries exceeded',
+136:                                'task': task
+137:                            })
+138:                            self.failed_tasks += 1
+139:
+140:            except Exception as e:
+141:                logger.error(f"Worker {worker_id} error on {task.url}: {e}")
+142:                await self.result_queue.put({
+143:                    'status': 'error',
+144:                    'url': task.url,
+145:                    'error': str(e),
+146:                    'task': task
+147:                })
+148:                self.failed_tasks += 1
+149:
+150:            finally:
+151:                self.active_workers -= 1
+152:                self.task_queue.task_done()
+153:
+154:        logger.debug(f"Worker {worker_id} finished")
+155:
+156:    async def run(self, scrape_func: Callable) -> ScrapeResult:
+157:        """
+158:        Run concurrent scraping.
+159:
+160:        Args:
+161:            scrape_func: Async function that takes URL and returns scraped data
+162:
+163:        Returns:
+164:            ScrapeResult
+165:        """
+166:        self.start_time = datetime.utcnow()
+167:
+168:        result = ScrapeResult(
+169:            job_id=self.job.id,
+170:            status='success',
+171:            start_time=self.start_time,
+172:        )
+173:
+174:        # Start workers
+175:        workers = [
+176:            asyncio.create_task(self.worker(i, scrape_func))
+177:            for i in range(self.max_workers)
+178:        ]
+179:
+180:        # Process results as they come in
+181:        results_processed = 0
+182:        while results_processed < self.total_tasks:
+183:            try:
+184:                # Get result with timeout
+185:                item = await asyncio.wait_for(
+186:                    self.result_queue.get(),
+187:                    timeout=10.0
+188:                )
+189:
+190:                results_processed += 1
+191:
+192:                if item['status'] == 'success':
+193:                    if isinstance(item['data'], list):
+194:                        result.data.extend(item['data'])
+195:                        result.items_scraped += len(item['data'])
+196:                    else:
+197:                        result.data.append(item['data'])
+198:                        result.items_scraped += 1
+199:
+200:                    result.pages_visited += 1
+201:
+202:                else:
+203:                    error_msg = f"{item['url']}: {item.get('error', 'Unknown error')}"
+204:                    result.errors.append(error_msg)
+205:
+206:                # Progress update
+207:                progress = (results_processed / self.total_tasks) * 100
+208:                logger.info(f"Progress: {progress:.1f}% ({results_processed}/{self.total_tasks})")
+209:
+210:            except asyncio.TimeoutError:
+211:                # Check if all tasks are done
+212:                if self.task_queue.empty() and self.active_workers == 0:
+213:                    break
+214:
+215:        # Wait for all workers to finish
+216:        await asyncio.gather(*workers, return_exceptions=True)
+217:
+218:        # Finalize result
+219:        result.end_time = datetime.utcnow()
+220:        result.duration_seconds = (result.end_time - result.start_time).total_seconds()
+221:
+222:        result.metadata = {
+223:            'job_name': self.job.name,
+224:            'job_id': self.job.id,
+225:            'completed_tasks': self.completed_tasks,
+226:            'failed_tasks': self.failed_tasks,
+227:            'total_tasks': self.total_tasks,
+228:            'domains_scraped': len(self.stats['domains_scraped']),
+229:            'average_speed': result.items_scraped / result.duration_seconds if result.duration_seconds > 0 else 0,
+230:        }
+231:
+232:        if result.errors:
+233:            result.status = 'partial' if result.data else 'failed'
+234:
+235:        logger.info(
+236:            f"Concurrent scraping completed: "
+237:            f"{result.items_scraped} items, "
+238:            f"{result.pages_visited} pages, "
+239:            f"{len(result.errors)} errors, "
+240:            f"{result.duration_seconds:.2f}s"
+241:        )
+242:
+243:        return result
+244:
+245:    def get_progress(self) -> Dict[str, Any]:
+246:        """Get current progress statistics."""
+247:        if not self.start_time:
+248:            return {}
+249:
+250:        elapsed = (datetime.utcnow() - self.start_time).total_seconds()
+251:        tasks_done = self.completed_tasks + self.failed_tasks
+252:
+253:        return {
+254:            'total_tasks': self.total_tasks,
+255:            'completed': self.completed_tasks,
+256:            'failed': self.failed_tasks,
+257:            'pending': self.total_tasks - tasks_done,
+258:            'active_workers': self.active_workers,
+259:            'elapsed_seconds': elapsed,
+260:            'tasks_per_second': tasks_done / elapsed if elapsed > 0 else 0,
+261:            'estimated_remaining_seconds': (
+262:                (self.total_tasks - tasks_done) / (tasks_done / elapsed)
+263:                if elapsed > 0 and tasks_done > 0 else None
+264:            ),
+265:        }
+266:
+267:
+268:class StreamingScraper:
+269:    """
+270:    Memory-efficient streaming scraper for large datasets.
+271:
+272:    Processes and exports results as they're scraped, without
+273:    holding everything in memory.
+274:    """
+275:
+276:    def __init__(self, job: ScrapeJob):
+277:        self.job = job
+278:        self.item_count = 0
+279:        self.page_count = 0
+280:
+281:    async def stream_to_file(
+282:        self,
+283:        scrape_func: Callable,
+284:        urls: List[str],
+285:        output_file: str
+286:    ):
+287:        """
+288:        Stream results directly to file without loading all in memory.
+289:
+290:        Perfect for scraping millions of items.
+291:        """
+292:        import aiofiles
+293:        import json
+294:
+295:        async with aiofiles.open(output_file, 'w') as f:
+296:            # Write header
+297:            await f.write('[\n')
+298:
+299:            first_item = True
+300:
+301:            for url in urls:
+302:                try:
+303:                    data = await scrape_func(url)
+304:
+305:                    if data:
+306:                        if isinstance(data, list):
+307:                            items = data
+308:                        else:
+309:                            items = [data]
+310:
+311:                        for item in items:
+312:                            if not first_item:
+313:                                await f.write(',\n')
+314:
+315:                            await f.write(json.dumps(item, indent=2))
+316:                            first_item = False
+317:                            self.item_count += 1
+318:
+319:                            # Log progress
+320:                            if self.item_count % 100 == 0:
+321:                                logger.info(f"Streamed {self.item_count} items...")
+322:
+323:                        self.page_count += 1
+324:
+325:                except Exception as e:
+326:                    logger.error(f"Error streaming {url}: {e}")
+327:
+328:            # Write footer
+329:            await f.write('\n]\n')
+330:
+331:        logger.info(f"Streaming completed: {self.item_count} items from {self.page_count} pages")
+332:
+333:
+334:class SmartScheduler:
+335:    """
+336:    Intelligent task scheduler that optimizes scraping order.
+337:
+338:    Features:
+339:    - Prioritizes important pages
+340:    - Balances load across domains
+341:    - Adapts to site response times
+342:    - Handles dependencies between tasks
+343:    """
+344:
+345:    def __init__(self):
+346:        self.domain_performance: Dict[str, float] = defaultdict(float)  # avg response time
+347:        self.domain_task_count: Dict[str, int] = defaultdict(int)
+348:
+349:    def calculate_priority(self, url: str, base_priority: int = 0) -> int:
+350:        """
+351:        Calculate task priority based on multiple factors.
+352:
+353:        Higher priority = processed first
+354:        """
+355:        domain = urlparse(url).netloc
+356:
+357:        priority = base_priority
+358:
+359:        # Lower priority for domains with many pending tasks (spread load)
+360:        priority -= self.domain_task_count[domain] * 10
+361:
+362:        # Lower priority for slow domains (process fast sites first)
+363:        if domain in self.domain_performance:
+364:            priority -= int(self.domain_performance[domain] * 10)
+365:
+366:        # Increase priority for critical paths (home page, category pages)
+367:        if url.count('/') <= 3:  # Shallow URLs often more important
+368:            priority += 100
+369:
+370:        return priority
+371:
+372:    def update_performance(self, url: str, response_time: float):
+373:        """Update domain performance metrics."""
+374:        domain = urlparse(url).netloc
+375:
+376:        # Exponential moving average
+377:        if domain in self.domain_performance:
+378:            self.domain_performance[domain] = (
+379:                0.7 * self.domain_performance[domain] +
+380:                0.3 * response_time
+381:            )
+382:        else:
+383:            self.domain_performance[domain] = response_time
+384:
+385:    def reorder_tasks(self, tasks: List[ScrapeTask]) -> List[ScrapeTask]:
+386:        """Reorder tasks by calculated priority."""
+387:        for task in tasks:
+388:            task.priority = self.calculate_priority(task.url, task.priority)
+389:
+390:        return sorted(tasks, key=lambda t: t.priority, reverse=True)
+
+FILE scraper/security/auth.py
+1:"""
+2:Production Security Features.
+3:
+4:Enterprise-grade authentication, authorization, and rate limiting.
+5:Competitors charge $299-999/month for these features.
+6:"""
+7:
+8:import asyncio
+9:import hashlib
+10:import hmac
+11:import logging
+12:import os
+13:import secrets
+14:import time
+15:from datetime import datetime, timedelta
+16:from functools import wraps
+17:from typing import Any, Callable, Dict, List, Optional
+18:
+19:from fastapi import HTTPException, Request, Security
+20:from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+21:from pydantic import BaseModel
+22:
+23:logger = logging.getLogger(__name__)
+24:
+25:
+26:# ============================================================================
+27:# API KEY MANAGEMENT
+28:# ============================================================================
+29:
+30:class APIKey(BaseModel):
+31:    """API key model."""
+32:    key_prefix: str
+33:    key_hash: str
+34:    name: str
+35:    created_at: datetime
+36:    last_used: Optional[datetime] = None
+37:    rate_limit: int = 100  # requests per minute
+38:    allowed_endpoints: Optional[List[str]] = None  # None = all endpoints
+39:    expires_at: Optional[datetime] = None
+40:    is_active: bool = True
+41:    metadata: Dict[str, Any] = {}
+42:    rotated_from: Optional[str] = None
+43:
+44:
+45:class SecurityAuditLogger:
+46:    """
+47:    Security event logger for auditing and incident response.
+48:
+49:    Captures high-value events for security monitoring.
+50:    """
+51:
+52:    def __init__(self):
+53:        self.events: List[Dict[str, Any]] = []
+54:
+55:    def log_event(self, event_type: str, details: Dict[str, Any]) -> None:
+56:        """Record a security event."""
+57:        event = {
+58:            "event_type": event_type,
+59:            "details": details,
+60:            "timestamp": datetime.utcnow().isoformat()
+61:        }
+62:        self.events.append(event)
+63:        logger.warning(f"Security event: {event_type} | {details}")
+64:
+65:
+66:class APIKeyManager:
+67:    """
+68:    Manage API keys for authentication.
+69:
+70:    Features:
+71:    - Generate secure API keys
+72:    - Validate and authenticate requests
+73:    - Track usage per key
+74:    - Rate limiting per key
+75:    - Key expiration
+76:    - Endpoint-specific permissions
+77:    """
+78:
+79:    def __init__(self):
+80:        """Initialize API key manager."""
+81:        self.keys_by_hash: Dict[str, APIKey] = {}
+82:        self.usage_stats: Dict[str, Dict[str, Any]] = {}
+83:        self.pepper = os.getenv("GRANDMASCRAPE_API_KEY_PEPPER", "")
+84:        self.audit_logger = SecurityAuditLogger()
+85:
+86:    def _hash_key(self, key: str) -> str:
+87:        """Hash an API key with a server-side pepper."""
+88:        return hmac.new(
+89:            self.pepper.encode(),
+90:            key.encode(),
+91:            hashlib.sha256
+92:        ).hexdigest()
+93:
+94:    @staticmethod
+95:    def _key_prefix(key: str, length: int = 8) -> str:
+96:        """Return a safe prefix for auditing without exposing full keys."""
+97:        return key[:length]
+98:
+99:    def generate_key(
+100:        self,
+101:        name: str,
+102:        rate_limit: int = 100,
+103:        allowed_endpoints: Optional[List[str]] = None,
+104:        expires_in_days: Optional[int] = None,
+105:        metadata: Optional[Dict[str, Any]] = None
+106:    ) -> str:
+107:        """
+108:        Generate a new API key.
+109:
+110:        Args:
+111:            name: Descriptive name for the key
+112:            rate_limit: Requests per minute
+113:            allowed_endpoints: List of allowed endpoints (None = all)
+114:            expires_in_days: Key expiration in days (None = never)
+115:            metadata: Additional metadata
+116:
+117:        Returns:
+118:            Generated API key
+119:        """
+120:        # Generate secure random key
+121:        key = f"gms_{secrets.token_urlsafe(32)}"
+122:
+123:        expires_at = None
+124:        if expires_in_days:
+125:            expires_at = datetime.utcnow() + timedelta(days=expires_in_days)
+126:
+127:        key_hash = self._hash_key(key)
+128:        api_key = APIKey(
+129:            key_prefix=self._key_prefix(key),
+130:            key_hash=key_hash,
+131:            name=name,
+132:            created_at=datetime.utcnow(),
+133:            rate_limit=rate_limit,
+134:            allowed_endpoints=allowed_endpoints,
+135:            expires_at=expires_at,
+136:            metadata=metadata or {}
+137:        )
+138:
+139:        self.keys_by_hash[key_hash] = api_key
+140:
+141:        logger.info(f"Generated API key: {name} (rate_limit={rate_limit}/min)")
+142:
+143:        return key
+144:
+145:    def validate_key(self, key: str, endpoint: Optional[str] = None) -> bool:
+146:        """
+147:        Validate an API key.
+148:
+149:        Args:
+150:            key: API key to validate
+151:            endpoint: Endpoint being accessed
+152:
+153:        Returns:
+154:            True if valid, False otherwise
+155:        """
+156:        key_hash = self._hash_key(key)
+157:        if key_hash not in self.keys_by_hash:
+158:            self.audit_logger.log_event(
+159:                "auth.invalid_key",
+160:                details={"key_prefix": self._key_prefix(key)}
+161:            )
+162:            logger.warning(f"Invalid API key attempted: {key[:10]}...")
+163:            return False
+164:
+165:        api_key = self.keys_by_hash[key_hash]
+166:
+167:        # Check if active
+168:        if not api_key.is_active:
+169:            self.audit_logger.log_event(
+170:                "auth.inactive_key",
+171:                details={"key_prefix": api_key.key_prefix, "name": api_key.name}
+172:            )
+173:            logger.warning(f"Inactive API key used: {api_key.name}")
+174:            return False
+175:
+176:        # Check expiration
+177:        if api_key.expires_at and datetime.utcnow() > api_key.expires_at:
+178:            self.audit_logger.log_event(
+179:                "auth.expired_key",
+180:                details={"key_prefix": api_key.key_prefix, "name": api_key.name}
+181:            )
+182:            logger.warning(f"Expired API key used: {api_key.name}")
+183:            return False
+184:
+185:        # Check endpoint permissions
+186:        if api_key.allowed_endpoints and endpoint:
+187:            if endpoint not in api_key.allowed_endpoints:
+188:                self.audit_logger.log_event(
+189:                    "auth.endpoint_denied",
+190:                    details={"key_prefix": api_key.key_prefix, "endpoint": endpoint}
+191:                )
+192:                logger.warning(f"Unauthorized endpoint access: {api_key.name} -> {endpoint}")
+193:                return False
+194:
+195:        # Update last used
+196:        api_key.last_used = datetime.utcnow()
+197:
+198:        return True
+199:
+200:    def get_key(self, key: str) -> Optional[APIKey]:
+201:        """Retrieve API key record from a raw key."""
+202:        key_hash = self._hash_key(key)
+203:        return self.keys_by_hash.get(key_hash)
+204:
+205:    def revoke_key(self, key: str):
+206:        """Revoke an API key."""
+207:        key_hash = self._hash_key(key)
+208:        if key_hash in self.keys_by_hash:
+209:            self.keys_by_hash[key_hash].is_active = False
+210:            logger.info(f"Revoked API key: {self.keys_by_hash[key_hash].name}")
+211:
+212:    def rotate_key(
+213:        self,
+214:        old_key: str,
+215:        name: Optional[str] = None,
+216:        rate_limit: Optional[int] = None,
+217:        allowed_endpoints: Optional[List[str]] = None,
+218:        expires_in_days: Optional[int] = None,
+219:        metadata: Optional[Dict[str, Any]] = None
+220:    ) -> str:
+221:        """Rotate an existing API key and revoke the old one."""
+222:        existing = self.get_key(old_key)
+223:        if not existing:
+224:            raise ValueError("Old API key not found for rotation.")
+225:
+226:        new_key = self.generate_key(
+227:            name=name or existing.name,
+228:            rate_limit=rate_limit or existing.rate_limit,
+229:            allowed_endpoints=allowed_endpoints or existing.allowed_endpoints,
+230:            expires_in_days=expires_in_days,
+231:            metadata=metadata or existing.metadata
+232:        )
+233:
+234:        new_record = self.get_key(new_key)
+235:        if new_record:
+236:            new_record.rotated_from = existing.key_prefix
+237:
+238:        self.revoke_key(old_key)
+239:        self.audit_logger.log_event(
+240:            "auth.key_rotated",
+241:            details={
+242:                "old_key_prefix": existing.key_prefix,
+243:                "new_key_prefix": self._key_prefix(new_key)
+244:            }
+245:        )
+246:
+247:        return new_key
+248:
+249:    def get_usage_stats(self, key: str) -> Dict[str, Any]:
+250:        """Get usage statistics for a key."""
+251:        key_hash = self._hash_key(key)
+252:        return self.usage_stats.get(key_hash, {
+253:            "total_requests": 0,
+254:            "requests_today": 0,
+255:            "last_request": None,
+256:            "endpoints_used": []
+257:        })
+258:
+259:
+260:# ============================================================================
+261:# RATE LIMITING
+262:# ============================================================================
+263:
+264:class RateLimiter:
+265:    """
+266:    Token bucket rate limiter.
+267:
+268:    Implements per-key and global rate limiting with sliding window.
+269:    """
+270:
+271:    def __init__(self):
+272:        """Initialize rate limiter."""
+273:        self.buckets: Dict[str, Dict[str, Any]] = {}
+274:        self.global_limit = 1000  # Global requests per minute
+275:
+276:    def check_rate_limit(
+277:        self,
+278:        key: str,
+279:        limit: int,
+280:        window_seconds: int = 60
+281:    ) -> tuple[bool, Dict[str, Any]]:
+282:        """
+283:        Check if request is within rate limit.
+284:
+285:        Args:
+286:            key: Unique identifier (API key, IP, user ID)
+287:            limit: Maximum requests allowed
+288:            window_seconds: Time window in seconds
+289:
+290:        Returns:
+291:            (allowed, info) - allowed is True if within limit
+292:        """
+293:        now = time.time()
+294:
+295:        if key not in self.buckets:
+296:            self.buckets[key] = {
+297:                'requests': [],
+298:                'total': 0
+299:            }
+300:
+301:        bucket = self.buckets[key]
+302:
+303:        # Remove old requests outside the window
+304:        cutoff = now - window_seconds
+305:        bucket['requests'] = [ts for ts in bucket['requests'] if ts > cutoff]
+306:
+307:        current_count = len(bucket['requests'])
+308:
+309:        info = {
+310:            'limit': limit,
+311:            'remaining': max(0, limit - current_count),
+312:            'reset_at': int(now + window_seconds),
+313:            'current_count': current_count
+314:        }
+315:
+316:        if current_count >= limit:
+317:            logger.warning(f"Rate limit exceeded for {key}: {current_count}/{limit}")
+318:            return False, info
+319:
+320:        # Add current request
+321:        bucket['requests'].append(now)
+322:        bucket['total'] += 1
+323:
+324:        return True, info
+325:
+326:    def get_stats(self, key: str) -> Dict[str, Any]:
+327:        """Get rate limit statistics."""
+328:        if key not in self.buckets:
+329:            return {
+330:                'total_requests': 0,
+331:                'current_window': 0,
+332:                'all_time': 0
+333:            }
+334:
+335:        bucket = self.buckets[key]
+336:        return {
+337:            'total_requests': bucket['total'],
+338:            'current_window': len(bucket['requests']),
+339:            'all_time': bucket['total']
+340:        }
+341:
+342:
+343:# ============================================================================
+344:# AUTHENTICATION MIDDLEWARE
+345:# ============================================================================
+346:
+347:security = HTTPBearer()
+348:
+349:api_key_manager = APIKeyManager()
+350:rate_limiter = RateLimiter()
+351:
+352:
+353:async def verify_api_key(
+354:    request: Request,
+355:    credentials: HTTPAuthorizationCredentials = Security(security)
+356:) -> APIKey:
+357:    """
+358:    Verify API key from request.
+359:
+360:    Usage in FastAPI:
+361:        @app.get("/protected")
+362:        async def protected_route(api_key: APIKey = Depends(verify_api_key)):
+363:            ...
+364:    """
+365:    token = credentials.credentials
+366:
+367:    # Validate key
+368:    endpoint = request.url.path
+369:    if not api_key_manager.validate_key(token, endpoint):
+370:        raise HTTPException(
+371:            status_code=401,
+372:            detail="Invalid or expired API key"
+373:        )
+374:
+375:    api_key = api_key_manager.get_key(token)
+376:    if not api_key:
+377:        raise HTTPException(
+378:            status_code=401,
+379:            detail="Invalid or expired API key"
+380:        )
+381:
+382:    # Check rate limit
+383:    allowed, info = rate_limiter.check_rate_limit(
+384:        token,
+385:        api_key.rate_limit,
+386:        window_seconds=60
+387:    )
+388:
+389:    if not allowed:
+390:        raise HTTPException(
+391:            status_code=429,
+392:            detail=f"Rate limit exceeded. Resets at {info['reset_at']}",
+393:            headers={
+394:                'X-RateLimit-Limit': str(info['limit']),
+395:                'X-RateLimit-Remaining': str(info['remaining']),
+396:                'X-RateLimit-Reset': str(info['reset_at'])
+397:            }
+398:        )
+399:
+400:    # Add rate limit headers to response (done in middleware)
+401:    request.state.rate_limit_info = info
+402:    request.state.api_key = api_key
+403:
+404:    return api_key
+405:
+406:
+407:# ============================================================================
+408:# IP-BASED RATE LIMITING
+409:# ============================================================================
+410:
+411:class IPRateLimiter:
+412:    """
+413:    IP-based rate limiting for unauthenticated requests.
+414:
+415:    Protects against abuse from anonymous users.
+416:    """
+417:
+418:    def __init__(self):
+419:        """Initialize IP rate limiter."""
+420:        self.limiter = RateLimiter()
+421:        self.default_limit = 60  # 60 requests per minute for unauthenticated
+422:
+423:    async def check_ip_rate_limit(self, request: Request):
+424:        """Check IP-based rate limit."""
+425:        # Get client IP
+426:        client_ip = request.client.host
+427:
+428:        # Check rate limit
+429:        allowed, info = self.limiter.check_rate_limit(
+430:            f"ip:{client_ip}",
+431:            self.default_limit,
+432:            window_seconds=60
+433:        )
+434:
+435:        if not allowed:
+436:            raise HTTPException(
+437:                status_code=429,
+438:                detail="Rate limit exceeded for unauthenticated requests. Please use an API key.",
+439:                headers={
+440:                    'X-RateLimit-Limit': str(info['limit']),
+441:                    'X-RateLimit-Remaining': str(info['remaining']),
+442:                    'X-RateLimit-Reset': str(info['reset_at'])
+443:                }
+444:            )
+445:
+446:        request.state.rate_limit_info = info
+447:
+448:
+449:# ============================================================================
+450:# CORS SECURITY
+451:# ============================================================================
+452:
+453:class CORSConfig:
+454:    """
+455:    CORS configuration for production.
+456:
+457:    Prevents unauthorized cross-origin requests.
+458:    """
+459:
+460:    @staticmethod
+461:    def get_production_config():
+462:        """Get production CORS configuration."""
+463:        return {
+464:            "allow_origins": [
+465:                "https://yourdomain.com",
+466:                "https://app.yourdomain.com"
+467:            ],
+468:            "allow_credentials": True,
+469:            "allow_methods": ["GET", "POST", "PUT", "DELETE"],
+470:            "allow_headers": ["Authorization", "Content-Type"],
+471:            "expose_headers": ["X-RateLimit-Limit", "X-RateLimit-Remaining"],
+472:            "max_age": 3600
+473:        }
+474:
+475:    @staticmethod
+476:    def get_development_config():
+477:        """Get development CORS configuration."""
+478:        return {
+479:            "allow_origins": ["*"],
+480:            "allow_credentials": True,
+481:            "allow_methods": ["*"],
+482:            "allow_headers": ["*"]
+483:        }
+484:
+485:
+486:# ============================================================================
+487:# REQUEST SIGNING
+488:# ============================================================================
+489:
+490:class RequestSigner:
+491:    """
+492:    Sign requests for enhanced security.
+493:
+494:    Prevents request tampering and replay attacks.
+495:    """
+496:
+497:    def __init__(self, secret_key: str):
+498:        """Initialize request signer."""
+499:        self.secret_key = secret_key
+500:
+501:    def sign_request(
+502:        self,
+503:        method: str,
+504:        path: str,
+505:        body: str,
+506:        timestamp: int
+507:    ) -> str:
+508:        """
+509:        Generate request signature.
+510:
+511:        Args:
+512:            method: HTTP method
+513:            path: Request path
+514:            body: Request body
+515:            timestamp: Unix timestamp
+516:
+517:        Returns:
+518:            HMAC signature
+519:        """
+520:        message = f"{method}:{path}:{body}:{timestamp}"
+521:        signature = hmac.new(
+522:            self.secret_key.encode(),
+523:            message.encode(),
+524:            hashlib.sha256
+525:        ).hexdigest()
+526:
+527:        return signature
+528:
+529:    def verify_signature(
+530:        self,
+531:        signature: str,
+532:        method: str,
+533:        path: str,
+534:        body: str,
+535:        timestamp: int,
+536:        max_age_seconds: int = 300
+537:    ) -> bool:
+538:        """
+539:        Verify request signature.
+540:
+541:        Args:
+542:            signature: Provided signature
+543:            method: HTTP method
+544:            path: Request path
+545:            body: Request body
+546:            timestamp: Unix timestamp
+547:            max_age_seconds: Maximum allowed age
+548:
+549:        Returns:
+550:            True if valid, False otherwise
+551:        """
+552:        # Check timestamp freshness
+553:        now = int(time.time())
+554:        if abs(now - timestamp) > max_age_seconds:
+555:            logger.warning(f"Request timestamp too old: {timestamp}")
+556:            return False
+557:
+558:        # Verify signature
+559:        expected_signature = self.sign_request(method, path, body, timestamp)
+560:
+561:        return secrets.compare_digest(signature, expected_signature)
+562:
+563:
+564:# ============================================================================
+565:# SECURITY HEADERS MIDDLEWARE
+566:# ============================================================================
+567:
+568:class SecurityHeaders:
+569:    """
+570:    Add security headers to all responses.
+571:
+572:    Implements OWASP best practices.
+573:    """
+574:
+575:    @staticmethod
+576:    def get_headers() -> Dict[str, str]:
+577:        """Get security headers."""
+578:        return {
+579:            # Prevent clickjacking
+580:            "X-Frame-Options": "DENY",
+581:
+582:            # Prevent MIME sniffing
+583:            "X-Content-Type-Options": "nosniff",
+584:
+585:            # Enable XSS protection
+586:            "X-XSS-Protection": "1; mode=block",
+587:
+588:            # Force HTTPS
+589:            "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+590:
+591:            # Control referrer information
+592:            "Referrer-Policy": "strict-origin-when-cross-origin",
+593:
+594:            # Content Security Policy
+595:            "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'",
+596:
+597:            # Permissions Policy
+598:            "Permissions-Policy": "geolocation=(), microphone=(), camera=()"
+599:        }
+600:
+601:
+602:# ============================================================================
+603:# USAGE EXAMPLE
+604:# ============================================================================
+605:
+606:async def setup_security_example():
+607:    """Example of setting up security features."""
+608:
+609:    # Create API key manager
+610:    manager = APIKeyManager()
+611:
+612:    # Generate keys for different clients
+613:    admin_key = manager.generate_key(
+614:        name="Admin Dashboard",
+615:        rate_limit=1000,  # 1000 req/min
+616:        metadata={"role": "admin"}
+617:    )
+618:
+619:    user_key = manager.generate_key(
+620:        name="User App",
+621:        rate_limit=100,  # 100 req/min
+622:        allowed_endpoints=["/api/v1/jobs", "/api/v1/results"],
+623:        expires_in_days=30
+624:    )
+625:
+626:    test_key = manager.generate_key(
+627:        name="Test Environment",
+628:        rate_limit=10,
+629:        expires_in_days=7
+630:    )
+631:
+632:    print(f"Admin Key: {admin_key}")
+633:    print(f"User Key: {user_key}")
+634:    print(f"Test Key: {test_key}")
+635:
+636:    # Validate key
+637:    is_valid = manager.validate_key(admin_key, "/api/v1/jobs")
+638:    print(f"Key valid: {is_valid}")
+639:
+640:    # Check rate limit
+641:    limiter = RateLimiter()
+642:    allowed, info = limiter.check_rate_limit(admin_key, limit=1000)
+643:    print(f"Rate limit: {info}")

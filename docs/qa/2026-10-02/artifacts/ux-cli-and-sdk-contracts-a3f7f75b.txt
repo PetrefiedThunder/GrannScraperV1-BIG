@@ -1,0 +1,180 @@
+"""
+CLI entry point for GrandmaScrape.
+
+Provides easy, massive, wizard, and advanced modes.
+"""
+
+import asyncio
+import logging
+from pathlib import Path
+from typing import Optional
+
+import click
+from rich.console import Console
+from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.table import Table
+
+from scraper.config.models import ScrapeJob, FieldConfig, ExportConfig
+from scraper.core.engine import ScraperEngine
+from scraper.export.export_manager import ExportManager
+
+# Import smart commands
+from scraper.cli.smart_commands import smart, analyze
+
+console = Console()
+logger = logging.getLogger(__name__)
+
+
+@click.group()
+@click.option("--debug", is_flag=True, help="Enable debug logging")
+def cli(debug: bool) -> None:
+    """
+    GrandmaScrape - Enterprise web scraping made grandma-simple.
+
+    Commands:
+      serve     - Start API server + web dashboard
+      easy      - 3 questions, that's it! (grandma-friendly)
+      smart     - AI auto-detection (zero configuration)
+      analyze   - Deep site analysis
+      massive   - Max power mode
+      wizard    - Interactive job builder
+      run       - Execute saved job
+      list      - Show all jobs
+      validate  - Check config file
+
+    Use 'scraper COMMAND --help' for more information on a command.
+    """
+    # Configure logging
+    level = logging.DEBUG if debug else logging.INFO
+    logging.basicConfig(
+        level=level,
+        format="%(message)s" if not debug else "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
+
+
+@cli.command()
+@click.argument("url")
+def easy(url: str) -> None:
+    """
+    EASY MODE - Grandma-friendly scraping.
+
+    Just paste a URL and answer 3 simple questions!
+
+    Example:
+        scraper easy https://example.com
+    """
+    console.print("\n[bold green]🧓 GrandmaScrape Easy Mode[/bold green]")
+    console.print("I'll help you scrape this website in just 3 questions!\n")
+
+    # Question 1: What to get
+    console.print("[bold]Question 1:[/bold] What are you trying to get from this page?")
+    console.print("  (Examples: titles, prices, names, articles, products)")
+    what_to_get = click.prompt("  Your answer", default="items")
+
+    # Question 2: How many pages
+    console.print("\n[bold]Question 2:[/bold] About how many pages should I look through?")
+    console.print("  (Just give me a number, or say 'just one')")
+    pages_input = click.prompt("  Your answer", default="just one")
+
+    if "one" in pages_input.lower():
+        max_pages = 1
+    else:
+        try:
+            max_pages = int(pages_input.split()[0])
+        except:
+            max_pages = 1
+
+    # Question 3: Filename
+    console.print("\n[bold]Question 3:[/bold] What should I name your file?")
+    console.print("  (I'll add .csv automatically)")
+    filename = click.prompt("  Your answer", default="my_scrape")
+
+    # Clean and validate filename
+    import re
+    filename = filename.replace(".csv", "")
+    # Only allow alphanumeric, dash, underscore
+    filename = re.sub(r'[^a-zA-Z0-9_-]', '_', filename)[:100]
+
+    console.print("\n[bold cyan]Great! I'm ready to scrape![/bold cyan]")
+    console.print(f"  • Getting: {what_to_get}")
+    console.print(f"  • Pages: {max_pages}")
+    console.print(f"  • Saving as: {filename}.csv")
+    console.print()
+
+    if not click.confirm("Should I start?", default=True):
+        console.print("[yellow]Okay, maybe next time![/yellow]")
+        return
+
+    # Build a simple job
+    job = ScrapeJob(
+        name=f"easy_{filename}",
+        start_url=url,
+        description=f"Easy mode scrape for {what_to_get}",
+        pagination={"mode": "none" if max_pages == 1 else "url_pattern", "max_pages": max_pages},
+        fields={},  # Will use auto-detection
+        export=ExportConfig(
+            formats=["csv"],
+            filename_template=filename,
+        ),
+    )
+
+    # Run the scrape
+    asyncio.run(_run_easy_job(job, what_to_get))
+
+
+async def _run_easy_job(job: ScrapeJob, what_to_get: str) -> None:
+    """Run easy mode job with friendly progress."""
+    console.print("\n[bold]I'm starting to work...[/bold]")
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+    ) as progress:
+        task = progress.add_task("Opening the website...", total=None)
+
+        engine = ScraperEngine()
+
+        # Update progress messages
+        progress.update(task, description=f"Looking for {what_to_get}...")
+
+        result = await engine.run_job(job)
+
+        progress.update(task, description="Almost done, saving your file...")
+
+        # Export results
+        export_manager = ExportManager(job.export)
+        exported_files = await export_manager.export_result(result)
+
+    # Report results
+    console.print()
+    if result.status == "success":
+        console.print(f"[bold green]✓ Success![/bold green] I found {result.items_scraped} {what_to_get}.")
+
+        if exported_files:
+            file_path = list(exported_files.values())[0]
+            console.print(f"[bold]Your file is ready:[/bold] {file_path}")
+            console.print(f"\n[dim]Open it with Excel, Google Sheets, or any spreadsheet program![/dim]")
+    else:
+        console.print(f"[bold yellow]⚠ Hmm, I had some trouble.[/bold yellow]")
+        console.print(f"I found {result.items_scraped} items, but there were {len(result.errors)} errors.")
+
+        if result.errors:
+            console.print("\n[bold]What went wrong:[/bold]")
+            for error in result.errors[:3]:  # Show first 3 errors
+                console.print(f"  • {error}")
+
+
+@cli.command()
+@click.argument("url")
+@click.option("--max-pages", default=10, help="Maximum pages to scrape")
+@click.option("--use-browser", is_flag=True, help="Use browser for JavaScript sites")
+@click.option("--export", default="csv", help="Export formats (comma-separated: csv,json,excel)")
+@click.option("--output-dir", type=click.Path(), help="Output directory")
+def massive(
+    url: str,
+    max_pages: int,
+    use_browser: bool,
+    export: str,
+    output_dir: Optional[str],
+) -> None:

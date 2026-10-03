@@ -1,0 +1,41 @@
+
+Running 17 tests using 1 worker
+
+  ✘   1 tests/qa_frontend/dashboard.spec.cjs:85:1 › FE-001 root dashboard loads its script and initial jobs (2.8s)
+  ✓   2 tests/qa_frontend/dashboard.spec.cjs:94:1 › working asset route: empty state then analysis/create/run/list flow (694ms)
+  ✘   3 tests/qa_frontend/dashboard.spec.cjs:110:3 › FE-002 selected page limit 1 survives API model validation (654ms)
+  ✘   4 tests/qa_frontend/dashboard.spec.cjs:110:3 › FE-002 selected page limit 2 survives API model validation (641ms)
+  ✘   5 tests/qa_frontend/dashboard.spec.cjs:110:3 › FE-002 selected page limit 1000 survives API model validation (638ms)
+  ✘   6 tests/qa_frontend/dashboard.spec.cjs:122:3 › FE-003 selected json export survives API model validation (636ms)
+  ✘   7 tests/qa_frontend/dashboard.spec.cjs:122:3 › FE-003 selected excel export survives API model validation (644ms)
+  ✘   8 tests/qa_frontend/dashboard.spec.cjs:132:1 › FE-004 dashboard API requests use the serving origin (90ms)
+  ✘   9 tests/qa_frontend/dashboard.spec.cjs:139:1 › FE-005 job names are rendered as text, not HTML elements (2.7s)
+  ✘  10 tests/qa_frontend/dashboard.spec.cjs:149:1 › FE-005 scraped field names and values remain literal text (2.7s)
+  ✓  11 tests/qa_frontend/dashboard.spec.cjs:158:1 › results can be opened and closed; null values show a dash (611ms)
+  ✓  12 tests/qa_frontend/dashboard.spec.cjs:170:1 › delete requires confirmation; cancelling keeps job; confirming removes it (399ms)
+  ✓  13 tests/qa_frontend/dashboard.spec.cjs:182:1 › analyze error preserves input and lets user retry successfully (199ms)
+  ✓  14 tests/qa_frontend/dashboard.spec.cjs:195:1 › request in progress disables submit until analysis finishes (149ms)
+  ✓  15 tests/qa_frontend/dashboard.spec.cjs:207:1 › browser validation blocks page limits outside the visible range (394ms)
+  ✓  16 tests/qa_frontend/dashboard.spec.cjs:217:1 › list outage clears spinner and exposes failure (190ms)
+  ✘  17 tests/qa_frontend/dashboard.spec.cjs:224:1 › local navigation performance and console/network evidence (163ms)
+
+
+  1) tests/qa_frontend/dashboard.spec.cjs:224:1 › local navigation performance and console/network evidence 
+
+    TypeError: Cannot read properties of undefined (reading 'length')
+
+      235 |   }));
+      236 |   const coverage = (await page.coverage.stopJSCoverage()).filter(entry => entry.url.endsWith('/app.js')).map(entry => ({
+    > 237 |     url: entry.url, total_bytes: entry.text.length,
+          |                                             ^
+      238 |     executed_bytes: entry.ranges.reduce((total, range) => total + range.end - range.start, 0),
+      239 |     ranges: entry.ranges,
+      240 |   }));
+        at map (/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs:237:45)
+        at /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs:236:106
+
+    Error Context: docs/qa/2026-10-02/artifacts/frontend-test-results/dashboard-local-navigation-cf3db-nd-console-network-evidence/error-context.md
+
+  1 failed
+    tests/qa_frontend/dashboard.spec.cjs:224:1 › local navigation performance and console/network evidence 
+  16 passed (14.9s)

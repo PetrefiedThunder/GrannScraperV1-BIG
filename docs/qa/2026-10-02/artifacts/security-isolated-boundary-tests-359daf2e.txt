@@ -1,0 +1,20 @@
+xxxxxxxxxxx.xxxx.x.x                                                     [100%]
+=========================== short test summary info ============================
+XFAIL tests/qa_security/test_security_boundaries.py::test_api_rejects_unauthenticated_job_access[create-anonymous] - BE-010: privileged API routes have no auth dependency
+XFAIL tests/qa_security/test_security_boundaries.py::test_api_rejects_unauthenticated_job_access[create-invalid] - BE-010: privileged API routes have no auth dependency
+XFAIL tests/qa_security/test_security_boundaries.py::test_api_rejects_unauthenticated_job_access[list-anonymous] - BE-010: privileged API routes have no auth dependency
+XFAIL tests/qa_security/test_security_boundaries.py::test_api_rejects_unauthenticated_job_access[list-invalid] - BE-010: privileged API routes have no auth dependency
+XFAIL tests/qa_security/test_security_boundaries.py::test_api_rejects_unauthenticated_job_access[detail-anonymous] - BE-010: privileged API routes have no auth dependency
+XFAIL tests/qa_security/test_security_boundaries.py::test_api_rejects_unauthenticated_job_access[detail-invalid] - BE-010: privileged API routes have no auth dependency
+XFAIL tests/qa_security/test_security_boundaries.py::test_api_rejects_unauthenticated_job_access[results-anonymous] - BE-010: privileged API routes have no auth dependency
+XFAIL tests/qa_security/test_security_boundaries.py::test_api_rejects_unauthenticated_job_access[results-invalid] - BE-010: privileged API routes have no auth dependency
+XFAIL tests/qa_security/test_security_boundaries.py::test_api_rejects_unauthenticated_job_access[delete-anonymous] - BE-010: privileged API routes have no auth dependency
+XFAIL tests/qa_security/test_security_boundaries.py::test_api_rejects_unauthenticated_job_access[delete-invalid] - BE-010: privileged API routes have no auth dependency
+XFAIL tests/qa_security/test_security_boundaries.py::test_openapi_declares_auth_for_privileged_routes - BE-010: OpenAPI declares no security on job operations
+XFAIL tests/qa_security/test_security_boundaries.py::test_static_fetch_blocks_nonpublic_destinations[http://127.0.0.1/qa] - BE-011: static fetcher permits nonpublic destinations
+XFAIL tests/qa_security/test_security_boundaries.py::test_static_fetch_blocks_nonpublic_destinations[http://10.0.0.1/qa] - BE-011: static fetcher permits nonpublic destinations
+XFAIL tests/qa_security/test_security_boundaries.py::test_static_fetch_blocks_nonpublic_destinations[http://[::1]/qa] - BE-011: static fetcher permits nonpublic destinations
+XFAIL tests/qa_security/test_security_boundaries.py::test_static_fetch_blocks_public_to_private_redirect - BE-011: redirect targets are not revalidated
+XFAIL tests/qa_security/test_security_boundaries.py::test_api_export_cannot_overwrite_sibling_marker - BE-012: API export filename can escape base_path
+XFAIL tests/qa_security/test_security_boundaries.py::test_pagination_rejects_excessive_work_budget - BE-013: pagination has no server-side upper bound
+3 passed, 17 xfailed in 1.20s

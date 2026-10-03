@@ -1,0 +1,111 @@
+- heading "🧓 GrandmaScrape Dashboard" [level=1]
+- paragraph: Enterprise web scraping made grandma-simple
+- heading "1" [level=3]
+- paragraph: Total Jobs
+- heading "0" [level=3]
+- paragraph: Running
+- heading "1" [level=3]
+- paragraph: Completed
+- heading "0" [level=3]
+- paragraph: Workflows
+- heading "🚀 Auto-Scrape (Grandma-Simple!)" [level=2]
+- text: "Website URL:"
+- textbox "Website URL:":
+  - /placeholder: https://example.com
+- text: "Maximum Pages:"
+- spinbutton "Maximum Pages:": "10"
+- text: "Export Format:"
+- combobox "Export Format:":
+  - option "JSON" [selected]
+  - option "CSV"
+  - option "Excel"
+- checkbox "Use concurrent scraping (10x faster)" [checked]
+- text: Use concurrent scraping (10x faster)
+- button "Start Auto-Scrape"
+- heading "📋 Your Jobs" [level=2]
+- list:
+  - listitem:
+    - heading "Fictional catalogue sample" [level=3]
+    - paragraph:
+      - strong: "URL:"
+      - text: https://catalogue.example.invalid/products/autumn-collection
+      - strong: "ID:"
+      - text: qa-fictional-001
+      - strong: "Created:"
+      - text: 10/2/2026, 5:00:00 AM
+    - button "View Details"
+    - button "Delete"
+- heading "📊 Job Details" [level=2]
+- 'heading "Job: qa-fictional-001" [level=3]'
+- paragraph:
+  - strong: "Running:"
+  - text: "No"
+- paragraph:
+  - strong: "Has Results:"
+  - text: "Yes"
+- paragraph:
+  - strong: "Status:"
+  - text: success
+- paragraph:
+  - strong: "Items Scraped:"
+  - text: "25"
+- paragraph:
+  - strong: "Pages Visited:"
+  - text: "1"
+- paragraph:
+  - strong: "Errors:"
+  - text: "0"
+- paragraph:
+  - strong: "Duration:"
+  - text: 0.50s
+- heading "Results (first 10 items):" [level=3]
+- table:
+  - rowgroup:
+    - row "name price category":
+      - columnheader "name"
+      - columnheader "price"
+      - columnheader "category"
+  - rowgroup:
+    - row "Fictional product 1 10 Sample catalogue":
+      - cell "Fictional product 1"
+      - cell "10"
+      - cell "Sample catalogue"
+    - row "Fictional product 2 11 Sample catalogue":
+      - cell "Fictional product 2"
+      - cell "11"
+      - cell "Sample catalogue"
+    - row "Fictional product 3 12 Sample catalogue":
+      - cell "Fictional product 3"
+      - cell "12"
+      - cell "Sample catalogue"
+    - row "Fictional product 4 13 Sample catalogue":
+      - cell "Fictional product 4"
+      - cell "13"
+      - cell "Sample catalogue"
+    - row "Fictional product 5 14 Sample catalogue":
+      - cell "Fictional product 5"
+      - cell "14"
+      - cell "Sample catalogue"
+    - row "Fictional product 6 15 Sample catalogue":
+      - cell "Fictional product 6"
+      - cell "15"
+      - cell "Sample catalogue"
+    - row "Fictional product 7 16 Sample catalogue":
+      - cell "Fictional product 7"
+      - cell "16"
+      - cell "Sample catalogue"
+    - row "Fictional product 8 17 Sample catalogue":
+      - cell "Fictional product 8"
+      - cell "17"
+      - cell "Sample catalogue"
+    - row "Fictional product 9 18 Sample catalogue":
+      - cell "Fictional product 9"
+      - cell "18"
+      - cell "Sample catalogue"
+    - row "Fictional product 10 19 Sample catalogue":
+      - cell "Fictional product 10"
+      - cell "19"
+      - cell "Sample catalogue"
+- paragraph:
+  - emphasis: Showing 10 of 25 items
+- button "Close"

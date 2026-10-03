@@ -1,0 +1,2891 @@
+FILE scraper/web/static/index.html
+1: <!DOCTYPE html>
+2: <html lang="en">
+3: <head>
+4:     <meta charset="UTF-8">
+5:     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+6:     <title>GrandmaScrape Dashboard</title>
+7:     <style>
+8:         * {
+9:             margin: 0;
+10:             padding: 0;
+11:             box-sizing: border-box;
+12:         }
+13: 
+14:         body {
+15:             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+16:             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+17:             min-height: 100vh;
+18:             padding: 20px;
+19:         }
+20: 
+21:         .container {
+22:             max-width: 1200px;
+23:             margin: 0 auto;
+24:         }
+25: 
+26:         .header {
+27:             text-align: center;
+28:             color: white;
+29:             margin-bottom: 30px;
+30:         }
+31: 
+32:         .header h1 {
+33:             font-size: 2.5em;
+34:             margin-bottom: 10px;
+35:         }
+36: 
+37:         .header p {
+38:             font-size: 1.2em;
+39:             opacity: 0.9;
+40:         }
+41: 
+42:         .card {
+43:             background: white;
+44:             border-radius: 12px;
+45:             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+46:             padding: 25px;
+47:             margin-bottom: 20px;
+48:         }
+49: 
+50:         .card h2 {
+51:             color: #667eea;
+52:             margin-bottom: 20px;
+53:             font-size: 1.5em;
+54:         }
+55: 
+56:         .form-group {
+57:             margin-bottom: 20px;
+58:         }
+59: 
+60:         .form-group label {
+61:             display: block;
+62:             margin-bottom: 8px;
+63:             font-weight: 600;
+64:             color: #333;
+65:         }
+66: 
+67:         .form-group input,
+68:         .form-group select {
+69:             width: 100%;
+70:             padding: 12px;
+71:             border: 2px solid #e0e0e0;
+72:             border-radius: 8px;
+73:             font-size: 1em;
+74:             transition: border-color 0.3s;
+75:         }
+76: 
+77:         .form-group input:focus,
+78:         .form-group select:focus {
+79:             outline: none;
+80:             border-color: #667eea;
+81:         }
+82: 
+83:         .btn {
+84:             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+85:             color: white;
+86:             padding: 12px 30px;
+87:             border: none;
+88:             border-radius: 8px;
+89:             font-size: 1em;
+90:             font-weight: 600;
+91:             cursor: pointer;
+92:             transition: transform 0.2s, box-shadow 0.2s;
+93:         }
+94: 
+95:         .btn:hover {
+96:             transform: translateY(-2px);
+97:             box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+98:         }
+99: 
+100:         .btn:disabled {
+101:             opacity: 0.5;
+102:             cursor: not-allowed;
+103:             transform: none;
+104:         }
+105: 
+106:         .btn-secondary {
+107:             background: #6c757d;
+108:         }
+109: 
+110:         .job-list {
+111:             list-style: none;
+112:         }
+113: 
+114:         .job-item {
+115:             background: #f8f9fa;
+116:             padding: 15px;
+117:             border-radius: 8px;
+118:             margin-bottom: 10px;
+119:             display: flex;
+120:             justify-content: space-between;
+121:             align-items: center;
+122:             transition: transform 0.2s;
+123:         }
+124: 
+125:         .job-item:hover {
+126:             transform: translateX(5px);
+127:             background: #e9ecef;
+128:         }
+129: 
+130:         .job-info {
+131:             flex: 1;
+132:         }
+133: 
+134:         .job-info h3 {
+135:             color: #667eea;
+136:             margin-bottom: 5px;
+137:         }
+138: 
+139:         .job-info p {
+140:             color: #666;
+141:             font-size: 0.9em;
+142:         }
+143: 
+144:         .job-actions {
+145:             display: flex;
+146:             gap: 10px;
+147:         }
+148: 
+149:         .status-badge {
+150:             display: inline-block;
+151:             padding: 4px 12px;
+152:             border-radius: 12px;
+153:             font-size: 0.85em;
+154:             font-weight: 600;
+155:             margin-left: 10px;
+156:         }
+157: 
+158:         .status-running {
+159:             background: #ffd700;
+160:             color: #000;
+161:         }
+162: 
+163:         .status-success {
+164:             background: #28a745;
+165:             color: white;
+166:         }
+167: 
+168:         .status-failed {
+169:             background: #dc3545;
+170:             color: white;
+171:         }
+172: 
+173:         .results-table {
+174:             width: 100%;
+175:             border-collapse: collapse;
+176:             margin-top: 20px;
+177:         }
+178: 
+179:         .results-table th {
+180:             background: #667eea;
+181:             color: white;
+182:             padding: 12px;
+183:             text-align: left;
+184:         }
+185: 
+186:         .results-table td {
+187:             padding: 12px;
+188:             border-bottom: 1px solid #e0e0e0;
+189:         }
+190: 
+191:         .results-table tr:hover {
+192:             background: #f8f9fa;
+193:         }
+194: 
+195:         .stats-grid {
+196:             display: grid;
+197:             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+198:             gap: 20px;
+199:             margin-bottom: 20px;
+200:         }
+201: 
+202:         .stat-card {
+203:             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+204:             color: white;
+205:             padding: 20px;
+206:             border-radius: 12px;
+207:             text-align: center;
+208:         }
+209: 
+210:         .stat-card h3 {
+211:             font-size: 2em;
+212:             margin-bottom: 5px;
+213:         }
+214: 
+215:         .stat-card p {
+216:             opacity: 0.9;
+217:         }
+218: 
+219:         .alert {
+220:             padding: 15px;
+221:             border-radius: 8px;
+222:             margin-bottom: 20px;
+223:         }
+224: 
+225:         .alert-success {
+226:             background: #d4edda;
+227:             color: #155724;
+228:             border-left: 4px solid #28a745;
+229:         }
+230: 
+231:         .alert-error {
+232:             background: #f8d7da;
+233:             color: #721c24;
+234:             border-left: 4px solid #dc3545;
+235:         }
+236: 
+237:         .alert-info {
+238:             background: #d1ecf1;
+239:             color: #0c5460;
+240:             border-left: 4px solid #17a2b8;
+241:         }
+242: 
+243:         .hidden {
+244:             display: none;
+245:         }
+246: 
+247:         .loading {
+248:             text-align: center;
+249:             padding: 40px;
+250:             color: #667eea;
+251:         }
+252: 
+253:         .spinner {
+254:             border: 3px solid #f3f3f3;
+255:             border-top: 3px solid #667eea;
+256:             border-radius: 50%;
+257:             width: 40px;
+258:             height: 40px;
+259:             animation: spin 1s linear infinite;
+260:             margin: 0 auto 15px;
+261:         }
+262: 
+263:         @keyframes spin {
+264:             0% { transform: rotate(0deg); }
+265:             100% { transform: rotate(360deg); }
+266:         }
+267:     </style>
+268: </head>
+269: <body>
+270:     <div class="container">
+271:         <div class="header">
+272:             <h1>🧓 GrandmaScrape Dashboard</h1>
+273:             <p>Enterprise web scraping made grandma-simple</p>
+274:         </div>
+275: 
+276:         <!-- API Info Stats -->
+277:         <div id="stats" class="stats-grid">
+278:             <div class="stat-card">
+279:                 <h3 id="stat-jobs">0</h3>
+280:                 <p>Total Jobs</p>
+281:             </div>
+282:             <div class="stat-card">
+283:                 <h3 id="stat-running">0</h3>
+284:                 <p>Running</p>
+285:             </div>
+286:             <div class="stat-card">
+287:                 <h3 id="stat-completed">0</h3>
+288:                 <p>Completed</p>
+289:             </div>
+290:             <div class="stat-card">
+291:                 <h3 id="stat-workflows">0</h3>
+292:                 <p>Workflows</p>
+293:             </div>
+294:         </div>
+295: 
+296:         <!-- Alert Messages -->
+297:         <div id="alert-container"></div>
+298: 
+299:         <!-- Auto-Scrape Form -->
+300:         <div class="card">
+301:             <h2>🚀 Auto-Scrape (Grandma-Simple!)</h2>
+302:             <form id="auto-scrape-form">
+303:                 <div class="form-group">
+304:                     <label for="url">Website URL:</label>
+305:                     <input
+306:                         type="url"
+307:                         id="url"
+308:                         name="url"
+309:                         placeholder="https://example.com"
+310:                         required
+311:                     >
+312:                 </div>
+313:                 <div class="form-group">
+314:                     <label for="max-pages">Maximum Pages:</label>
+315:                     <input
+316:                         type="number"
+317:                         id="max-pages"
+318:                         name="max-pages"
+319:                         value="10"
+320:                         min="1"
+321:                         max="1000"
+322:                     >
+323:                 </div>
+324:                 <div class="form-group">
+325:                     <label for="export-format">Export Format:</label>
+326:                     <select id="export-format" name="export-format">
+327:                         <option value="json">JSON</option>
+328:                         <option value="csv">CSV</option>
+329:                         <option value="excel">Excel</option>
+330:                     </select>
+331:                 </div>
+332:                 <div class="form-group">
+333:                     <label>
+334:                         <input type="checkbox" id="concurrent" name="concurrent" checked>
+335:                         Use concurrent scraping (10x faster)
+336:                     </label>
+337:                 </div>
+338:                 <button type="submit" class="btn">Start Auto-Scrape</button>
+339:             </form>
+340:         </div>
+341: 
+342:         <!-- Job List -->
+343:         <div class="card">
+344:             <h2>📋 Your Jobs</h2>
+345:             <div id="job-list-loading" class="loading hidden">
+346:                 <div class="spinner"></div>
+347:                 <p>Loading jobs...</p>
+348:             </div>
+349:             <ul id="job-list" class="job-list"></ul>
+350:         </div>
+351: 
+352:         <!-- Job Details Modal -->
+353:         <div id="job-details" class="card hidden">
+354:             <h2>📊 Job Details</h2>
+355:             <div id="job-details-content"></div>
+356:             <button class="btn btn-secondary" onclick="hideJobDetails()">Close</button>
+357:         </div>
+358:     </div>
+359: 
+360:     <script src="app.js"></script>
+361: </body>
+362: </html>
+FILE scraper/web/static/app.js
+1: // GrandmaScrape Dashboard JavaScript
+2: 
+3: const API_BASE = 'http://localhost:8000/api/v1';
+4: 
+5: // ============================================================================
+6: // UTILITY FUNCTIONS
+7: // ============================================================================
+8: 
+9: function showAlert(message, type = 'info') {
+10:     const container = document.getElementById('alert-container');
+11:     const alert = document.createElement('div');
+12:     alert.className = `alert alert-${type}`;
+13:     alert.textContent = message;
+14:     container.appendChild(alert);
+15: 
+16:     // Auto-remove after 5 seconds
+17:     setTimeout(() => {
+18:         alert.remove();
+19:     }, 5000);
+20: }
+21: 
+22: async function apiCall(endpoint, options = {}) {
+23:     try {
+24:         const response = await fetch(`${API_BASE}${endpoint}`, {
+25:             ...options,
+26:             headers: {
+27:                 'Content-Type': 'application/json',
+28:                 ...options.headers,
+29:             },
+30:         });
+31: 
+32:         if (!response.ok) {
+33:             const error = await response.json();
+34:             throw new Error(error.detail || 'API request failed');
+35:         }
+36: 
+37:         return await response.json();
+38:     } catch (error) {
+39:         console.error('API Error:', error);
+40:         showAlert(`Error: ${error.message}`, 'error');
+41:         throw error;
+42:     }
+43: }
+44: 
+45: // ============================================================================
+46: // STATS & INFO
+47: // ============================================================================
+48: 
+49: async function loadStats() {
+50:     try {
+51:         const info = await apiCall('/info');
+52:         const stats = info.statistics;
+53: 
+54:         document.getElementById('stat-jobs').textContent = stats.total_jobs;
+55:         document.getElementById('stat-running').textContent = stats.running_jobs;
+56:         document.getElementById('stat-completed').textContent = stats.completed_jobs;
+57:         document.getElementById('stat-workflows').textContent = stats.workflows;
+58:     } catch (error) {
+59:         console.error('Failed to load stats:', error);
+60:     }
+61: }
+62: 
+63: // ============================================================================
+64: // AUTO-SCRAPE FORM
+65: // ============================================================================
+66: 
+67: document.getElementById('auto-scrape-form').addEventListener('submit', async (e) => {
+68:     e.preventDefault();
+69: 
+70:     const url = document.getElementById('url').value;
+71:     const maxPages = parseInt(document.getElementById('max-pages').value);
+72:     const exportFormat = document.getElementById('export-format').value;
+73:     const concurrent = document.getElementById('concurrent').checked;
+74: 
+75:     const submitBtn = e.target.querySelector('button[type="submit"]');
+76:     submitBtn.disabled = true;
+77:     submitBtn.textContent = 'Analyzing...';
+78: 
+79:     try {
+80:         // Step 1: Analyze URL
+81:         showAlert(`Analyzing ${url}...`, 'info');
+82: 
+83:         const analysis = await apiCall('/analyze', {
+84:             method: 'POST',
+85:             body: JSON.stringify({ url, max_pages: 1 }),
+86:         });
+87: 
+88:         showAlert(`Auto-detected ${Object.keys(analysis.fields || {}).length} fields!`, 'success');
+89: 
+90:         // Step 2: Create job
+91:         submitBtn.textContent = 'Creating job...';
+92: 
+93:         const jobData = {
+94:             job: {
+95:                 id: `job_${Date.now()}`,
+96:                 name: `Auto-scraped: ${url}`,
+97:                 start_url: url,
+98:                 item_selector: analysis.item_selector,
+99:                 fields: analysis.fields || {},
+100:                 pagination: analysis.pagination || {},
+101:                 max_pages: maxPages,
+102:                 export: { format: exportFormat },
+103:                 browser: { enabled: false },
+104:                 rate_limit: { requests_per_second: 2 },
+105:                 enabled: true,
+106:             },
+107:         };
+108: 
+109:         const createResult = await apiCall('/jobs', {
+110:             method: 'POST',
+111:             body: JSON.stringify(jobData),
+112:         });
+113: 
+114:         const jobId = createResult.job_id;
+115: 
+116:         // Step 3: Run job
+117:         submitBtn.textContent = 'Starting scrape...';
+118: 
+119:         await apiCall(`/jobs/${jobId}/run?concurrent=${concurrent}&incremental=false`, {
+120:             method: 'POST',
+121:         });
+122: 
+123:         showAlert(`Job ${jobId} started! Check the job list below.`, 'success');
+124: 
+125:         // Reset form
+126:         submitBtn.textContent = 'Start Auto-Scrape';
+127:         submitBtn.disabled = false;
+128:         e.target.reset();
+129: 
+130:         // Reload jobs
+131:         await loadJobs();
+132: 
+133:     } catch (error) {
+134:         submitBtn.textContent = 'Start Auto-Scrape';
+135:         submitBtn.disabled = false;
+136:         showAlert(`Failed to start scrape: ${error.message}`, 'error');
+137:     }
+138: });
+139: 
+140: // ============================================================================
+141: // JOB LIST
+142: // ============================================================================
+143: 
+144: async function loadJobs() {
+145:     const listElement = document.getElementById('job-list');
+146:     const loadingElement = document.getElementById('job-list-loading');
+147: 
+148:     loadingElement.classList.remove('hidden');
+149:     listElement.innerHTML = '';
+150: 
+151:     try {
+152:         const data = await apiCall('/jobs');
+153:         const jobs = data.jobs;
+154: 
+155:         if (jobs.length === 0) {
+156:             listElement.innerHTML = '<li style="text-align: center; padding: 20px; color: #999;">No jobs yet. Start an auto-scrape above!</li>';
+157:         } else {
+158:             jobs.forEach(job => {
+159:                 const li = document.createElement('li');
+160:                 li.className = 'job-item';
+161: 
+162:                 li.innerHTML = `
+163:                     <div class="job-info">
+164:                         <h3>${job.name}</h3>
+165:                         <p>
+166:                             <strong>URL:</strong> ${job.start_url}<br>
+167:                             <strong>ID:</strong> ${job.id}<br>
+168:                             <strong>Created:</strong> ${new Date(job.created_at).toLocaleString()}
+169:                         </p>
+170:                     </div>
+171:                     <div class="job-actions">
+172:                         <button class="btn" onclick="viewJobDetails('${job.id}')">View Details</button>
+173:                         <button class="btn btn-secondary" onclick="deleteJob('${job.id}')">Delete</button>
+174:                     </div>
+175:                 `;
+176: 
+177:                 listElement.appendChild(li);
+178:             });
+179:         }
+180: 
+181:         await loadStats();
+182: 
+183:     } catch (error) {
+184:         listElement.innerHTML = '<li style="text-align: center; padding: 20px; color: #dc3545;">Failed to load jobs</li>';
+185:     } finally {
+186:         loadingElement.classList.add('hidden');
+187:     }
+188: }
+189: 
+190: async function deleteJob(jobId) {
+191:     if (!confirm('Are you sure you want to delete this job?')) {
+192:         return;
+193:     }
+194: 
+195:     try {
+196:         await apiCall(`/jobs/${jobId}`, { method: 'DELETE' });
+197:         showAlert(`Job ${jobId} deleted`, 'success');
+198:         await loadJobs();
+199:     } catch (error) {
+200:         showAlert(`Failed to delete job: ${error.message}`, 'error');
+201:     }
+202: }
+203: 
+204: // ============================================================================
+205: // JOB DETAILS
+206: // ============================================================================
+207: 
+208: async function viewJobDetails(jobId) {
+209:     const detailsCard = document.getElementById('job-details');
+210:     const contentDiv = document.getElementById('job-details-content');
+211: 
+212:     detailsCard.classList.remove('hidden');
+213:     contentDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading...</p></div>';
+214: 
+215:     try {
+216:         // Get job status
+217:         const status = await apiCall(`/jobs/${jobId}/status`);
+218: 
+219:         let html = `
+220:             <h3>Job: ${jobId}</h3>
+221:             <p><strong>Running:</strong> ${status.is_running ? 'Yes' : 'No'}</p>
+222:             <p><strong>Has Results:</strong> ${status.has_result ? 'Yes' : 'No'}</p>
+223:         `;
+224: 
+225:         if (status.has_result) {
+226:             html += `
+227:                 <p><strong>Status:</strong> <span class="status-badge status-${status.status}">${status.status}</span></p>
+228:                 <p><strong>Items Scraped:</strong> ${status.items_scraped}</p>
+229:                 <p><strong>Pages Visited:</strong> ${status.pages_visited}</p>
+230:                 <p><strong>Errors:</strong> ${status.errors}</p>
+231:                 <p><strong>Duration:</strong> ${status.duration?.toFixed(2)}s</p>
+232:             `;
+233: 
+234:             // Get results
+235:             try {
+236:                 const results = await apiCall(`/jobs/${jobId}/results?limit=10`);
+237: 
+238:                 html += '<h3>Results (first 10 items):</h3>';
+239: 
+240:                 if (results.items.length > 0) {
+241:                     // Create table
+242:                     const fields = Object.keys(results.items[0]);
+243: 
+244:                     html += '<table class="results-table"><thead><tr>';
+245:                     fields.forEach(field => {
+246:                         html += `<th>${field}</th>`;
+247:                     });
+248:                     html += '</tr></thead><tbody>';
+249: 
+250:                     results.items.forEach(item => {
+251:                         html += '<tr>';
+252:                         fields.forEach(field => {
+253:                             const value = item[field];
+254:                             html += `<td>${value !== null && value !== undefined ? value : '-'}</td>`;
+255:                         });
+256:                         html += '</tr>';
+257:                     });
+258: 
+259:                     html += '</tbody></table>';
+260: 
+261:                     if (results.pagination.has_more) {
+262:                         html += `<p style="margin-top: 10px; color: #666;"><em>Showing 10 of ${results.total_items} items</em></p>`;
+263:                     }
+264:                 } else {
+265:                     html += '<p>No results yet.</p>';
+266:                 }
+267: 
+268:             } catch (error) {
+269:                 html += `<p style="color: #dc3545;">Failed to load results: ${error.message}</p>`;
+270:             }
+271:         } else if (status.is_running) {
+272:             html += '<p><em>Job is still running. Refresh to see updates.</em></p>';
+273:             html += '<button class="btn" onclick="viewJobDetails(\'' + jobId + '\')">Refresh</button>';
+274:         } else {
+275:             html += '<p><em>No results available yet.</em></p>';
+276:         }
+277: 
+278:         contentDiv.innerHTML = html;
+279: 
+280:     } catch (error) {
+281:         contentDiv.innerHTML = `<p style="color: #dc3545;">Error loading job details: ${error.message}</p>`;
+282:     }
+283: 
+284:     // Scroll to details
+285:     detailsCard.scrollIntoView({ behavior: 'smooth' });
+286: }
+287: 
+288: function hideJobDetails() {
+289:     document.getElementById('job-details').classList.add('hidden');
+290: }
+291: 
+292: // ============================================================================
+293: // INITIALIZATION
+294: // ============================================================================
+295: 
+296: async function init() {
+297:     // Load initial data
+298:     await loadStats();
+299:     await loadJobs();
+300: 
+301:     // Auto-refresh every 10 seconds
+302:     setInterval(async () => {
+303:         await loadStats();
+304:     }, 10000);
+305: }
+306: 
+307: // Start the app
+308: init().catch(console.error);
+FILE README.md
+1: # 🧓 GrandmaScrape Intelligence Platform
+2: 
+3: [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+4: [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+5: [![Code Style](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+6: [![Type Checked](https://img.shields.io/badge/type%20checked-mypy-blue.svg)](http://mypy-lang.org/)
+7: [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+8: [![Status](https://img.shields.io/badge/status-active%20development-orange.svg)]()
+9: 
+10: **An open-source scraping toolkit with a friendly CLI, FastAPI service, and Python SDK.**
+11: 
+12: The project currently ships a single-node scraping engine (static + Playwright), a set of beginner-friendly CLI modes, an HTTP API with an optional dashboard, and a Python SDK for programmatic access. Distributed orchestration and other Layer B features live on the roadmap while the core experience is hardened.
+13: 
+14: ---
+15: 
+16: ## ⚡ Quick Start
+17: 
+18: ### Installation
+19: 
+20: ```bash
+21: # Install dependencies
+22: poetry install
+23: 
+24: # Install Playwright browsers
+25: poetry run playwright install chromium
+26: ```
+27: 
+28: ### Grandma Mode (Easiest)
+29: 
+30: ```bash
+31: # Just paste a URL and answer 3 simple questions
+32: scraper easy https://example.com
+33: ```
+34: 
+35: ### Massive Mode (Max Power, Single Command)
+36: 
+37: ```bash
+38: # Intelligent auto-detection with smart defaults
+39: scraper massive https://example.com --max-pages 100 --export csv,json
+40: ```
+41: 
+42: ### Wizard Mode (Interactive Setup)
+43: 
+44: ```bash
+45: # Step-by-step guidance to create a custom job
+46: scraper wizard
+47: ```
+48: 
+49: ---
+50: 
+51: ## 🎯 Current Capabilities
+52: 
+53: ### Core scraping engine (Layer A)
+54: 
+55: - ✅ **Static + JavaScript rendering** via `requests`/BeautifulSoup and optional Playwright
+56: - ✅ **Smart pagination** with none/url-pattern/next-button/infinite-scroll modes
+57: - ✅ **Session controls** including robots.txt checks, rate limiting, and basic proxy/UA rotation
+58: - ✅ **Extraction options** for CSS selectors, tables, media, and optional LLM-backed semantic fields
+59: - ✅ **Exports** to CSV, JSON/NDJSON, Excel, SQLite, Parquet, Feather, and more
+60: - ✅ **Data post-processing** (type inference, cleaning, deduplication)
+61: 
+62: ### Interfaces & developer surface
+63: 
+64: - ✅ **CLI** modes: `easy`, `massive`, `wizard`, `smart`, `analyze`, `run`, `list`, `validate`, `serve`
+65: - ✅ **FastAPI service** with job management, smart cache/incremental scraping, and OpenAPI docs at `/docs`
+66: - ✅ **Python SDK** (`GrandmaScrapeClient`) for interacting with the API
+67: - ✅ **Examples & configs** to bootstrap common workflows
+68: 
+69: ### Roadmap highlights (Layer B and beyond)
+70: 
+71: - 🔄 Distributed execution, browser pooling, and workflow orchestration
+72: - 🔄 RBAC/multi-tenant hardening
+73: - 🔄 Expanded monitoring/alerting surface
+74: - 🔄 More pluggable ML extraction models
+75: 
+76: [See detailed comparison →](COMPETITIVE_ANALYSIS.md)
+77: 
+78: ---
+79: 
+80: ## 📖 Usage Examples
+81: 
+82: ### Example 1: Quick CSV Export
+83: 
+84: ```bash
+85: scraper easy https://news.ycombinator.com
+86: # Answers prompts, exports to ~/scraper_results/hackernews_2025-11-18.csv
+87: ```
+88: 
+89: ### Example 2: Custom Job Config
+90: 
+91: ```yaml
+92: # config/my_job.yaml
+93: name: "Product Scraper"
+94: start_url: "https://example.com/products"
+95: use_browser: true
+96: pagination_mode: "next_button"
+97: next_button_selector: ".next-page"
+98: max_pages: 50
+99: 
+100: fields:
+101:   title:
+102:     selector: "h1.product-title"
+103:     type: "string"
+104:   price:
+105:     selector: ".price"
+106:     type: "currency"
+107:   rating:
+108:     selector: ".rating"
+109:     type: "float"
+110: 
+111: export_formats: ["csv", "json", "excel"]
+112: ```
+113: 
+114: ```bash
+115: scraper run config/my_job.yaml
+116: ```
+117: 
+118: ### Example 3: Programmatic Usage
+119: 
+120: ```python
+121: from scraper.core.engine import ScraperEngine
+122: from scraper.config.models import ScrapeJob
+123: 
+124: job = ScrapeJob(
+125:     name="my_scrape",
+126:     start_url="https://example.com",
+127:     item_selector=".product",
+128:     fields={
+129:         "title": {"selector": "h2", "type": "string"},
+130:         "price": {"selector": ".price", "type": "currency"}
+131:     },
+132:     export_formats=["csv"]
+133: )
+134: 
+135: engine = ScraperEngine()
+136: results = await engine.run_job(job)
+137: ```
+138: 
+139: ### Example 4: Python SDK (Layer C)
+140: 
+141: ```python
+142: from scraper.sdk import GrandmaScrapeClient
+143: 
+144: # Initialize client
+145: with GrandmaScrapeClient("http://localhost:8000") as client:
+146:     # Auto-scrape with zero config
+147:     job_id = client.auto_scrape(
+148:         "https://example.com",
+149:         max_pages=10,
+150:         export_format="csv",
+151:         concurrent=True,
+152:         wait=True  # Wait for completion
+153:     )
+154: 
+155:     # Get results
+156:     results = client.get_all_results(job_id)
+157:     print(f"Scraped {len(results)} items!")
+158: 
+159:     # Check data quality
+160:     quality = client.check_data_quality(job_id)
+161:     print(f"Quality score: {quality['quality_report']['quality_score']:.2f}")
+162: ```
+163: 
+164: ### Example 5: Web Dashboard (Layer C)
+165: 
+166: ```bash
+167: # Start API server with dashboard
+168: python -m scraper.api.rest_server
+169: 
+170: # Open browser to http://localhost:8000
+171: # 1. Enter URL in auto-scrape form
+172: # 2. Click "Start Auto-Scrape"
+173: # 3. View real-time progress
+174: # 4. Download results when complete
+175: ```
+176: 
+177: ### Example 6: Docker Deployment (Layer C)
+178: 
+179: ```bash
+180: # Quick start
+181: docker-compose up -d
+182: 
+183: # Production deployment
+184: docker-compose -f docker-compose.prod.yml up -d
+185: 
+186: # Check status
+187: docker-compose ps
+188: 
+189: # View logs
+190: docker-compose logs -f
+191: 
+192: # Access dashboard at http://localhost:8000
+193: ```
+194: 
+195: ---
+196: 
+197: ## 🏗️ Architecture
+198: 
+199: ```
+200: scraper/
+201: ├── core/          # Engine, fetchers, rate limiting
+202: ├── strategies/    # Site-specific scraping strategies
+203: ├── extractors/    # Data extraction (selectors, AI, media)
+204: ├── transforms/    # ETL, cleaning, type inference
+205: ├── export/        # 20+ export formats
+206: ├── storage/       # Cache, metadata, job store
+207: ├── scheduler/     # Cron, workflows, DAGs
+208: ├── monitor/       # Metrics, logging, alerts
+209: ├── security/      # Auth, RBAC, compliance
+210: ├── ml/            # AI models, anomaly detection
+211: ├── api/           # REST & GraphQL APIs
+212: ├── cli/           # Command-line interface
+213: └── config/        # Job models & examples
+214: ```
+215: 
+216: ---
+217: 
+218: ## ⚖️ Legal & Ethical Use
+219: 
+220: **⚠️ IMPORTANT DISCLAIMER**
+221: 
+222: This platform is a powerful tool. **You are responsible** for using it in compliance with:
+223: 
+224: - Each website's Terms of Service
+225: - robots.txt directives (respected by default)
+226: - All applicable laws (CFAA, GDPR, etc.)
+227: 
+228: **Default behavior:**
+229: - ✅ Respects robots.txt
+230: - ✅ Enforces rate limiting
+231: - ✅ Uses polite scraping patterns
+232: 
+233: **This tool should NOT be used to:**
+234: - ❌ Bypass authentication or paywalls
+235: - ❌ Circumvent technical access controls
+236: - ❌ Scrape sites that explicitly prohibit it
+237: - ❌ Violate privacy or data protection laws
+238: 
+239: ---
+240: 
+241: ## 📚 Documentation
+242: 
+243: **Getting Started:**
+244: - [Getting Started Guide](GETTING_STARTED.md) - 5-minute quick start for beginners
+245: - [Platform Summary](PLATFORM_SUMMARY.md) - Complete feature overview
+246: - [Success Summary](SUCCESS_SUMMARY.md) - Achievement statistics & ROI
+247: 
+248: **Advanced Features:**
+249: - [Ultra Power Features](ULTRA_POWER.md) - Layer B intelligence features
+250: - [Layer C Documentation](LAYER_C.md) - SDK, API, and UX guide
+251: - [Deployment Guide](DEPLOYMENT.md) - Production deployment (400+ lines)
+252: 
+253: **Competitive Analysis:**
+254: - [Competitive Analysis](COMPETITIVE_ANALYSIS.md) - vs. commercial services (Apify, Bright Data, etc.)
+255: 
+256: **Contributing:**
+257: - [Contributing Guide](CONTRIBUTING.md) - How to contribute
+258: - [Security Policy](SECURITY.md) - Security and responsible disclosure
+259: - [Changelog](CHANGELOG.md) - Version history and updates
+260: 
+261: **API Documentation:**
+262: - Auto-generated OpenAPI docs at `/docs` when running `scraper serve`
+263: 
+264: ---
+265: 
+266: ## 🧪 Testing
+267: 
+268: ```bash
+269: # Run all tests
+270: poetry run pytest
+271: 
+272: # Run with coverage
+273: poetry run pytest --cov=scraper --cov-report=html
+274: 
+275: # Run specific test suite
+276: poetry run pytest tests/core/
+277: ```
+278: 
+279: ---
+280: 
+281: ## 🤝 Contributing
+282: 
+283: Contributions are welcome and appreciated!
+284: 
+285: Please read our [Contributing Guide](CONTRIBUTING.md) to get started.
+286: 
+287: **Ways to contribute:**
+288: - 🐛 Report bugs
+289: - 💡 Suggest features
+290: - 📚 Improve documentation
+291: - 🧪 Add tests
+292: - ✨ Submit pull requests
+293: 
+294: **Good first issues:** Look for issues labeled `good first issue` in the GitHub repository.
+295: 
+296: ---
+297: 
+298: ## 📄 License
+299: 
+300: MIT License - see [LICENSE](LICENSE) for details.
+301: 
+302: ---
+303: 
+304: ## 🙏 Acknowledgments
+305: 
+306: Built with modern Python async patterns, powered by:
+307: - Playwright for browser automation
+308: - FastAPI for lightning-fast APIs
+309: - Claude AI for intelligent extraction
+310: - Beautiful Soup for HTML parsing
+311: 
+312: **Made with ❤️ for grandmas and engineers alike.**
+FILE GETTING_STARTED.md
+1: # 🚀 Getting Started with GrandmaScrape
+2: 
+3: **Complete guide to getting up and running with GrandmaScrape in 5 minutes.**
+4: 
+5: ---
+6: 
+7: ## Table of Contents
+8: 
+9: 1. [Installation](#installation)
+10: 2. [Quick Start (5 Minutes)](#quick-start-5-minutes)
+11: 3. [Choose Your Interface](#choose-your-interface)
+12: 4. [Common Use Cases](#common-use-cases)
+13: 5. [Next Steps](#next-steps)
+14: 
+15: ---
+16: 
+17: ## Installation
+18: 
+19: ### Prerequisites
+20: 
+21: - Python 3.11 or higher
+22: - 2GB+ RAM
+23: - 1GB+ disk space
+24: 
+25: ### Install with Poetry (Recommended)
+26: 
+27: ```bash
+28: # 1. Clone the repository
+29: git clone https://github.com/yourorg/GrannScraperV1-BIG.git
+30: cd GrannScraperV1-BIG
+31: 
+32: # 2. Install dependencies
+33: poetry install
+34: 
+35: # 3. Install Playwright browsers (for JavaScript-heavy sites)
+36: poetry run playwright install chromium
+37: 
+38: # 4. Verify installation
+39: poetry run scraper --help
+40: ```
+41: 
+42: ### Install with pip
+43: 
+44: ```bash
+45: # 1. Clone and navigate
+46: git clone https://github.com/yourorg/GrannScraperV1-BIG.git
+47: cd GrannScraperV1-BIG
+48: 
+49: # 2. Create virtual environment
+50: python -m venv venv
+51: source venv/bin/activate  # On Windows: venv\Scripts\activate
+52: 
+53: # 3. Install
+54: pip install -e .
+55: playwright install chromium
+56: 
+57: # 4. Verify
+58: scraper --help
+59: ```
+60: 
+61: ---
+62: 
+63: ## Quick Start (5 Minutes)
+64: 
+65: ### Method 1: CLI (Grandma-Simple!)
+66: 
+67: **Just 3 questions, that's it!**
+68: 
+69: ```bash
+70: scraper easy https://example.com/products
+71: ```
+72: 
+73: You'll be asked:
+74: 1. What to name your scrape?
+75: 2. How many pages to scrape?
+76: 3. What format to export? (CSV, JSON, Excel)
+77: 
+78: Done! Results saved to `~/scraper_results/`
+79: 
+80: ### Method 2: Web Dashboard
+81: 
+82: **Point-and-click interface - no coding required!**
+83: 
+84: ```bash
+85: # Start the server
+86: scraper serve
+87: 
+88: # Open browser to:
+89: http://localhost:8000
+90: ```
+91: 
+92: 1. Enter URL in the form
+93: 2. Click "Start Auto-Scrape"
+94: 3. Watch real-time progress
+95: 4. Download results when complete
+96: 
+97: ### Method 3: Python SDK
+98: 
+99: **For developers - clean, pythonic API**
+100: 
+101: ```python
+102: from scraper.sdk import GrandmaScrapeClient
+103: 
+104: # Auto-scrape with one method
+105: with GrandmaScrapeClient() as client:
+106:     job_id = client.auto_scrape(
+107:         "https://example.com",
+108:         max_pages=10,
+109:         export_format="json",
+110:         wait=True
+111:     )
+112: 
+113:     results = client.get_all_results(job_id)
+114:     print(f"Scraped {len(results)} items!")
+115: ```
+116: 
+117: ### Method 4: Docker (Production)
+118: 
+119: **Containerized deployment**
+120: 
+121: ```bash
+122: # Quick start
+123: docker-compose up -d
+124: 
+125: # Access dashboard
+126: open http://localhost:8000
+127: ```
+128: 
+129: ---
+130: 
+131: ## Choose Your Interface
+132: 
+133: GrandmaScrape has **4 interfaces** for different users:
+134: 
+135: ### 1. CLI - Command Line Interface
+136: 
+137: **Best for:** Quick scripts, automation, cron jobs
+138: 
+139: **Power Level:** ⚡⚡⚡⚡
+140: 
+141: **Commands:**
+142: ```bash
+143: # Easy mode (3 questions)
+144: scraper easy https://site.com
+145: 
+146: # Smart mode (AI auto-detection)
+147: scraper smart https://site.com --concurrent
+148: 
+149: # Massive mode (max power)
+150: scraper massive https://site.com --max-pages 1000
+151: 
+152: # Start API server
+153: scraper serve
+154: ```
+155: 
+156: **Full Command List:**
+157: ```bash
+158: scraper --help
+159: 
+160: Commands:
+161:   serve     - Start API server + web dashboard
+162:   easy      - 3 questions, that's it! (grandma-friendly)
+163:   smart     - AI auto-detection (zero configuration)
+164:   analyze   - Deep site analysis
+165:   massive   - Max power mode
+166:   wizard    - Interactive job builder
+167:   run       - Execute saved job
+168:   list      - Show all jobs
+169:   validate  - Check config file
+170: ```
+171: 
+172: ---
+173: 
+174: ### 2. Web Dashboard - Browser Interface
+175: 
+176: **Best for:** Non-technical users, one-off scrapes, exploration
+177: 
+178: **Power Level:** ⚡⚡⚡
+179: 
+180: **Features:**
+181: - Beautiful gradient UI
+182: - Auto-scrape form
+183: - Real-time job monitoring
+184: - Results viewer
+185: - No coding required
+186: 
+187: **Usage:**
+188: ```bash
+189: scraper serve
+190: # Visit http://localhost:8000
+191: ```
+192: 
+193: ---
+194: 
+195: ### 3. Python SDK - Programmatic API
+196: 
+197: **Best for:** Developers, integration, data pipelines
+198: 
+199: **Power Level:** ⚡⚡⚡⚡⚡
+200: 
+201: **Basic Usage:**
+202: ```python
+203: from scraper.sdk import GrandmaScrapeClient
+204: 
+205: with GrandmaScrapeClient() as client:
+206:     # Auto-scrape
+207:     job_id = client.auto_scrape(url, concurrent=True, wait=True)
+208: 
+209:     # Get results
+210:     results = client.get_all_results(job_id)
+211: 
+212:     # Check quality
+213:     quality = client.check_data_quality(job_id)
+214: ```
+215: 
+216: **Advanced Usage:**
+217: ```python
+218: # Async for performance
+219: from scraper.sdk import AsyncGrandmaScrapeClient
+220: 
+221: async with AsyncGrandmaScrapeClient() as client:
+222:     job_id = await client.auto_scrape(url)
+223:     await client.wait_for_job(job_id)
+224:     results = await client.get_all_results(job_id)
+225: ```
+226: 
+227: ---
+228: 
+229: ### 4. REST API - HTTP Interface
+230: 
+231: **Best for:** Remote access, microservices, integrations
+232: 
+233: **Power Level:** ⚡⚡⚡⚡⚡
+234: 
+235: **Start Server:**
+236: ```bash
+237: scraper serve --port 8000
+238: ```
+239: 
+240: **Example Requests:**
+241: ```bash
+242: # Auto-detect structure
+243: curl -X POST http://localhost:8000/api/v1/analyze \
+244:   -H "Content-Type: application/json" \
+245:   -d '{"url": "https://example.com", "max_pages": 1}'
+246: 
+247: # Create job
+248: curl -X POST http://localhost:8000/api/v1/jobs \
+249:   -H "Content-Type: application/json" \
+250:   -d @job.json
+251: 
+252: # Run job
+253: curl -X POST "http://localhost:8000/api/v1/jobs/JOB_ID/run?concurrent=true"
+254: 
+255: # Get results
+256: curl http://localhost:8000/api/v1/jobs/JOB_ID/results
+257: ```
+258: 
+259: **API Documentation:** http://localhost:8000/docs
+260: 
+261: ---
+262: 
+263: ## Common Use Cases
+264: 
+265: ### Use Case 1: E-Commerce Price Monitoring
+266: 
+267: **Goal:** Track competitor prices daily
+268: 
+269: **Solution:** CLI + Cron Job
+270: 
+271: ```bash
+272: # Create cron job (runs daily at 2 AM)
+273: crontab -e
+274: 
+275: # Add line:
+276: 0 2 * * * cd /path/to/scraper && scraper smart https://competitor.com/products --export csv
+277: ```
+278: 
+279: ---
+280: 
+281: ### Use Case 2: Data Science Project
+282: 
+283: **Goal:** Collect training data for ML model
+284: 
+285: **Solution:** Python SDK + Pandas
+286: 
+287: ```python
+288: from scraper.sdk import GrandmaScrapeClient
+289: import pandas as pd
+290: 
+291: with GrandmaScrapeClient() as client:
+292:     # Scrape data
+293:     job_id = client.auto_scrape(
+294:         "https://dataset-source.com",
+295:         max_pages=100,
+296:         concurrent=True,
+297:         wait=True
+298:     )
+299: 
+300:     # Load into Pandas
+301:     data = client.get_all_results(job_id)
+302:     df = pd.DataFrame(data)
+303: 
+304:     # Train model
+305:     from sklearn.model_selection import train_test_split
+306:     # ... your ML code
+307: ```
+308: 
+309: ---
+310: 
+311: ### Use Case 3: News Aggregation
+312: 
+313: **Goal:** Daily digest from multiple sources
+314: 
+315: **Solution:** Workflow DAG + Email
+316: 
+317: See `examples/workflows/news_aggregation.yaml`
+318: 
+319: ```bash
+320: # Run workflow
+321: python -m scraper.scheduler.workflow_dag execute examples/workflows/news_aggregation.yaml
+322: ```
+323: 
+324: ---
+325: 
+326: ### Use Case 4: Production Data Pipeline
+327: 
+328: **Goal:** Scheduled scraping with quality checks
+329: 
+330: **Solution:** Airflow + Docker
+331: 
+332: See `examples/integrations/airflow_dag.py`
+333: 
+334: ```bash
+335: # Deploy with Docker
+336: docker-compose -f docker-compose.prod.yml up -d
+337: 
+338: # Add to Airflow
+339: cp examples/integrations/airflow_dag.py ~/airflow/dags/
+340: ```
+341: 
+342: ---
+343: 
+344: ## Next Steps
+345: 
+346: ### 1. Try the Examples
+347: 
+348: ```bash
+349: # Basic examples
+350: python examples/01_quick_start.py
+351: python examples/02_pandas_integration.py
+352: python examples/03_async_concurrent.py
+353: 
+354: # See all examples
+355: ls examples/
+356: ```
+357: 
+358: ### 2. Learn Advanced Features
+359: 
+360: **Power Features:**
+361: - AI Auto-Detection (zero-config scraping)
+362: - 10x Concurrent Scraping
+363: - ML Data Quality Analysis
+364: - Smart Caching (99% bandwidth savings)
+365: - Workflow DAGs
+366: - Advanced Scheduling
+367: 
+368: **Read:** `ULTRA_POWER.md` for all advanced features
+369: 
+370: ### 3. Deploy to Production
+371: 
+372: **Deployment options:**
+373: - Docker (docker-compose)
+374: - AWS (ECS, EC2)
+375: - GCP (Cloud Run)
+376: - Azure (Container Instances)
+377: 
+378: **Read:** `DEPLOYMENT.md` for complete deployment guide
+379: 
+380: ### 4. Explore the SDK
+381: 
+382: **SDK Features:**
+383: - Auto-scrape with zero config
+384: - Async/await support
+385: - Quality analysis
+386: - Anomaly detection
+387: - Workflow management
+388: 
+389: **Read:** `LAYER_C.md` for SDK documentation
+390: 
+391: ---
+392: 
+393: ## Helpful Commands
+394: 
+395: ### Server Management
+396: 
+397: ```bash
+398: # Start server
+399: scraper serve
+400: 
+401: # Start on custom port
+402: scraper serve --port 3000
+403: 
+404: # Development mode (auto-reload)
+405: scraper serve --reload
+406: ```
+407: 
+408: ### Job Management
+409: 
+410: ```bash
+411: # List saved jobs
+412: scraper list
+413: 
+414: # Run saved job
+415: scraper run my_job
+416: 
+417: # Validate config
+418: scraper validate config/job.yaml
+419: ```
+420: 
+421: ### Docker Operations
+422: 
+423: ```bash
+424: # Start services
+425: docker-compose up -d
+426: 
+427: # View logs
+428: docker-compose logs -f
+429: 
+430: # Stop services
+431: docker-compose down
+432: 
+433: # Rebuild
+434: docker-compose build
+435: ```
+436: 
+437: ---
+438: 
+439: ## Troubleshooting
+440: 
+441: ### Server Won't Start
+442: 
+443: **Problem:** Port already in use
+444: 
+445: **Solution:**
+446: ```bash
+447: # Use different port
+448: scraper serve --port 3000
+449: 
+450: # Or kill process on port 8000
+451: lsof -ti:8000 | xargs kill
+452: ```
+453: 
+454: ---
+455: 
+456: ### Slow Scraping
+457: 
+458: **Problem:** Takes too long
+459: 
+460: **Solution:**
+461: ```bash
+462: # Enable concurrent scraping (10x faster)
+463: scraper smart URL --concurrent
+464: 
+465: # Or in SDK:
+466: client.auto_scrape(url, concurrent=True)
+467: ```
+468: 
+469: ---
+470: 
+471: ### Import Errors
+472: 
+473: **Problem:** Module not found
+474: 
+475: **Solution:**
+476: ```bash
+477: # Reinstall dependencies
+478: poetry install
+479: 
+480: # Or with pip:
+481: pip install -e .
+482: ```
+483: 
+484: ---
+485: 
+486: ### Quality Issues
+487: 
+488: **Problem:** Scraped data has errors
+489: 
+490: **Solution:**
+491: ```python
+492: # Check quality report
+493: quality = client.check_data_quality(job_id)
+494: print(quality['quality_report']['issues'])
+495: 
+496: # Detect anomalies
+497: anomalies = client.detect_anomalies(job_id)
+498: print(anomalies)
+499: ```
+500: 
+501: ---
+502: 
+503: ## Learning Resources
+504: 
+505: ### Documentation
+506: 
+507: - **README.md** - Project overview
+508: - **GETTING_STARTED.md** - This document
+509: - **ULTRA_POWER.md** - Advanced features
+510: - **LAYER_C.md** - SDK documentation
+511: - **DEPLOYMENT.md** - Production deployment
+512: - **examples/README.md** - Example code
+513: 
+514: ### API Documentation
+515: 
+516: ```bash
+517: # Start server
+518: scraper serve
+519: 
+520: # Visit interactive docs
+521: http://localhost:8000/docs
+522: ```
+523: 
+524: ### Example Code
+525: 
+526: - **examples/** - 5+ complete examples
+527: - **examples/integrations/** - Airflow, Pandas integrations
+528: - **examples/workflows/** - YAML workflow configs
+529: 
+530: ---
+531: 
+532: ## Getting Help
+533: 
+534: 1. **Check the docs** - See above
+535: 2. **Try examples** - Run example code
+536: 3. **Read API docs** - http://localhost:8000/docs
+537: 4. **Check issues** - GitHub issues page
+538: 
+539: ---
+540: 
+541: ## Tips for Success
+542: 
+543: ### 1. Start Simple
+544: 
+545: ```bash
+546: # Begin with easy mode
+547: scraper easy https://simple-site.com
+548: 
+549: # Then graduate to smart mode
+550: scraper smart https://simple-site.com
+551: ```
+552: 
+553: ### 2. Use Concurrent Scraping
+554: 
+555: ```python
+556: # 10x faster!
+557: client.auto_scrape(url, concurrent=True)
+558: ```
+559: 
+560: ### 3. Check Data Quality
+561: 
+562: ```python
+563: # Always verify quality
+564: quality = client.check_data_quality(job_id)
+565: if quality['quality_report']['quality_score'] < 0.8:
+566:     print("Warning: Low quality data")
+567: ```
+568: 
+569: ### 4. Enable Incremental Scraping
+570: 
+571: ```python
+572: # Only scrape what changed (99% bandwidth savings)
+573: client.run_job(job_id, incremental=True)
+574: ```
+575: 
+576: ### 5. Use Workflows for Complex Tasks
+577: 
+578: ```bash
+579: # Define once, run many times
+580: python -m scraper.scheduler.workflow_dag execute workflow.yaml
+581: ```
+582: 
+583: ---
+584: 
+585: ## What's Next?
+586: 
+587: You're ready to start scraping! Here's a suggested learning path:
+588: 
+589: 1. **✅ Install GrandmaScrape** (You did this!)
+590: 2. **⬜ Try `scraper easy`** - Get your first scrape
+591: 3. **⬜ Run `01_quick_start.py`** - See SDK in action
+592: 4. **⬜ Start web dashboard** - Try the UI
+593: 5. **⬜ Read `ULTRA_POWER.md`** - Learn advanced features
+594: 6. **⬜ Build your first project** - Apply to real use case
+595: 7. **⬜ Deploy to production** - See `DEPLOYMENT.md`
+596: 
+597: ---
+598: 
+599: **Happy Scraping! 🧓✨**
+600: 
+601: *Made with ❤️ and ethical scraping practices*
+FILE scraper/sdk/client.py
+1: """
+2: Python SDK for GrandmaScrape API.
+3: 
+4: Provides a clean, pythonic interface to the REST API.
+5: 
+6: Usage:
+7:     from scraper.sdk import GrandmaScrapeClient
+8: 
+9:     client = GrandmaScrapeClient("http://localhost:8000")
+10: 
+11:     # Auto-detect and scrape
+12:     job_id = client.auto_scrape("https://example.com", export_format="csv")
+13: 
+14:     # Wait for completion
+15:     result = client.wait_for_job(job_id)
+16: 
+17:     # Get results
+18:     data = client.get_results(job_id)
+19: """
+20: 
+21: import asyncio
+22: import time
+23: from typing import Any, Dict, List, Optional, Union
+24: from pathlib import Path
+25: 
+26: import httpx
+27: from pydantic import BaseModel
+28: 
+29: from scraper.config.models import ScrapeJob, ScrapeResult
+30: 
+31: 
+32: class JobStatus(BaseModel):
+33:     """Job execution status."""
+34:     job_id: str
+35:     is_running: bool
+36:     has_result: bool
+37:     status: Optional[str] = None
+38:     items_scraped: Optional[int] = None
+39:     pages_visited: Optional[int] = None
+40:     errors: Optional[int] = None
+41:     duration: Optional[float] = None
+42: 
+43: 
+44: class GrandmaScrapeClient:
+45:     """
+46:     Python SDK for GrandmaScrape API.
+47: 
+48:     Provides high-level methods for:
+49:     - Auto-detection and scraping
+50:     - Job management
+51:     - Result retrieval
+52:     - Workflow creation
+53:     - Data quality analysis
+54:     """
+55: 
+56:     def __init__(
+57:         self,
+58:         base_url: str = "http://localhost:8000",
+59:         api_key: Optional[str] = None,
+60:         timeout: float = 30.0
+61:     ):
+62:         """
+63:         Initialize SDK client.
+64: 
+65:         Args:
+66:             base_url: API server base URL
+67:             api_key: Optional API key for authentication
+68:             timeout: Request timeout in seconds
+69:         """
+70:         self.base_url = base_url.rstrip('/')
+71:         self.api_key = api_key
+72:         self.timeout = timeout
+73: 
+74:         headers = {}
+75:         if api_key:
+76:             headers['Authorization'] = f'Bearer {api_key}'
+77: 
+78:         self.client = httpx.Client(
+79:             base_url=self.base_url,
+80:             headers=headers,
+81:             timeout=timeout
+82:         )
+83: 
+84:         self.async_client = httpx.AsyncClient(
+85:             base_url=self.base_url,
+86:             headers=headers,
+87:             timeout=timeout
+88:         )
+89: 
+90:     def __enter__(self):
+91:         return self
+92: 
+93:     def __exit__(self, exc_type, exc_val, exc_tb):
+94:         self.close()
+95: 
+96:     def close(self):
+97:         """Close HTTP clients."""
+98:         self.client.close()
+99: 
+100:     async def aclose(self):
+101:         """Close async HTTP client."""
+102:         await self.async_client.aclose()
+103: 
+104:     # ============================================================================
+105:     # HIGH-LEVEL METHODS (Grandma-simple!)
+106:     # ============================================================================
+107: 
+108:     def auto_scrape(
+109:         self,
+110:         url: str,
+111:         max_pages: int = 10,
+112:         export_format: str = "json",
+113:         concurrent: bool = True,
+114:         wait: bool = False
+115:     ) -> str:
+116:         """
+117:         Auto-detect structure and scrape (GRANDMA-SIMPLE!).
+118: 
+119:         Args:
+120:             url: URL to scrape
+121:             max_pages: Maximum pages to scrape
+122:             export_format: Export format (json, csv, excel)
+123:             concurrent: Use concurrent scraping
+124:             wait: Wait for completion
+125: 
+126:         Returns:
+127:             Job ID
+128:         """
+129:         # Auto-detect structure
+130:         analysis = self.analyze_url(url)
+131: 
+132:         # Create job from analysis
+133:         job = ScrapeJob(
+134:             name=f"Auto-scraped: {url}",
+135:             start_url=url,
+136:             item_selector=analysis.get('item_selector'),
+137:             fields=analysis.get('fields', {}),
+138:             pagination=analysis.get('pagination', {}),
+139:             max_pages=max_pages,
+140:             export={'format': export_format}
+141:         )
+142: 
+143:         # Create and run job
+144:         job_id = self.create_job(job)
+145:         self.run_job(job_id, concurrent=concurrent)
+146: 
+147:         if wait:
+148:             self.wait_for_job(job_id)
+149: 
+150:         return job_id
+151: 
+152:     def wait_for_job(
+153:         self,
+154:         job_id: str,
+155:         poll_interval: float = 2.0,
+156:         timeout: Optional[float] = None
+157:     ) -> JobStatus:
+158:         """
+159:         Wait for job to complete.
+160: 
+161:         Args:
+162:             job_id: Job ID
+163:             poll_interval: Seconds between status checks
+164:             timeout: Max seconds to wait
+165: 
+166:         Returns:
+167:             Final job status
+168:         """
+169:         start_time = time.time()
+170: 
+171:         while True:
+172:             status = self.get_job_status(job_id)
+173: 
+174:             if not status.is_running:
+175:                 return status
+176: 
+177:             if timeout and (time.time() - start_time) > timeout:
+178:                 raise TimeoutError(f"Job {job_id} did not complete within {timeout}s")
+179: 
+180:             time.sleep(poll_interval)
+181: 
+182:     # ============================================================================
+183:     # JOB MANAGEMENT
+184:     # ============================================================================
+185: 
+186:     def create_job(self, job: Union[ScrapeJob, Dict[str, Any]]) -> str:
+187:         """
+188:         Create a scraping job.
+189: 
+190:         Args:
+191:             job: ScrapeJob object or dict
+192: 
+193:         Returns:
+194:             Job ID
+195:         """
+196:         if isinstance(job, ScrapeJob):
+197:             job_data = job.model_dump()
+198:         else:
+199:             job_data = job
+200: 
+201:         response = self.client.post(
+202:             '/api/v1/jobs',
+203:             json={'job': job_data}
+204:         )
+205:         response.raise_for_status()
+206: 
+207:         return response.json()['job_id']
+208: 
+209:     def list_jobs(self, enabled_only: bool = False) -> List[Dict[str, Any]]:
+210:         """
+211:         List all jobs.
+212: 
+213:         Args:
+214:             enabled_only: Only show enabled jobs
+215: 
+216:         Returns:
+217:             List of jobs
+218:         """
+219:         response = self.client.get(
+220:             '/api/v1/jobs',
+221:             params={'enabled_only': enabled_only}
+222:         )
+223:         response.raise_for_status()
+224: 
+225:         return response.json()['jobs']
+226: 
+227:     def get_job(self, job_id: str) -> Dict[str, Any]:
+228:         """
+229:         Get job details.
+230: 
+231:         Args:
+232:             job_id: Job ID
+233: 
+234:         Returns:
+235:             Job details
+236:         """
+237:         response = self.client.get(f'/api/v1/jobs/{job_id}')
+238:         response.raise_for_status()
+239: 
+240:         return response.json()
+241: 
+242:     def delete_job(self, job_id: str):
+243:         """
+244:         Delete a job.
+245: 
+246:         Args:
+247:             job_id: Job ID
+248:         """
+249:         response = self.client.delete(f'/api/v1/jobs/{job_id}')
+250:         response.raise_for_status()
+251: 
+252:     def run_job(
+253:         self,
+254:         job_id: str,
+255:         concurrent: bool = False,
+256:         incremental: bool = False
+257:     ) -> Dict[str, Any]:
+258:         """
+259:         Run a scraping job.
+260: 
+261:         Args:
+262:             job_id: Job ID
+263:             concurrent: Use concurrent scraping
+264:             incremental: Use incremental scraping
+265: 
+266:         Returns:
+267:             Execution status
+268:         """
+269:         response = self.client.post(
+270:             f'/api/v1/jobs/{job_id}/run',
+271:             params={
+272:                 'concurrent': concurrent,
+273:                 'incremental': incremental
+274:             }
+275:         )
+276:         response.raise_for_status()
+277: 
+278:         return response.json()
+279: 
+280:     def get_job_status(self, job_id: str) -> JobStatus:
+281:         """
+282:         Get job execution status.
+283: 
+284:         Args:
+285:             job_id: Job ID
+286: 
+287:         Returns:
+288:             Job status
+289:         """
+290:         response = self.client.get(f'/api/v1/jobs/{job_id}/status')
+291:         response.raise_for_status()
+292: 
+293:         return JobStatus(**response.json())
+294: 
+295:     def get_results(
+296:         self,
+297:         job_id: str,
+298:         limit: int = 100,
+299:         offset: int = 0
+300:     ) -> Dict[str, Any]:
+301:         """
+302:         Get job results with pagination.
+303: 
+304:         Args:
+305:             job_id: Job ID
+306:             limit: Max items to return
+307:             offset: Offset for pagination
+308: 
+309:         Returns:
+310:             Results data
+311:         """
+312:         response = self.client.get(
+313:             f'/api/v1/jobs/{job_id}/results',
+314:             params={'limit': limit, 'offset': offset}
+315:         )
+316:         response.raise_for_status()
+317: 
+318:         return response.json()
+319: 
+320:     def get_all_results(self, job_id: str) -> List[Dict[str, Any]]:
+321:         """
+322:         Get all results for a job (handles pagination).
+323: 
+324:         Args:
+325:             job_id: Job ID
+326: 
+327:         Returns:
+328:             All items
+329:         """
+330:         all_items = []
+331:         offset = 0
+332:         limit = 1000
+333: 
+334:         while True:
+335:             response = self.get_results(job_id, limit=limit, offset=offset)
+336:             items = response['items']
+337:             all_items.extend(items)
+338: 
+339:             if not response['pagination']['has_more']:
+340:                 break
+341: 
+342:             offset += limit
+343: 
+344:         return all_items
+345: 
+346:     # ============================================================================
+347:     # SMART FEATURES
+348:     # ============================================================================
+349: 
+350:     def analyze_url(self, url: str, max_pages: int = 1) -> Dict[str, Any]:
+351:         """
+352:         Analyze URL and auto-detect structure.
+353: 
+354:         Args:
+355:             url: URL to analyze
+356:             max_pages: Max pages to analyze
+357: 
+358:         Returns:
+359:             Detected structure
+360:         """
+361:         response = self.client.post(
+362:             '/api/v1/analyze',
+363:             json={'url': url, 'max_pages': max_pages}
+364:         )
+365:         response.raise_for_status()
+366: 
+367:         return response.json()
+368: 
+369:     def check_data_quality(self, job_id: str) -> Dict[str, Any]:
+370:         """
+371:         Run data quality analysis.
+372: 
+373:         Args:
+374:             job_id: Job ID
+375: 
+376:         Returns:
+377:             Quality report
+378:         """
+379:         response = self.client.post(f'/api/v1/jobs/{job_id}/quality-check')
+380:         response.raise_for_status()
+381: 
+382:         return response.json()
+383: 
+384:     def detect_anomalies(self, job_id: str) -> Dict[str, Any]:
+385:         """
+386:         Detect anomalies in job results.
+387: 
+388:         Args:
+389:             job_id: Job ID
+390: 
+391:         Returns:
+392:             Anomaly report
+393:         """
+394:         response = self.client.post(f'/api/v1/jobs/{job_id}/detect-anomalies')
+395:         response.raise_for_status()
+396: 
+397:         return response.json()
+398: 
+399:     # ============================================================================
+400:     # WORKFLOWS
+401:     # ============================================================================
+402: 
+403:     def create_workflow(
+404:         self,
+405:         name: str,
+406:         nodes: List[Dict[str, Any]]
+407:     ) -> Dict[str, Any]:
+408:         """
+409:         Create a workflow.
+410: 
+411:         Args:
+412:             name: Workflow name
+413:             nodes: Workflow nodes
+414: 
+415:         Returns:
+416:             Workflow info
+417:         """
+418:         response = self.client.post(
+419:             '/api/v1/workflows',
+420:             json={'name': name, 'nodes': nodes}
+421:         )
+422:         response.raise_for_status()
+423: 
+424:         return response.json()
+425: 
+426:     def list_workflows(self) -> List[Dict[str, Any]]:
+427:         """
+428:         List all workflows.
+429: 
+430:         Returns:
+431:             List of workflows
+432:         """
+433:         response = self.client.get('/api/v1/workflows')
+434:         response.raise_for_status()
+435: 
+436:         return response.json()['workflows']
+437: 
+438:     def get_workflow(self, workflow_name: str) -> Dict[str, Any]:
+439:         """
+440:         Get workflow details.
+441: 
+442:         Args:
+443:             workflow_name: Workflow name
+444: 
+445:         Returns:
+446:             Workflow details
+447:         """
+448:         response = self.client.get(f'/api/v1/workflows/{workflow_name}')
+449:         response.raise_for_status()
+450: 
+451:         return response.json()
+452: 
+453:     # ============================================================================
+454:     # CACHE MANAGEMENT
+455:     # ============================================================================
+456: 
+457:     def get_cache_stats(self) -> Dict[str, Any]:
+458:         """
+459:         Get cache statistics.
+460: 
+461:         Returns:
+462:             Cache stats
+463:         """
+464:         response = self.client.get('/api/v1/cache/stats')
+465:         response.raise_for_status()
+466: 
+467:         return response.json()
+468: 
+469:     def clear_cache(
+470:         self,
+471:         expired_only: bool = False,
+472:         ttl_seconds: int = 3600
+473:     ) -> Dict[str, Any]:
+474:         """
+475:         Clear cache.
+476: 
+477:         Args:
+478:             expired_only: Only clear expired entries
+479:             ttl_seconds: TTL for expired check
+480: 
+481:         Returns:
+482:             Clear result
+483:         """
+484:         response = self.client.delete(
+485:             '/api/v1/cache',
+486:             params={
+487:                 'expired_only': expired_only,
+488:                 'ttl_seconds': ttl_seconds
+489:             }
+490:         )
+491:         response.raise_for_status()
+492: 
+493:         return response.json()
+494: 
+495:     # ============================================================================
+496:     # HEALTH & INFO
+497:     # ============================================================================
+498: 
+499:     def health_check(self) -> Dict[str, str]:
+500:         """
+501:         Check API health.
+502: 
+503:         Returns:
+504:             Health status
+505:         """
+506:         response = self.client.get('/api/v1/health')
+507:         response.raise_for_status()
+508: 
+509:         return response.json()
+510: 
+511:     def get_info(self) -> Dict[str, Any]:
+512:         """
+513:         Get API information and statistics.
+514: 
+515:         Returns:
+516:             API info
+517:         """
+518:         response = self.client.get('/api/v1/info')
+519:         response.raise_for_status()
+520: 
+521:         return response.json()
+522: 
+523: 
+524: # ============================================================================
+525: # ASYNC CLIENT
+526: # ============================================================================
+527: 
+528: class AsyncGrandmaScrapeClient:
+529:     """
+530:     Async Python SDK for GrandmaScrape API.
+531: 
+532:     Same interface as GrandmaScrapeClient but fully async.
+533:     """
+534: 
+535:     def __init__(
+536:         self,
+537:         base_url: str = "http://localhost:8000",
+538:         api_key: Optional[str] = None,
+539:         timeout: float = 30.0
+540:     ):
+541:         self.base_url = base_url.rstrip('/')
+542:         self.api_key = api_key
+543:         self.timeout = timeout
+544: 
+545:         headers = {}
+546:         if api_key:
+547:             headers['Authorization'] = f'Bearer {api_key}'
+548: 
+549:         self.client = httpx.AsyncClient(
+550:             base_url=self.base_url,
+551:             headers=headers,
+552:             timeout=timeout
+553:         )
+554: 
+555:     async def __aenter__(self):
+556:         return self
+557: 
+558:     async def __aexit__(self, exc_type, exc_val, exc_tb):
+559:         await self.close()
+560: 
+561:     async def close(self):
+562:         """Close HTTP client."""
+563:         await self.client.aclose()
+564: 
+565:     async def auto_scrape(
+566:         self,
+567:         url: str,
+568:         max_pages: int = 10,
+569:         export_format: str = "json",
+570:         concurrent: bool = True,
+571:         wait: bool = False
+572:     ) -> str:
+573:         """Auto-detect and scrape (async)."""
+574:         analysis = await self.analyze_url(url)
+575: 
+576:         job = ScrapeJob(
+577:             name=f"Auto-scraped: {url}",
+578:             start_url=url,
+579:             item_selector=analysis.get('item_selector'),
+580:             fields=analysis.get('fields', {}),
+581:             pagination=analysis.get('pagination', {}),
+582:             max_pages=max_pages,
+583:             export={'format': export_format}
+584:         )
+585: 
+586:         job_id = await self.create_job(job)
+587:         await self.run_job(job_id, concurrent=concurrent)
+588: 
+589:         if wait:
+590:             await self.wait_for_job(job_id)
+591: 
+592:         return job_id
+593: 
+594:     async def wait_for_job(
+595:         self,
+596:         job_id: str,
+597:         poll_interval: float = 2.0,
+598:         timeout: Optional[float] = None
+599:     ) -> JobStatus:
+600:         """Wait for job to complete (async)."""
+601:         start_time = time.time()
+602: 
+603:         while True:
+604:             status = await self.get_job_status(job_id)
+605: 
+606:             if not status.is_running:
+607:                 return status
+608: 
+609:             if timeout and (time.time() - start_time) > timeout:
+610:                 raise TimeoutError(f"Job {job_id} did not complete within {timeout}s")
+611: 
+612:             await asyncio.sleep(poll_interval)
+613: 
+614:     async def create_job(self, job: Union[ScrapeJob, Dict[str, Any]]) -> str:
+615:         """Create job (async)."""
+616:         if isinstance(job, ScrapeJob):
+617:             job_data = job.model_dump()
+618:         else:
+619:             job_data = job
+620: 
+621:         response = await self.client.post('/api/v1/jobs', json={'job': job_data})
+622:         response.raise_for_status()
+623: 
+624:         return response.json()['job_id']
+625: 
+626:     async def run_job(
+627:         self,
+628:         job_id: str,
+629:         concurrent: bool = False,
+630:         incremental: bool = False
+631:     ) -> Dict[str, Any]:
+632:         """Run job (async)."""
+633:         response = await self.client.post(
+634:             f'/api/v1/jobs/{job_id}/run',
+635:             params={'concurrent': concurrent, 'incremental': incremental}
+636:         )
+637:         response.raise_for_status()
+638: 
+639:         return response.json()
+640: 
+641:     async def get_job_status(self, job_id: str) -> JobStatus:
+642:         """Get job status (async)."""
+643:         response = await self.client.get(f'/api/v1/jobs/{job_id}/status')
+644:         response.raise_for_status()
+645: 
+646:         return JobStatus(**response.json())
+647: 
+648:     async def get_all_results(self, job_id: str) -> List[Dict[str, Any]]:
+649:         """Get all results (async)."""
+650:         all_items = []
+651:         offset = 0
+652:         limit = 1000
+653: 
+654:         while True:
+655:             response = await self.client.get(
+656:                 f'/api/v1/jobs/{job_id}/results',
+657:                 params={'limit': limit, 'offset': offset}
+658:             )
+659:             response.raise_for_status()
+660: 
+661:             data = response.json()
+662:             items = data['items']
+663:             all_items.extend(items)
+664: 
+665:             if not data['pagination']['has_more']:
+666:                 break
+667: 
+668:             offset += limit
+669: 
+670:         return all_items
+671: 
+672:     async def analyze_url(self, url: str, max_pages: int = 1) -> Dict[str, Any]:
+673:         """Analyze URL (async)."""
+674:         response = await self.client.post(
+675:             '/api/v1/analyze',
+676:             json={'url': url, 'max_pages': max_pages}
+677:         )
+678:         response.raise_for_status()
+679: 
+680:         return response.json()
+FILE scraper/cli/main.py
+1: """
+2: CLI entry point for GrandmaScrape.
+3: 
+4: Provides easy, massive, wizard, and advanced modes.
+5: """
+6: 
+7: import asyncio
+8: import logging
+9: from pathlib import Path
+10: from typing import Optional
+11: 
+12: import click
+13: from rich.console import Console
+14: from rich.progress import Progress, SpinnerColumn, TextColumn
+15: from rich.table import Table
+16: 
+17: from scraper.config.models import ScrapeJob, FieldConfig, ExportConfig
+18: from scraper.core.engine import ScraperEngine
+19: from scraper.export.export_manager import ExportManager
+20: 
+21: # Import smart commands
+22: from scraper.cli.smart_commands import smart, analyze
+23: 
+24: console = Console()
+25: logger = logging.getLogger(__name__)
+26: 
+27: 
+28: @click.group()
+29: @click.option("--debug", is_flag=True, help="Enable debug logging")
+30: def cli(debug: bool) -> None:
+31:     """
+32:     GrandmaScrape - Enterprise web scraping made grandma-simple.
+33: 
+34:     Commands:
+35:       serve     - Start API server + web dashboard
+36:       easy      - 3 questions, that's it! (grandma-friendly)
+37:       smart     - AI auto-detection (zero configuration)
+38:       analyze   - Deep site analysis
+39:       massive   - Max power mode
+40:       wizard    - Interactive job builder
+41:       run       - Execute saved job
+42:       list      - Show all jobs
+43:       validate  - Check config file
+44: 
+45:     Use 'scraper COMMAND --help' for more information on a command.
+46:     """
+47:     # Configure logging
+48:     level = logging.DEBUG if debug else logging.INFO
+49:     logging.basicConfig(
+50:         level=level,
+51:         format="%(message)s" if not debug else "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+52:     )
+53: 
+54: 
+55: @cli.command()
+56: @click.argument("url")
+57: def easy(url: str) -> None:
+58:     """
+59:     EASY MODE - Grandma-friendly scraping.
+60: 
+61:     Just paste a URL and answer 3 simple questions!
+62: 
+63:     Example:
+64:         scraper easy https://example.com
+65:     """
+66:     console.print("\n[bold green]🧓 GrandmaScrape Easy Mode[/bold green]")
+67:     console.print("I'll help you scrape this website in just 3 questions!\n")
+68: 
+69:     # Question 1: What to get
+70:     console.print("[bold]Question 1:[/bold] What are you trying to get from this page?")
+71:     console.print("  (Examples: titles, prices, names, articles, products)")
+72:     what_to_get = click.prompt("  Your answer", default="items")
+73: 
+74:     # Question 2: How many pages
+75:     console.print("\n[bold]Question 2:[/bold] About how many pages should I look through?")
+76:     console.print("  (Just give me a number, or say 'just one')")
+77:     pages_input = click.prompt("  Your answer", default="just one")
+78: 
+79:     if "one" in pages_input.lower():
+80:         max_pages = 1
+81:     else:
+82:         try:
+83:             max_pages = int(pages_input.split()[0])
+84:         except:
+85:             max_pages = 1
+86: 
+87:     # Question 3: Filename
+88:     console.print("\n[bold]Question 3:[/bold] What should I name your file?")
+89:     console.print("  (I'll add .csv automatically)")
+90:     filename = click.prompt("  Your answer", default="my_scrape")
+91: 
+92:     # Clean and validate filename
+93:     import re
+94:     filename = filename.replace(".csv", "")
+95:     # Only allow alphanumeric, dash, underscore
+96:     filename = re.sub(r'[^a-zA-Z0-9_-]', '_', filename)[:100]
+97: 
+98:     console.print("\n[bold cyan]Great! I'm ready to scrape![/bold cyan]")
+99:     console.print(f"  • Getting: {what_to_get}")
+100:     console.print(f"  • Pages: {max_pages}")
+101:     console.print(f"  • Saving as: {filename}.csv")
+102:     console.print()
+103: 
+104:     if not click.confirm("Should I start?", default=True):
+105:         console.print("[yellow]Okay, maybe next time![/yellow]")
+106:         return
+107: 
+108:     # Build a simple job
+109:     job = ScrapeJob(
+110:         name=f"easy_{filename}",
+111:         start_url=url,
+112:         description=f"Easy mode scrape for {what_to_get}",
+113:         pagination={"mode": "none" if max_pages == 1 else "url_pattern", "max_pages": max_pages},
+114:         fields={},  # Will use auto-detection
+115:         export=ExportConfig(
+116:             formats=["csv"],
+117:             filename_template=filename,
+118:         ),
+119:     )
+120: 
+121:     # Run the scrape
+122:     asyncio.run(_run_easy_job(job, what_to_get))
+123: 
+124: 
+125: async def _run_easy_job(job: ScrapeJob, what_to_get: str) -> None:
+126:     """Run easy mode job with friendly progress."""
+127:     console.print("\n[bold]I'm starting to work...[/bold]")
+128: 
+129:     with Progress(
+130:         SpinnerColumn(),
+131:         TextColumn("[progress.description]{task.description}"),
+132:         console=console,
+133:     ) as progress:
+134:         task = progress.add_task("Opening the website...", total=None)
+135: 
+136:         engine = ScraperEngine()
+137: 
+138:         # Update progress messages
+139:         progress.update(task, description=f"Looking for {what_to_get}...")
+140: 
+141:         result = await engine.run_job(job)
+142: 
+143:         progress.update(task, description="Almost done, saving your file...")
+144: 
+145:         # Export results
+146:         export_manager = ExportManager(job.export)
+147:         exported_files = await export_manager.export_result(result)
+148: 
+149:     # Report results
+150:     console.print()
+151:     if result.status == "success":
+152:         console.print(f"[bold green]✓ Success![/bold green] I found {result.items_scraped} {what_to_get}.")
+153: 
+154:         if exported_files:
+155:             file_path = list(exported_files.values())[0]
+156:             console.print(f"[bold]Your file is ready:[/bold] {file_path}")
+157:             console.print(f"\n[dim]Open it with Excel, Google Sheets, or any spreadsheet program![/dim]")
+158:     else:
+159:         console.print(f"[bold yellow]⚠ Hmm, I had some trouble.[/bold yellow]")
+160:         console.print(f"I found {result.items_scraped} items, but there were {len(result.errors)} errors.")
+161: 
+162:         if result.errors:
+163:             console.print("\n[bold]What went wrong:[/bold]")
+164:             for error in result.errors[:3]:  # Show first 3 errors
+165:                 console.print(f"  • {error}")
+166: 
+167: 
+168: @cli.command()
+169: @click.argument("url")
+170: @click.option("--max-pages", default=10, help="Maximum pages to scrape")
+171: @click.option("--use-browser", is_flag=True, help="Use browser for JavaScript sites")
+172: @click.option("--export", default="csv", help="Export formats (comma-separated: csv,json,excel)")
+173: @click.option("--output-dir", type=click.Path(), help="Output directory")
+174: def massive(
+175:     url: str,
+176:     max_pages: int,
+177:     use_browser: bool,
+178:     export: str,
+179:     output_dir: Optional[str],
+180: ) -> None:
+181:     """
+182:     MASSIVE MODE - Maximum power with smart defaults.
+183: 
+184:     Intelligently scrapes sites with auto-detection.
+185: 
+186:     Example:
+187:         scraper massive https://example.com --max-pages 100 --export csv,json
+188:     """
+189:     console.print("\n[bold magenta]⚡ GrandmaScrape MASSIVE Mode[/bold magenta]")
+190:     console.print("Engaging maximum power with intelligent detection...\n")
+191: 
+192:     # Parse export formats
+193:     export_formats = [fmt.strip() for fmt in export.split(",")]
+194: 
+195:     # Build output path
+196:     if output_dir:
+197:         output_path = Path(output_dir)
+198:     else:
+199:         output_path = Path.home() / "scraper_results"
+200: 
+201:     # Create job with smart defaults
+202:     # Use 'none' mode for single page, otherwise let engine handle pagination detection
+203:     pagination_mode = "none" if max_pages == 1 else "none"
+204:     
+205:     job = ScrapeJob(
+206:         name=f"massive_{url.split('//')[1].split('/')[0]}",
+207:         start_url=url,
+208:         description="Massive mode scrape with auto-detection",
+209:         browser={"enabled": use_browser},
+210:         pagination={"mode": pagination_mode, "max_pages": max_pages},
+211:         fields={},  # Auto-detect
+212:         export=ExportConfig(
+213:             formats=export_formats,
+214:             base_path=output_path,
+215:         ),
+216:     )
+217: 
+218:     console.print(f"[bold]Configuration:[/bold]")
+219:     console.print(f"  • URL: {url}")
+220:     console.print(f"  • Max pages: {max_pages}")
+221:     console.print(f"  • Browser mode: {'ON' if use_browser else 'OFF'}")
+222:     console.print(f"  • Export formats: {', '.join(export_formats)}")
+223:     console.print()
+224: 
+225:     asyncio.run(_run_massive_job(job))
+226: 
+227: 
+228: async def _run_massive_job(job: ScrapeJob) -> None:
+229:     """Run massive mode job."""
+230:     with Progress(console=console) as progress:
+231:         task = progress.add_task(
+232:             "[cyan]Scraping in progress...", total=job.pagination.max_pages
+233:         )
+234: 
+235:         engine = ScraperEngine()
+236:         result = await engine.run_job(job)
+237: 
+238:         progress.update(task, completed=result.pages_visited)
+239: 
+240:     # Export
+241:     export_manager = ExportManager(job.export)
+242:     exported_files = await export_manager.export_result(result)
+243: 
+244:     # Results table
+245:     table = Table(title="Scrape Results")
+246:     table.add_column("Metric", style="cyan")
+247:     table.add_column("Value", style="green")
+248: 
+249:     table.add_row("Status", result.status.upper())
+250:     table.add_row("Items Scraped", str(result.items_scraped))
+251:     table.add_row("Pages Visited", str(result.pages_visited))
+252:     table.add_row("Errors", str(len(result.errors)))
+253:     table.add_row("Duration", f"{result.duration_seconds:.2f}s")
+254: 
+255:     console.print()
+256:     console.print(table)
+257: 
+258:     if exported_files:
+259:         console.print("\n[bold]Exported Files:[/bold]")
+260:         for fmt, path in exported_files.items():
+261:             console.print(f"  • {fmt.upper()}: {path}")
+262: 
+263: 
+264: @cli.command()
+265: def wizard() -> None:
+266:     """
+267:     WIZARD MODE - Interactive job creation.
+268: 
+269:     Step-by-step guidance to create a custom scraping job.
+270:     """
+271:     console.print("\n[bold blue]🧙 GrandmaScrape Wizard[/bold blue]")
+272:     console.print("I'll guide you through creating a custom scraping job.\n")
+273: 
+274:     # Step 1: URL
+275:     url = click.prompt("[bold]Step 1: URL[/bold]\n  What website do you want to scrape?")
+276: 
+277:     # Step 2: Name
+278:     name = click.prompt("\n[bold]Step 2: Job Name[/bold]\n  Give this scrape a name", default="my_scrape")
+279: 
+280:     # Step 3: Browser
+281:     console.print("\n[bold]Step 3: Browser Mode[/bold]")
+282:     console.print("  Does this site need JavaScript to load content?")
+283:     console.print("  (Examples: SPAs, sites with infinite scroll)")
+284:     use_browser = click.confirm("  Use browser mode?", default=False)
+285: 
+286:     # Step 4: Pagination
+287:     console.print("\n[bold]Step 4: Pagination[/bold]")
+288:     console.print("  How are pages organized?")
+289:     console.print("  1. Single page only")
+290:     console.print("  2. Next button (like 'Next >'))")
+291:     console.print("  3. Page numbers in URL (like /page/1, /page/2)")
+292:     console.print("  4. Infinite scroll")
+293: 
+294:     pagination_choice = click.prompt("  Your choice", type=int, default=1)
+295: 
+296:     pagination_config = {"mode": "none"}
+297: 
+298:     if pagination_choice == 2:
+299:         pagination_config["mode"] = "next_button"
+300:         next_selector = click.prompt("  CSS selector for next button", default=".next, .pagination-next")
+301:         pagination_config["next_button_selector"] = next_selector
+302:     elif pagination_choice == 3:
+303:         pagination_config["mode"] = "url_pattern"
+304:         url_pattern = click.prompt("  URL pattern (use {page} for page number)", default=f"{url}?page={{page}}")
+305:         pagination_config["url_pattern"] = url_pattern
+306:     elif pagination_choice == 4:
+307:         pagination_config["mode"] = "infinite_scroll"
+308: 
+309:     if pagination_choice > 1:
+310:         max_pages = click.prompt("  Maximum pages to scrape", type=int, default=10)
+311:         pagination_config["max_pages"] = max_pages
+312: 
+313:     # Step 5: Export
+314:     console.print("\n[bold]Step 5: Export Format[/bold]")
+315:     console.print("  How do you want your data?")
+316:     console.print("  1. CSV (spreadsheet)")
+317:     console.print("  2. JSON (for developers)")
+318:     console.print("  3. Excel (.xlsx)")
+319:     console.print("  4. All of the above")
+320: 
+321:     export_choice = click.prompt("  Your choice", type=int, default=1)
+322: 
+323:     export_formats = {
+324:         1: ["csv"],
+325:         2: ["json"],
+326:         3: ["excel"],
+327:         4: ["csv", "json", "excel"],
+328:     }.get(export_choice, ["csv"])
+329: 
+330:     # Build job
+331:     job_data = {
+332:         "name": name,
+333:         "start_url": url,
+334:         "browser": {"enabled": use_browser},
+335:         "pagination": pagination_config,
+336:         "export": {
+337:             "formats": export_formats,
+338:         },
+339:         "fields": {},
+340:     }
+341: 
+342:     # Save config
+343:     import re
+344:     # Sanitize job name for filesystem
+345:     safe_name = re.sub(r'[^a-zA-Z0-9_-]', '_', name)[:100]
+346: 
+347:     config_dir = Path.home() / ".grandma-scraper" / "jobs"
+348:     config_dir.mkdir(parents=True, exist_ok=True)
+349: 
+350:     import yaml
+351:     config_file = config_dir / f"{safe_name}.yaml"
+352: 
+353:     with open(config_file, "w") as f:
+354:         yaml.dump(job_data, f, default_flow_style=False)
+355: 
+356:     console.print(f"\n[bold green]✓ Configuration saved![/bold green]")
+357:     console.print(f"  Location: {config_file}")
+358:     console.print(f"\n[bold]To run this job:[/bold]")
+359:     console.print(f"  scraper run {safe_name}")
+360: 
+361:     if click.confirm("\nRun it now?", default=True):
+362:         ctx = click.get_current_context()
+363:         ctx.invoke(run, job_name=name)
+364: 
+365: 
+366: @cli.command()
+367: @click.argument("job_name")
+368: def run(job_name: str) -> None:
+369:     """
+370:     Run a saved scraping job.
+371: 
+372:     Example:
+373:         scraper run my_job
+374:     """
+375:     import re
+376:     # Sanitize job_name to prevent path traversal
+377:     safe_job_name = re.sub(r'[^a-zA-Z0-9_-]', '_', job_name)[:100]
+378: 
+379:     # Load job config
+380:     config_dir = Path.home() / ".grandma-scraper" / "jobs"
+381:     config_file = config_dir / f"{safe_job_name}.yaml"
+382: 
+383:     if not config_file.exists():
+384:         console.print(f"[bold red]✗ Job '{safe_job_name}' not found![/bold red]")
+385:         console.print(f"  Looking for: {config_file}")
+386:         return
+387: 
+388:     import yaml
+389:     with open(config_file) as f:
+390:         job_data = yaml.safe_load(f)
+391: 
+392:     # Create job
+393:     job = ScrapeJob(**job_data)
+394: 
+395:     console.print(f"\n[bold]Running job: {job.name}[/bold]")
+396: 
+397:     asyncio.run(_run_job(job))
+398: 
+399: 
+400: async def _run_job(job: ScrapeJob) -> None:
+401:     """Run a job and export results."""
+402:     engine = ScraperEngine()
+403: 
+404:     with Progress(console=console) as progress:
+405:         task = progress.add_task("[cyan]Scraping...", total=None)
+406: 
+407:         result = await engine.run_job(job)
+408: 
+409:         progress.update(task, description="[cyan]Exporting results...")
+410: 
+411:         export_manager = ExportManager(job.export)
+412:         exported_files = await export_manager.export_result(result)
+413: 
+414:     console.print(f"\n[bold green]✓ Complete![/bold green]")
+415:     console.print(f"  Items: {result.items_scraped}")
+416:     console.print(f"  Pages: {result.pages_visited}")
+417: 
+418:     if exported_files:
+419:         console.print("\n[bold]Files:[/bold]")
+420:         for fmt, path in exported_files.items():
+421:             console.print(f"  • {path}")
+422: 
+423: 
+424: @cli.command()
+425: def list() -> None:
+426:     """List all saved scraping jobs."""
+427:     config_dir = Path.home() / ".grandma-scraper" / "jobs"
+428: 
+429:     if not config_dir.exists():
+430:         console.print("[yellow]No saved jobs yet![/yellow]")
+431:         console.print("Create one with: scraper wizard")
+432:         return
+433: 
+434:     job_files = list(config_dir.glob("*.yaml"))
+435: 
+436:     if not job_files:
+437:         console.print("[yellow]No saved jobs yet![/yellow]")
+438:         return
+439: 
+440:     table = Table(title="Saved Jobs")
+441:     table.add_column("Name", style="cyan")
+442:     table.add_column("URL", style="blue")
+443:     table.add_column("Browser", style="green")
+444: 
+445:     import yaml
+446:     for job_file in job_files:
+447:         with open(job_file) as f:
+448:             job_data = yaml.safe_load(f)
+449: 
+450:         name = job_data.get("name", job_file.stem)
+451:         url = job_data.get("start_url", "")
+452:         browser = "Yes" if job_data.get("browser", {}).get("enabled") else "No"
+453: 
+454:         table.add_row(name, url, browser)
+455: 
+456:     console.print(table)
+457: 
+458: 
+459: @cli.command()
+460: @click.argument("config_path", type=click.Path(exists=True))
+461: def validate(config_path: str) -> None:
+462:     """
+463:     Validate a job configuration file.
+464: 
+465:     Example:
+466:         scraper validate config/my_job.yaml
+467:     """
+468:     import yaml
+469: 
+470:     try:
+471:         with open(config_path) as f:
+472:             job_data = yaml.safe_load(f)
+473: 
+474:         # Try to create job (validates schema)
+475:         job = ScrapeJob(**job_data)
+476: 
+477:         console.print(f"[bold green]✓ Configuration is valid![/bold green]")
+478:         console.print(f"\n[bold]Job Details:[/bold]")
+479:         console.print(f"  Name: {job.name}")
+480:         console.print(f"  URL: {job.start_url}")
+481:         console.print(f"  Fields: {len(job.fields)}")
+482:         console.print(f"  Export formats: {', '.join(job.export.formats)}")
+483: 
+484:     except Exception as e:
+485:         console.print(f"[bold red]✗ Configuration is invalid![/bold red]")
+486:         console.print(f"\n[bold]Error:[/bold] {e}")
+487: 
+488: 
+489: @cli.command()
+490: @click.option("--host", default="0.0.0.0", help="Host to bind to")
+491: @click.option("--port", default=8000, help="Port to bind to")
+492: @click.option("--reload", is_flag=True, help="Enable auto-reload (development)")
+493: def serve(host: str, port: int, reload: bool) -> None:
+494:     """
+495:     Start the API server with web dashboard.
+496: 
+497:     This starts the FastAPI server that provides:
+498:     - REST API for programmatic access
+499:     - Web dashboard at http://localhost:8000
+500:     - API documentation at http://localhost:8000/docs
+501: 
+502:     Examples:
+503:         scraper serve                  # Start on default port 8000
+504:         scraper serve --port 3000      # Start on custom port
+505:         scraper serve --reload         # Development mode with auto-reload
+506:     """
+507:     try:
+508:         import uvicorn
+509:         from scraper.api.rest_server import app
+510:     except ImportError:
+511:         console.print("[bold red]Error:[/bold red] uvicorn not installed")
+512:         console.print("Install with: poetry install")
+513:         return
+514: 
+515:     console.print("[bold cyan]🧓 GrandmaScrape API Server[/bold cyan]\n")
+516:     console.print(f"[bold]Starting server on {host}:{port}[/bold]")
+517:     console.print(f"\n[green]✓[/green] Dashboard:      http://localhost:{port}")
+518:     console.print(f"[green]✓[/green] API Docs:       http://localhost:{port}/docs")
+519:     console.print(f"[green]✓[/green] Health Check:   http://localhost:{port}/api/v1/health")
+520:     console.print("\n[dim]Press Ctrl+C to stop[/dim]\n")
+521: 
+522:     uvicorn.run(
+523:         "scraper.api.rest_server:app",
+524:         host=host,
+525:         port=port,
+526:         reload=reload,
+527:         log_level="info"
+528:     )
+529: 
+530: 
+531: # Register smart commands
+532: cli.add_command(smart)
+533: cli.add_command(analyze)
+534: 
+535: 
+536: if __name__ == "__main__":
+537:     cli()
+FILE pyproject.toml
+1: [tool.poetry]
+2: name = "grandma-scraper"
+3: version = "0.1.0"
+4: description = "GrandmaScrape Intelligence Platform - Enterprise-grade web scraping made grandma-simple"
+5: authors = ["GrannScraper Team"]
+6: readme = "README.md"
+7: packages = [{include = "scraper"}]
+8: 
+9: [tool.poetry.dependencies]
+10: python = "^3.11"
+11: httpx = "^0.27.0"
+12: beautifulsoup4 = "^4.12.0"
+13: lxml = "^5.1.0"
+14: playwright = "^1.41.0"
+15: pydantic = "^2.6.0"
+16: pydantic-settings = "^2.1.0"
+17: fastapi = "^0.109.0"
+18: uvicorn = {extras = ["standard"], version = "^0.27.0"}
+19: aiosqlite = "^0.19.0"
+20: pandas = "^2.2.0"
+21: openpyxl = "^3.1.2"
+22: pyarrow = "^15.0.0"
+23: click = "^8.1.7"
+24: rich = "^13.7.0"
+25: pyyaml = "^6.0.1"
+26: jinja2 = "^3.1.3"
+27: aiofiles = "^23.2.1"
+28: tenacity = "^8.2.3"
+29: fake-useragent = "^1.4.0"
+30: numpy = "^1.26.0"
+31: scikit-learn = "^1.4.0"
+32: croniter = "^2.0.0"
+33: python-dateutil = "^2.8.2"
+34: # Premium features dependencies
+35: python-json-logger = "^2.0.7"  # Structured logging
+36: aioboto3 = "^12.3.0"  # AWS S3
+37: google-cloud-storage = "^2.14.0"  # Google Cloud Storage
+38: azure-storage-blob = "^12.19.0"  # Azure Blob Storage
+39: asyncpg = "^0.29.0"  # PostgreSQL
+40: aiomysql = "^0.2.0"  # MySQL
+41: motor = "^3.3.2"  # MongoDB
+42: redis = {extras = ["hiredis"], version = "^5.0.1"}  # Redis
+43: elasticsearch = {extras = ["async"], version = "^8.11.0"}  # Elasticsearch
+44: aiosmtplib = "^3.0.1"  # Email alerts
+45: twilio = "^8.11.0"  # SMS alerts
+46: fastavro = "^1.9.0"  # Avro format
+47: msgpack = "^1.0.7"  # MessagePack format
+48: 
+49: [tool.poetry.group.dev.dependencies]
+50: pytest = "^8.0.0"
+51: pytest-asyncio = "^0.23.0"
+52: pytest-mock = "^3.12.0"
+53: pytest-cov = "^4.1.0"
+54: ruff = "^0.2.0"
+55: mypy = "^1.8.0"
+56: ipython = "^8.21.0"
+57: 
+58: [tool.poetry.scripts]
+59: scraper = "scraper.cli.main:cli"
+60: 
+61: [tool.ruff]
+62: line-length = 100
+63: target-version = "py311"
+64: 
+65: [tool.ruff.lint]
+66: select = ["E", "F", "I", "N", "UP", "ANN", "ASYNC", "S", "B", "A", "C4", "RET", "SIM", "ARG"]
+67: ignore = ["ANN101", "ANN102", "S101"]
+68: 
+69: [tool.pytest.ini_options]
+70: asyncio_mode = "auto"
+71: testpaths = ["tests"]
+72: python_files = "test_*.py"
+73: python_classes = "Test*"
+74: python_functions = "test_*"
+75: 
+76: [tool.mypy]
+77: python_version = "3.11"
+78: warn_return_any = true
+79: warn_unused_configs = true
+80: disallow_untyped_defs = true
+81: 
+82: [build-system]
+83: requires = ["poetry-core"]
+84: build-backend = "poetry.core.masonry.api"

@@ -1,0 +1,1848 @@
+
+FILE pyproject.toml
+[tool.poetry]
+name = "grandma-scraper"
+version = "0.1.0"
+description = "GrandmaScrape Intelligence Platform - Enterprise-grade web scraping made grandma-simple"
+authors = ["GrannScraper Team"]
+readme = "README.md"
+packages = [{include = "scraper"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+httpx = "^0.27.0"
+beautifulsoup4 = "^4.12.0"
+lxml = "^5.1.0"
+playwright = "^1.41.0"
+pydantic = "^2.6.0"
+pydantic-settings = "^2.1.0"
+fastapi = "^0.109.0"
+uvicorn = {extras = ["standard"], version = "^0.27.0"}
+aiosqlite = "^0.19.0"
+pandas = "^2.2.0"
+openpyxl = "^3.1.2"
+pyarrow = "^15.0.0"
+click = "^8.1.7"
+rich = "^13.7.0"
+pyyaml = "^6.0.1"
+jinja2 = "^3.1.3"
+aiofiles = "^23.2.1"
+tenacity = "^8.2.3"
+fake-useragent = "^1.4.0"
+numpy = "^1.26.0"
+scikit-learn = "^1.4.0"
+croniter = "^2.0.0"
+python-dateutil = "^2.8.2"
+# Premium features dependencies
+python-json-logger = "^2.0.7"  # Structured logging
+aioboto3 = "^12.3.0"  # AWS S3
+google-cloud-storage = "^2.14.0"  # Google Cloud Storage
+azure-storage-blob = "^12.19.0"  # Azure Blob Storage
+asyncpg = "^0.29.0"  # PostgreSQL
+aiomysql = "^0.2.0"  # MySQL
+motor = "^3.3.2"  # MongoDB
+redis = {extras = ["hiredis"], version = "^5.0.1"}  # Redis
+elasticsearch = {extras = ["async"], version = "^8.11.0"}  # Elasticsearch
+aiosmtplib = "^3.0.1"  # Email alerts
+twilio = "^8.11.0"  # SMS alerts
+fastavro = "^1.9.0"  # Avro format
+msgpack = "^1.0.7"  # MessagePack format
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+pytest-asyncio = "^0.23.0"
+pytest-mock = "^3.12.0"
+pytest-cov = "^4.1.0"
+ruff = "^0.2.0"
+mypy = "^1.8.0"
+ipython = "^8.21.0"
+
+[tool.poetry.scripts]
+scraper = "scraper.cli.main:cli"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "ANN", "ASYNC", "S", "B", "A", "C4", "RET", "SIM", "ARG"]
+ignore = ["ANN101", "ANN102", "S101"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+
+FILE scraper/api/rest_server.py
+"""
+Full-featured REST API server.
+
+Expose all scraping capabilities via REST API for:
+- Remote job management
+- Programmatic access
+- Integration with other systems
+- Web dashboard backend
+"""
+
+import asyncio
+import logging
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Query
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, StreamingResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
+
+from scraper.config.models import ScrapeJob, ScrapeResult
+from scraper.core.engine import ScraperEngine
+from scraper.core.concurrent_engine import ConcurrentScraper
+from scraper.export.export_manager import ExportManager
+from scraper.ml.data_intelligence import DataQualityAnalyzer, AnomalyDetector
+from scraper.storage.smart_cache import SmartCache, IncrementalScraper
+from scraper.scheduler.workflow_dag import WorkflowDAG, WorkflowBuilder
+
+logger = logging.getLogger(__name__)
+
+# Create FastAPI app
+app = FastAPI(
+    title="GrandmaScrape API",
+    description="Enterprise web scraping API - grandma-simple, enterprise-grade",
+    version="1.0.0",
+)
+
+# CORS middleware
+import os
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,  # Configured via environment variable
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
+)
+
+# Mount static files for web dashboard
+static_path = Path(__file__).parent.parent / "web" / "static"
+if static_path.exists():
+    app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+
+# In-memory storage (use database in production)
+jobs_db: Dict[str, ScrapeJob] = {}
+results_db: Dict[str, ScrapeResult] = {}
+workflows_db: Dict[str, WorkflowDAG] = {}
+running_jobs: Dict[str, asyncio.Task] = {}
+jobs_lock = asyncio.Lock()  # Protect concurrent access to running_jobs
+
+
+# Request/Response models
+class JobCreateRequest(BaseModel):
+    """Request to create a new scraping job."""
+    job: ScrapeJob
+
+
+class JobRunRequest(BaseModel):
+    """Request to run a job."""
+    job_id: str
+    concurrent: bool = False
+    incremental: bool = False
+
+
+class WorkflowCreateRequest(BaseModel):
+    """Request to create a workflow."""
+    name: str
+    nodes: List[Dict[str, Any]]
+
+
+class AnalyzeRequest(BaseModel):
+    """Request to analyze a URL."""
+    url: str
+    max_pages: int = 1
+
+
+# ============================================================================
+# JOB MANAGEMENT ENDPOINTS
+# ============================================================================
+
+@app.post("/api/v1/jobs")
+async def create_job(request: JobCreateRequest) -> Dict[str, Any]:
+    """
+    Create a new scraping job.
+
+    Returns job ID.
+    """
+    job = request.job
+
+    if job.id in jobs_db:
+        raise HTTPException(status_code=400, detail="Job ID already exists")
+
+    jobs_db[job.id] = job
+
+    logger.info(f"Created job: {job.id}")
+
+    return {
+        "job_id": job.id,
+        "status": "created",
+        "message": f"Job {job.name} created successfully"
+    }
+
+
+@app.get("/api/v1/jobs")
+async def list_jobs(
+    enabled_only: bool = Query(False, description="Only show enabled jobs")
+) -> Dict[str, Any]:
+    """
+    List all jobs.
+
+    Returns list of jobs with metadata.
+    """
+    jobs = list(jobs_db.values())
+
+    if enabled_only:
+        jobs = [j for j in jobs if j.enabled]
+
+    return {
+        "total": len(jobs),
+        "jobs": [
+            {
+                "id": job.id,
+                "name": job.name,
+                "start_url": job.start_url,
+                "enabled": job.enabled,
+                "created_at": job.created_at.isoformat(),
+            }
+            for job in jobs
+        ]
+    }
+
+
+@app.get("/api/v1/jobs/{job_id}")
+async def get_job(job_id: str) -> ScrapeJob:
+    """Get job details."""
+    import re
+    # Validate job_id format
+    if not job_id or not re.match(r'^[a-zA-Z0-9_-]+$', job_id):
+        raise HTTPException(status_code=400, detail="Invalid job_id format")
+
+    if job_id not in jobs_db:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    return jobs_db[job_id]
+
+
+@app.delete("/api/v1/jobs/{job_id}")
+async def delete_job(job_id: str) -> Dict[str, str]:
+    """Delete a job."""
+    import re
+    # Validate job_id format
+    if not job_id or not re.match(r'^[a-zA-Z0-9_-]+$', job_id):
+        raise HTTPException(status_code=400, detail="Invalid job_id format")
+
+    if job_id not in jobs_db:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    # Cancel if running (with lock to prevent race conditions)
+    async with jobs_lock:
+        if job_id in running_jobs:
+            running_jobs[job_id].cancel()
+            del running_jobs[job_id]
+
+    del jobs_db[job_id]
+
+    logger.info(f"Deleted job: {job_id}")
+
+    return {"status": "deleted", "job_id": job_id}
+
+
+# ============================================================================
+# JOB EXECUTION ENDPOINTS
+# ============================================================================
+
+@app.post("/api/v1/jobs/{job_id}/run")
+async def run_job(
+    job_id: str,
+    background_tasks: BackgroundTasks,
+    concurrent: bool = Query(False, description="Use concurrent scraping"),
+    incremental: bool = Query(False, description="Use incremental scraping")
+) -> Dict[str, Any]:
+    """
+    Run a scraping job.
+
+    Returns immediately with job status. Use /results endpoint to get results.
+    """
+    if job_id not in jobs_db:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    # Use lock to prevent race conditions when checking and starting jobs
+    async with jobs_lock:
+        if job_id in running_jobs:
+            raise HTTPException(status_code=400, detail="Job already running")
+
+        job = jobs_db[job_id]
+
+        # Start job in background
+        task = asyncio.create_task(
+            _execute_job(job_id, job, concurrent, incremental)
+        )
+        running_jobs[job_id] = task
+
+    logger.info(f"Started job: {job_id} (concurrent={concurrent}, incremental={incremental})")
+
+    return {
+        "job_id": job_id,
+        "status": "running",
+        "message": f"Job {job.name} started",
+        "concurrent": concurrent,
+        "incremental": incremental
+    }
+
+
+async def _execute_job(
+    job_id: str,
+    job: ScrapeJob,
+    concurrent: bool,
+    incremental: bool
+) -> ScrapeResult:
+    """Execute a job (called in background)."""
+    try:
+        if incremental:
+            # Incremental scraping
+            cache = SmartCache()
+            incremental_scraper = IncrementalScraper(cache)
+
+            # Get URLs to scrape
+            from scraper.core.engine import ScraperEngine
+            engine = ScraperEngine()
+            urls = await engine._generate_urls(job)
+
+            # Scrape incrementally
+            result_data = await incremental_scraper.scrape_incremental(
+                urls,
+                lambda url: engine.run_job(job),
+                ttl_seconds=3600
+            )
+
+            # Convert to ScrapeResult
+            result = ScrapeResult(
+                job_id=job_id,
+                status="success",
+                items_scraped=len(result_data['new_items']),
+                pages_visited=result_data['stats']['urls_scraped'],
+                data=result_data['new_items'],
+                metadata=result_data['stats']
+            )
+
+        elif concurrent:
+            # Concurrent scraping
+            concurrent_scraper = ConcurrentScraper(job, max_workers=10)
+
+            # Add URLs
+            from scraper.core.engine import ScraperEngine
+            engine = ScraperEngine()
+            urls = await engine._generate_urls(job)
+            await concurrent_scraper.add_urls(urls)
+
+            # Execute
+            async def scrape_single(url):
+                temp_job = ScrapeJob(
+                    name=job.name,
+                    start_url=url,
+                    item_selector=job.item_selector,
+                    fields=job.fields,
+                )
+                r = await engine.run_job(temp_job)
+                return r.data
+
+            result = await concurrent_scraper.run(scrape_single)
+
+        else:
+            # Standard scraping
+            engine = ScraperEngine()
+            result = await engine.run_job(job)
+
+        # Store result
+        results_db[job_id] = result
+
+        # Export
+        export_manager = ExportManager(job.export)
+        await export_manager.export_result(result)
+
+        return result
+
+    finally:
+        # Remove from running jobs (with lock to prevent race conditions)
+        async with jobs_lock:
+            if job_id in running_jobs:
+                del running_jobs[job_id]
+
+
+@app.get("/api/v1/jobs/{job_id}/status")
+async def get_job_status(job_id: str) -> Dict[str, Any]:
+    """Get job execution status."""
+    if job_id not in jobs_db:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    is_running = job_id in running_jobs
+    has_result = job_id in results_db
+
+    status = {
+        "job_id": job_id,
+        "is_running": is_running,
+        "has_result": has_result,
+    }
+
+    if has_result:
+        result = results_db[job_id]
+        status.update({
+            "status": result.status,
+            "items_scraped": result.items_scraped,
+            "pages_visited": result.pages_visited,
+            "errors": len(result.errors),
+            "duration": result.duration_seconds,
+        })
+
+    return status
+
+
+@app.get("/api/v1/jobs/{job_id}/results")
+async def get_job_results(
+    job_id: str,
+    limit: int = Query(100, description="Max items to return"),
+    offset: int = Query(0, description="Offset for pagination")
+) -> Dict[str, Any]:
+    """Get job results with pagination."""
+    if job_id not in results_db:
+        raise HTTPException(status_code=404, detail="No results found")
+
+    result = results_db[job_id]
+
+    return {
+        "job_id": job_id,
+        "status": result.status,
+        "total_items": result.items_scraped,
+        "pages_visited": result.pages_visited,
+        "errors": result.errors,
+        "items": result.data[offset:offset + limit],
+        "pagination": {
+            "limit": limit,
+            "offset": offset,
+            "has_more": offset + limit < len(result.data)
+        }
+    }
+
+
+# ============================================================================
+# SMART FEATURES ENDPOINTS
+# ============================================================================
+
+@app.post("/api/v1/analyze")
+async def analyze_url(request: AnalyzeRequest) -> Dict[str, Any]:
+    """
+    Analyze a URL and auto-detect structure.
+
+    Returns detected selectors, fields, and pagination.
+    """
+    from scraper.config.models import ScrapeJob
+    from scraper.core.fetcher_static import StaticFetcher
+    from scraper.strategies.intelligent_extraction import (
+        IntelligentExtractor,
+        SmartPaginationDetector
+    )
+
+    # Fetch page
+    temp_job = ScrapeJob(name="analysis", start_url=request.url)
+
+    async with StaticFetcher(temp_job) as fetcher:
+        soup, html = await fetcher.fetch(request.url)
+
+        if not soup:
+            raise HTTPException(status_code=400, detail="Failed to fetch URL")
+
+    # Auto-detect
+    extractor = IntelligentExtractor()
+    pagination_detector = SmartPaginationDetector()
+
+    item_selector = await extractor.auto_detect_item_container(soup)
+    detected_fields = await extractor.auto_detect_fields(
+        soup,
+        item_selector or "body"
+    )
+    pagination_config = await pagination_detector.detect_pagination(soup, request.url)
+
+    return {
+        "url": request.url,
+        "item_selector": item_selector,
+        "fields": detected_fields,
+        "pagination": pagination_config,
+        "analysis": {
+            "html_size": len(html),
+            "links": len(soup.find_all('a')),
+            "images": len(soup.find_all('img')),
+            "title": soup.title.string if soup.title else None
+        }
+    }
+
+
+@app.post("/api/v1/jobs/{job_id}/quality-check")
+async def check_data_quality(job_id: str) -> Dict[str, Any]:
+    """
+    Run data quality analysis on job results.
+
+    Returns quality score and recommendations.
+    """
+    if job_id not in results_db:
+        raise HTTPException(status_code=404, detail="No results found")
+
+    result = results_db[job_id]
+
+    analyzer = DataQualityAnalyzer()
+    quality_report = analyzer.analyze_dataset(result.data)
+
+    return {
+        "job_id": job_id,
+        "quality_report": quality_report
+    }
+
+
+@app.post("/api/v1/jobs/{job_id}/detect-anomalies")
+async def detect_anomalies(job_id: str) -> Dict[str, Any]:
+    """
+    Detect anomalies in job results compared to baseline.
+
+    Useful for monitoring if site structure changed.
+    """
+    if job_id not in results_db:
+        raise HTTPException(status_code=404, detail="No results found")
+
+    result = results_db[job_id]
+
+    detector = AnomalyDetector()
+    anomaly_report = detector.detect_anomalies(result.data)
+
+    return {
+        "job_id": job_id,
+        "anomaly_report": anomaly_report
+    }
+
+
+# ============================================================================
+# WORKFLOW ENDPOINTS
+# ============================================================================
+
+@app.post("/api/v1/workflows")
+async def create_workflow(request: WorkflowCreateRequest) -> Dict[str, Any]:
+    """Create a new workflow."""
+    from scraper.scheduler.workflow_dag import WorkflowNode
+
+    workflow = WorkflowDAG(request.name)
+
+    for node_data in request.nodes:
+        node = WorkflowNode(**node_data)
+        workflow.add_node(node)
+
+    workflow.build()
+
+    workflows_db[request.name] = workflow
+
+    return {
+        "workflow_name": request.name,
+        "nodes": len(workflow.nodes),
+        "execution_levels": len(workflow.execution_order),
+        "status": "created"
+    }
+
+
+@app.get("/api/v1/workflows")
+async def list_workflows() -> Dict[str, Any]:
+    """List all workflows."""
+    return {
+        "total": len(workflows_db),
+        "workflows": [
+            {
+                "name": name,
+                "nodes": len(workflow.nodes),
+                "levels": len(workflow.execution_order)
+            }
+            for name, workflow in workflows_db.items()
+        ]
+    }
+
+
+@app.get("/api/v1/workflows/{workflow_name}")
+async def get_workflow(workflow_name: str) -> Dict[str, Any]:
+    """Get workflow details."""
+    if workflow_name not in workflows_db:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+
+    workflow = workflows_db[workflow_name]
+
+    return {
+        "name": workflow.name,
+        "nodes": {
+            node_id: {
+                "type": node.type,
+                "depends_on": node.depends_on,
+                "status": node.status.value
+            }
+            for node_id, node in workflow.nodes.items()
+        },
+        "execution_plan": workflow.get_execution_plan()
+    }
+
+
+# ============================================================================
+# CACHE MANAGEMENT ENDPOINTS
+# ============================================================================
+
+@app.get("/api/v1/cache/stats")
+async def get_cache_stats() -> Dict[str, Any]:
+    """Get cache statistics."""
+    cache = SmartCache()
+    return cache.get_stats()
+
+
+@app.delete("/api/v1/cache")
+async def clear_cache(
+    expired_only: bool = Query(False, description="Only clear expired entries"),
+    ttl_seconds: int = Query(3600, description="TTL for expired check")
+) -> Dict[str, Any]:
+    """Clear cache."""
+    cache = SmartCache()
+
+    if expired_only:
+        deleted = cache.clear_expired(ttl_seconds)
+        return {"status": "cleared", "expired_entries_deleted": deleted}
+    else:
+        cache.clear_all()
+        return {"status": "cleared", "message": "All cache cleared"}
+
+
+# ============================================================================
+# HEALTH & INFO ENDPOINTS
+# ============================================================================
+
+@app.get("/api/v1/health")
+async def health_check() -> Dict[str, str]:
+    """Health check endpoint."""
+    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+
+
+@app.get("/api/v1/info")
+async def get_info() -> Dict[str, Any]:
+    """Get API information and statistics."""
+    return {
+        "version": "1.0.0",
+        "name": "GrandmaScrape API",
+        "statistics": {
+            "total_jobs": len(jobs_db),
+            "running_jobs": len(running_jobs),
+            "completed_jobs": len(results_db),
+            "workflows": len(workflows_db)
+        },
+        "features": [
+            "auto_detection",
+            "concurrent_scraping",
+            "incremental_scraping",
+            "data_quality_analysis",
+            "anomaly_detection",
+            "workflow_dag",
+            "smart_caching"
+        ]
+    }
+
+
+# ============================================================================
+# WEB DASHBOARD
+# ============================================================================
+
+@app.get("/", response_class=HTMLResponse)
+async def serve_dashboard():
+    """Serve the web dashboard."""
+    base_static_path = Path(__file__).parent.parent / "web" / "static"
+    index_path = base_static_path / "index.html"
+
+    # Validate path to prevent directory traversal
+    try:
+        index_path_resolved = index_path.resolve()
+        base_path_resolved = base_static_path.resolve()
+
+        if not str(index_path_resolved).startswith(str(base_path_resolved)):
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        if index_path_resolved.exists() and index_path_resolved.is_file():
+            return FileResponse(index_path_resolved)
+    except Exception as e:
+        logger.warning(f"Error serving dashboard: {e}")
+
+    return HTMLResponse(
+        content="""
+        <html>
+            <head><title>GrandmaScrape API</title></head>
+            <body style="font-family: sans-serif; text-align: center; padding: 50px;">
+                <h1>GrandmaScrape API</h1>
+                <p>API is running!</p>
+                <p>Dashboard not found. Please check web/static/index.html</p>
+                <p><a href="/docs">View API Documentation</a></p>
+            </body>
+        </html>
+        """,
+        status_code=200
+    )
+
+
+# ============================================================================
+# RUN SERVER
+# ============================================================================
+
+def run_server(host: str = "0.0.0.0", port: int = 8000):
+    """Run the API server."""
+    import uvicorn
+
+    logger.info(f"Starting GrandmaScrape API server on {host}:{port}")
+
+    uvicorn.run(
+        app,
+        host=host,
+        port=port,
+        log_level="info"
+    )
+
+
+if __name__ == "__main__":
+    run_server()
+
+
+FILE scraper/security/auth.py
+"""
+Production Security Features.
+
+Enterprise-grade authentication, authorization, and rate limiting.
+Competitors charge $299-999/month for these features.
+"""
+
+import asyncio
+import hashlib
+import hmac
+import logging
+import os
+import secrets
+import time
+from datetime import datetime, timedelta
+from functools import wraps
+from typing import Any, Callable, Dict, List, Optional
+
+from fastapi import HTTPException, Request, Security
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# API KEY MANAGEMENT
+# ============================================================================
+
+class APIKey(BaseModel):
+    """API key model."""
+    key_prefix: str
+    key_hash: str
+    name: str
+    created_at: datetime
+    last_used: Optional[datetime] = None
+    rate_limit: int = 100  # requests per minute
+    allowed_endpoints: Optional[List[str]] = None  # None = all endpoints
+    expires_at: Optional[datetime] = None
+    is_active: bool = True
+    metadata: Dict[str, Any] = {}
+    rotated_from: Optional[str] = None
+
+
+class SecurityAuditLogger:
+    """
+    Security event logger for auditing and incident response.
+
+    Captures high-value events for security monitoring.
+    """
+
+    def __init__(self):
+        self.events: List[Dict[str, Any]] = []
+
+    def log_event(self, event_type: str, details: Dict[str, Any]) -> None:
+        """Record a security event."""
+        event = {
+            "event_type": event_type,
+            "details": details,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        self.events.append(event)
+        logger.warning(f"Security event: {event_type} | {details}")
+
+
+class APIKeyManager:
+    """
+    Manage API keys for authentication.
+
+    Features:
+    - Generate secure API keys
+    - Validate and authenticate requests
+    - Track usage per key
+    - Rate limiting per key
+    - Key expiration
+    - Endpoint-specific permissions
+    """
+
+    def __init__(self):
+        """Initialize API key manager."""
+        self.keys_by_hash: Dict[str, APIKey] = {}
+        self.usage_stats: Dict[str, Dict[str, Any]] = {}
+        self.pepper = os.getenv("GRANDMASCRAPE_API_KEY_PEPPER", "")
+        self.audit_logger = SecurityAuditLogger()
+
+    def _hash_key(self, key: str) -> str:
+        """Hash an API key with a server-side pepper."""
+        return hmac.new(
+            self.pepper.encode(),
+            key.encode(),
+            hashlib.sha256
+        ).hexdigest()
+
+    @staticmethod
+    def _key_prefix(key: str, length: int = 8) -> str:
+        """Return a safe prefix for auditing without exposing full keys."""
+        return key[:length]
+
+    def generate_key(
+        self,
+        name: str,
+        rate_limit: int = 100,
+        allowed_endpoints: Optional[List[str]] = None,
+        expires_in_days: Optional[int] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Generate a new API key.
+
+        Args:
+            name: Descriptive name for the key
+            rate_limit: Requests per minute
+            allowed_endpoints: List of allowed endpoints (None = all)
+            expires_in_days: Key expiration in days (None = never)
+            metadata: Additional metadata
+
+        Returns:
+            Generated API key
+        """
+        # Generate secure random key
+        key = f"gms_{secrets.token_urlsafe(32)}"
+
+        expires_at = None
+        if expires_in_days:
+            expires_at = datetime.utcnow() + timedelta(days=expires_in_days)
+
+        key_hash = self._hash_key(key)
+        api_key = APIKey(
+            key_prefix=self._key_prefix(key),
+            key_hash=key_hash,
+            name=name,
+            created_at=datetime.utcnow(),
+            rate_limit=rate_limit,
+            allowed_endpoints=allowed_endpoints,
+            expires_at=expires_at,
+            metadata=metadata or {}
+        )
+
+        self.keys_by_hash[key_hash] = api_key
+
+        logger.info(f"Generated API key: {name} (rate_limit={rate_limit}/min)")
+
+        return key
+
+    def validate_key(self, key: str, endpoint: Optional[str] = None) -> bool:
+        """
+        Validate an API key.
+
+        Args:
+            key: API key to validate
+            endpoint: Endpoint being accessed
+
+        Returns:
+            True if valid, False otherwise
+        """
+        key_hash = self._hash_key(key)
+        if key_hash not in self.keys_by_hash:
+            self.audit_logger.log_event(
+                "auth.invalid_key",
+                details={"key_prefix": self._key_prefix(key)}
+            )
+            logger.warning(f"Invalid API key attempted: {key[:10]}...")
+            return False
+
+        api_key = self.keys_by_hash[key_hash]
+
+        # Check if active
+        if not api_key.is_active:
+            self.audit_logger.log_event(
+                "auth.inactive_key",
+                details={"key_prefix": api_key.key_prefix, "name": api_key.name}
+            )
+            logger.warning(f"Inactive API key used: {api_key.name}")
+            return False
+
+        # Check expiration
+        if api_key.expires_at and datetime.utcnow() > api_key.expires_at:
+            self.audit_logger.log_event(
+                "auth.expired_key",
+                details={"key_prefix": api_key.key_prefix, "name": api_key.name}
+            )
+            logger.warning(f"Expired API key used: {api_key.name}")
+            return False
+
+        # Check endpoint permissions
+        if api_key.allowed_endpoints and endpoint:
+            if endpoint not in api_key.allowed_endpoints:
+                self.audit_logger.log_event(
+                    "auth.endpoint_denied",
+                    details={"key_prefix": api_key.key_prefix, "endpoint": endpoint}
+                )
+                logger.warning(f"Unauthorized endpoint access: {api_key.name} -> {endpoint}")
+                return False
+
+        # Update last used
+        api_key.last_used = datetime.utcnow()
+
+        return True
+
+    def get_key(self, key: str) -> Optional[APIKey]:
+        """Retrieve API key record from a raw key."""
+        key_hash = self._hash_key(key)
+        return self.keys_by_hash.get(key_hash)
+
+    def revoke_key(self, key: str):
+        """Revoke an API key."""
+        key_hash = self._hash_key(key)
+        if key_hash in self.keys_by_hash:
+            self.keys_by_hash[key_hash].is_active = False
+            logger.info(f"Revoked API key: {self.keys_by_hash[key_hash].name}")
+
+    def rotate_key(
+        self,
+        old_key: str,
+        name: Optional[str] = None,
+        rate_limit: Optional[int] = None,
+        allowed_endpoints: Optional[List[str]] = None,
+        expires_in_days: Optional[int] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """Rotate an existing API key and revoke the old one."""
+        existing = self.get_key(old_key)
+        if not existing:
+            raise ValueError("Old API key not found for rotation.")
+
+        new_key = self.generate_key(
+            name=name or existing.name,
+            rate_limit=rate_limit or existing.rate_limit,
+            allowed_endpoints=allowed_endpoints or existing.allowed_endpoints,
+            expires_in_days=expires_in_days,
+            metadata=metadata or existing.metadata
+        )
+
+        new_record = self.get_key(new_key)
+        if new_record:
+            new_record.rotated_from = existing.key_prefix
+
+        self.revoke_key(old_key)
+        self.audit_logger.log_event(
+            "auth.key_rotated",
+            details={
+                "old_key_prefix": existing.key_prefix,
+                "new_key_prefix": self._key_prefix(new_key)
+            }
+        )
+
+        return new_key
+
+    def get_usage_stats(self, key: str) -> Dict[str, Any]:
+        """Get usage statistics for a key."""
+        key_hash = self._hash_key(key)
+        return self.usage_stats.get(key_hash, {
+            "total_requests": 0,
+            "requests_today": 0,
+            "last_request": None,
+            "endpoints_used": []
+        })
+
+
+# ============================================================================
+# RATE LIMITING
+# ============================================================================
+
+class RateLimiter:
+    """
+    Token bucket rate limiter.
+
+    Implements per-key and global rate limiting with sliding window.
+    """
+
+    def __init__(self):
+        """Initialize rate limiter."""
+        self.buckets: Dict[str, Dict[str, Any]] = {}
+        self.global_limit = 1000  # Global requests per minute
+
+    def check_rate_limit(
+        self,
+        key: str,
+        limit: int,
+        window_seconds: int = 60
+    ) -> tuple[bool, Dict[str, Any]]:
+        """
+        Check if request is within rate limit.
+
+        Args:
+            key: Unique identifier (API key, IP, user ID)
+            limit: Maximum requests allowed
+            window_seconds: Time window in seconds
+
+        Returns:
+            (allowed, info) - allowed is True if within limit
+        """
+        now = time.time()
+
+        if key not in self.buckets:
+            self.buckets[key] = {
+                'requests': [],
+                'total': 0
+            }
+
+        bucket = self.buckets[key]
+
+        # Remove old requests outside the window
+        cutoff = now - window_seconds
+        bucket['requests'] = [ts for ts in bucket['requests'] if ts > cutoff]
+
+        current_count = len(bucket['requests'])
+
+        info = {
+            'limit': limit,
+            'remaining': max(0, limit - current_count),
+            'reset_at': int(now + window_seconds),
+            'current_count': current_count
+        }
+
+        if current_count >= limit:
+            logger.warning(f"Rate limit exceeded for {key}: {current_count}/{limit}")
+            return False, info
+
+        # Add current request
+        bucket['requests'].append(now)
+        bucket['total'] += 1
+
+        return True, info
+
+    def get_stats(self, key: str) -> Dict[str, Any]:
+        """Get rate limit statistics."""
+        if key not in self.buckets:
+            return {
+                'total_requests': 0,
+                'current_window': 0,
+                'all_time': 0
+            }
+
+        bucket = self.buckets[key]
+        return {
+            'total_requests': bucket['total'],
+            'current_window': len(bucket['requests']),
+            'all_time': bucket['total']
+        }
+
+
+# ============================================================================
+# AUTHENTICATION MIDDLEWARE
+# ============================================================================
+
+security = HTTPBearer()
+
+api_key_manager = APIKeyManager()
+rate_limiter = RateLimiter()
+
+
+async def verify_api_key(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials = Security(security)
+) -> APIKey:
+    """
+    Verify API key from request.
+
+    Usage in FastAPI:
+        @app.get("/protected")
+        async def protected_route(api_key: APIKey = Depends(verify_api_key)):
+            ...
+    """
+    token = credentials.credentials
+
+    # Validate key
+    endpoint = request.url.path
+    if not api_key_manager.validate_key(token, endpoint):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired API key"
+        )
+
+    api_key = api_key_manager.get_key(token)
+    if not api_key:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired API key"
+        )
+
+    # Check rate limit
+    allowed, info = rate_limiter.check_rate_limit(
+        token,
+        api_key.rate_limit,
+        window_seconds=60
+    )
+
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded. Resets at {info['reset_at']}",
+            headers={
+                'X-RateLimit-Limit': str(info['limit']),
+                'X-RateLimit-Remaining': str(info['remaining']),
+                'X-RateLimit-Reset': str(info['reset_at'])
+            }
+        )
+
+    # Add rate limit headers to response (done in middleware)
+    request.state.rate_limit_info = info
+    request.state.api_key = api_key
+
+    return api_key
+
+
+# ============================================================================
+# IP-BASED RATE LIMITING
+# ============================================================================
+
+class IPRateLimiter:
+    """
+    IP-based rate limiting for unauthenticated requests.
+
+    Protects against abuse from anonymous users.
+    """
+
+    def __init__(self):
+        """Initialize IP rate limiter."""
+        self.limiter = RateLimiter()
+        self.default_limit = 60  # 60 requests per minute for unauthenticated
+
+    async def check_ip_rate_limit(self, request: Request):
+        """Check IP-based rate limit."""
+        # Get client IP
+        client_ip = request.client.host
+
+        # Check rate limit
+        allowed, info = self.limiter.check_rate_limit(
+            f"ip:{client_ip}",
+            self.default_limit,
+            window_seconds=60
+        )
+
+        if not allowed:
+            raise HTTPException(
+                status_code=429,
+                detail="Rate limit exceeded for unauthenticated requests. Please use an API key.",
+                headers={
+                    'X-RateLimit-Limit': str(info['limit']),
+                    'X-RateLimit-Remaining': str(info['remaining']),
+                    'X-RateLimit-Reset': str(info['reset_at'])
+                }
+            )
+
+        request.state.rate_limit_info = info
+
+
+# ============================================================================
+# CORS SECURITY
+# ============================================================================
+
+class CORSConfig:
+    """
+    CORS configuration for production.
+
+    Prevents unauthorized cross-origin requests.
+    """
+
+    @staticmethod
+    def get_production_config():
+        """Get production CORS configuration."""
+        return {
+            "allow_origins": [
+                "https://yourdomain.com",
+                "https://app.yourdomain.com"
+            ],
+            "allow_credentials": True,
+            "allow_methods": ["GET", "POST", "PUT", "DELETE"],
+            "allow_headers": ["Authorization", "Content-Type"],
+            "expose_headers": ["X-RateLimit-Limit", "X-RateLimit-Remaining"],
+            "max_age": 3600
+        }
+
+    @staticmethod
+    def get_development_config():
+        """Get development CORS configuration."""
+        return {
+            "allow_origins": ["*"],
+            "allow_credentials": True,
+            "allow_methods": ["*"],
+            "allow_headers": ["*"]
+        }
+
+
+# ============================================================================
+# REQUEST SIGNING
+# ============================================================================
+
+class RequestSigner:
+    """
+    Sign requests for enhanced security.
+
+    Prevents request tampering and replay attacks.
+    """
+
+    def __init__(self, secret_key: str):
+        """Initialize request signer."""
+        self.secret_key = secret_key
+
+    def sign_request(
+        self,
+        method: str,
+        path: str,
+        body: str,
+        timestamp: int
+    ) -> str:
+        """
+        Generate request signature.
+
+        Args:
+            method: HTTP method
+            path: Request path
+            body: Request body
+            timestamp: Unix timestamp
+
+        Returns:
+            HMAC signature
+        """
+        message = f"{method}:{path}:{body}:{timestamp}"
+        signature = hmac.new(
+            self.secret_key.encode(),
+            message.encode(),
+            hashlib.sha256
+        ).hexdigest()
+
+        return signature
+
+    def verify_signature(
+        self,
+        signature: str,
+        method: str,
+        path: str,
+        body: str,
+        timestamp: int,
+        max_age_seconds: int = 300
+    ) -> bool:
+        """
+        Verify request signature.
+
+        Args:
+            signature: Provided signature
+            method: HTTP method
+            path: Request path
+            body: Request body
+            timestamp: Unix timestamp
+            max_age_seconds: Maximum allowed age
+
+        Returns:
+            True if valid, False otherwise
+        """
+        # Check timestamp freshness
+        now = int(time.time())
+        if abs(now - timestamp) > max_age_seconds:
+            logger.warning(f"Request timestamp too old: {timestamp}")
+            return False
+
+        # Verify signature
+        expected_signature = self.sign_request(method, path, body, timestamp)
+
+        return secrets.compare_digest(signature, expected_signature)
+
+
+# ============================================================================
+# SECURITY HEADERS MIDDLEWARE
+# ============================================================================
+
+class SecurityHeaders:
+    """
+    Add security headers to all responses.
+
+    Implements OWASP best practices.
+    """
+
+    @staticmethod
+    def get_headers() -> Dict[str, str]:
+        """Get security headers."""
+        return {
+            # Prevent clickjacking
+            "X-Frame-Options": "DENY",
+
+            # Prevent MIME sniffing
+            "X-Content-Type-Options": "nosniff",
+
+            # Enable XSS protection
+            "X-XSS-Protection": "1; mode=block",
+
+            # Force HTTPS
+            "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+
+            # Control referrer information
+            "Referrer-Policy": "strict-origin-when-cross-origin",
+
+            # Content Security Policy
+            "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'",
+
+            # Permissions Policy
+            "Permissions-Policy": "geolocation=(), microphone=(), camera=()"
+        }
+
+
+# ============================================================================
+# USAGE EXAMPLE
+# ============================================================================
+
+async def setup_security_example():
+    """Example of setting up security features."""
+
+    # Create API key manager
+    manager = APIKeyManager()
+
+    # Generate keys for different clients
+    admin_key = manager.generate_key(
+        name="Admin Dashboard",
+        rate_limit=1000,  # 1000 req/min
+        metadata={"role": "admin"}
+    )
+
+    user_key = manager.generate_key(
+        name="User App",
+        rate_limit=100,  # 100 req/min
+        allowed_endpoints=["/api/v1/jobs", "/api/v1/results"],
+        expires_in_days=30
+    )
+
+    test_key = manager.generate_key(
+        name="Test Environment",
+        rate_limit=10,
+        expires_in_days=7
+    )
+
+    print(f"Admin Key: {admin_key}")
+    print(f"User Key: {user_key}")
+    print(f"Test Key: {test_key}")
+
+    # Validate key
+    is_valid = manager.validate_key(admin_key, "/api/v1/jobs")
+    print(f"Key valid: {is_valid}")
+
+    # Check rate limit
+    limiter = RateLimiter()
+    allowed, info = limiter.check_rate_limit(admin_key, limit=1000)
+    print(f"Rate limit: {info}")
+
+
+FILE scraper/config/models.py
+"""
+Core data models for GrandmaScrape Platform.
+
+Defines all configuration and runtime models using Pydantic v2.
+"""
+
+from datetime import datetime
+from enum import Enum
+from pathlib import Path
+from typing import Any, Literal, Optional
+
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+
+class PaginationMode(str, Enum):
+    """Pagination strategy modes."""
+
+    NONE = "none"
+    NEXT_BUTTON = "next_button"
+    URL_PATTERN = "url_pattern"
+    INFINITE_SCROLL = "infinite_scroll"
+
+
+class UserAgentStrategy(str, Enum):
+    """User agent rotation strategies."""
+
+    RANDOM = "random"
+    FIXED = "fixed"
+    ROTATING_LIST = "rotating_list"
+
+
+class FieldType(str, Enum):
+    """Data types for extracted fields."""
+
+    STRING = "string"
+    INT = "int"
+    FLOAT = "float"
+    BOOL = "bool"
+    DATE = "date"
+    DATETIME = "datetime"
+    CURRENCY = "currency"
+    URL = "url"
+    EMAIL = "email"
+    PHONE = "phone"
+
+
+class FieldConfig(BaseModel):
+    """Configuration for a single field to extract."""
+
+    selector: Optional[str] = Field(
+        None, description="CSS or XPath selector for the field"
+    )
+    attr: Optional[str] = Field(
+        "text", description="HTML attribute to extract (text, href, src, etc.)"
+    )
+    type: FieldType = Field(
+        FieldType.STRING, description="Data type of the field"
+    )
+    use_llm: bool = Field(
+        False, description="Use LLM for intelligent extraction"
+    )
+    llm_description: Optional[str] = Field(
+        None, description="Natural language description for LLM extraction"
+    )
+    required: bool = Field(
+        False, description="Whether this field is required"
+    )
+    default: Optional[Any] = Field(
+        None, description="Default value if extraction fails"
+    )
+    regex: Optional[str] = Field(
+        None, description="Regex pattern to apply after extraction"
+    )
+    multiple: bool = Field(
+        False, description="Extract multiple values (returns list)"
+    )
+
+    @field_validator("selector")
+    @classmethod
+    def validate_selector(cls, v: Optional[str]) -> Optional[str]:
+        """Ensure selector is provided if not using LLM."""
+        if v and v.strip():
+            return v.strip()
+        return None
+
+
+class PaginationConfig(BaseModel):
+    """Pagination configuration."""
+
+    mode: PaginationMode = Field(
+        PaginationMode.NONE, description="Pagination strategy"
+    )
+    next_button_selector: Optional[str] = Field(
+        None, description="CSS selector for next button (next_button mode)"
+    )
+    url_pattern: Optional[str] = Field(
+        None, description="URL pattern with {page} placeholder (url_pattern mode)"
+    )
+    start_page: int = Field(1, description="Starting page number", ge=1)
+    max_pages: int = Field(10, description="Maximum pages to scrape", ge=1)
+    scroll_times: int = Field(
+        5, description="Number of scrolls (infinite_scroll mode)", ge=1
+    )
+    scroll_pause: float = Field(
+        1.0, description="Pause between scrolls in seconds", ge=0.1
+    )
+
+    @model_validator(mode="after")
+    def validate_pagination_config(self) -> "PaginationConfig":
+        """Ensure required fields are set based on mode."""
+        if self.mode == PaginationMode.NEXT_BUTTON and not self.next_button_selector:
+            raise ValueError("next_button_selector required for next_button mode")
+        if self.mode == PaginationMode.URL_PATTERN and not self.url_pattern:
+            raise ValueError("url_pattern required for url_pattern mode")
+        return self
+
+
+class BrowserConfig(BaseModel):
+    """Browser automation configuration."""
+
+    enabled: bool = Field(False, description="Use browser automation")
+    headless: bool = Field(True, description="Run browser in headless mode")
+    wait_for_selector: Optional[str] = Field(
+        None, description="Wait for this selector before extraction"
+    )
+    wait_timeout: int = Field(
+        30000, description="Wait timeout in milliseconds", ge=1000
+    )
+    page_load_timeout: int = Field(
+        60000, description="Page load timeout in milliseconds", ge=1000
+    )
+    user_agent: Optional[str] = Field(
+        None, description="Custom user agent for browser"
+    )
+    viewport_width: int = Field(1920, description="Viewport width", ge=800)
+    viewport_height: int = Field(1080, description="Viewport height", ge=600)
+    javascript_enabled: bool = Field(True, description="Enable JavaScript")
+    block_images: bool = Field(False, description="Block images for faster loading")
+    block_css: bool = Field(False, description="Block CSS for faster loading")
+    capture_screenshot: bool = Field(
+        False, description="Capture screenshot of each page"
+    )
+    screenshot_path: Optional[Path] = Field(
+        None, description="Directory to save screenshots"
+    )
+
+
+class ProxyConfig(BaseModel):
+    """Proxy configuration."""
+
+    enabled: bool = Field(False, description="Enable proxy rotation")
+    proxy_list: list[str] = Field(
+        default_factory=list, description="List of proxy URLs"
+    )
+    rotation_strategy: Literal["round_robin", "random", "least_used"] = Field(
+        "round_robin", description="Proxy rotation strategy"
+    )
+    test_on_start: bool = Field(
+        True, description="Test proxies before using"
+    )
+
+    @field_validator("proxy_list")
+    @classmethod
+    def validate_proxy_list(cls, v: list[str]) -> list[str]:
+        """Ensure proxy URLs are valid."""
+        if not v:
+            return v
+        # Basic validation - could be more sophisticated
+        valid_proxies = []
+        for proxy in v:
+            if proxy.startswith(("http://", "https://", "socks5://")):
+                valid_proxies.append(proxy)
+        return valid_proxies
+
+
+class RateLimitConfig(BaseModel):
+    """Rate limiting configuration."""
+
+    enabled: bool = Field(True, description="Enable rate limiting")
+    min_delay: float = Field(
+        1.0, description="Minimum delay between requests in seconds", ge=0.0
+    )
+    max_delay: float = Field(
+        3.0, description="Maximum delay between requests in seconds", ge=0.0
+    )
+    max_concurrent_requests: int = Field(
+        5, description="Maximum concurrent requests", ge=1, le=100
+    )
+    respect_robots_txt: bool = Field(
+        True, description="Respect robots.txt directives"
+    )
+    requests_per_second: Optional[float] = Field(
+        None, description="Hard limit on requests per second", ge=0.1
+    )
+
+    @model_validator(mode="after")
+    def validate_delays(self) -> "RateLimitConfig":
+        """Ensure min_delay <= max_delay."""
+        if self.min_delay > self.max_delay:
+            raise ValueError("min_delay must be <= max_delay")
+        return self
+
+
+class RetryConfig(BaseModel):
+    """Retry configuration."""
+
+    max_retries: int = Field(3, description="Maximum retry attempts", ge=0, le=10)
+    backoff_factor: float = Field(
+        2.0, description="Exponential backoff factor", ge=1.0
+    )
+    retry_on_status: list[int] = Field(
+        default_factory=lambda: [429, 500, 502, 503, 504],
+        description="HTTP status codes to retry on",
+    )
+    timeout: int = Field(
+        30, description="Request timeout in seconds", ge=1, le=300
+    )
+
+
+class ExportConfig(BaseModel):
+    """Export configuration."""
+
+    formats: list[str] = Field(
+        default_factory=lambda: ["csv"], description="Export formats"
+    )
+    base_path: Path = Field(
+        Path.home() / "scraper_results", description="Base directory for exports"
+    )
+    filename_template: str = Field(
+        "{job_name}_{timestamp}", description="Filename template"
+    )
+    include_metadata: bool = Field(
+        True, description="Include metadata in exports"
+    )
+    compression: Optional[Literal["gzip", "zip", "bz2"]] = Field(
+        None, description="Compression format"
+    )
+
+
+class ScrapeJob(BaseModel):
+    """
+    Complete scraping job configuration.
+
+    This is the core model that defines everything about a scrape.
+    """
+
+    # Metadata
+    id: str = Field(
+        default_factory=lambda: f"job_{datetime.utcnow().timestamp()}",
+        description="Unique job identifier",
+    )
+    name: str = Field(..., description="Human-readable job name")
+    description: Optional[str] = Field(None, description="Job description")
+    enabled: bool = Field(True, description="Whether job is enabled")
+    tags: list[str] = Field(default_factory=list, description="Job tags")
+
+    # Target
+    start_url: str = Field(..., description="Starting URL")
+    allowed_domains: list[str] = Field(
+        default_factory=list, description="Allowed domains for crawling"
+    )
+
+    # Extraction
+    item_selector: Optional[str] = Field(
+        None, description="CSS/XPath selector for item containers"
+    )
+    fields: dict[str, FieldConfig] = Field(
+        default_factory=dict, description="Field extraction configs"
+    )
+
+    # Pagination
+    pagination: PaginationConfig = Field(
+        default_factory=PaginationConfig, description="Pagination config"
+    )
+
+    # Browser
+    browser: BrowserConfig = Field(
+        default_factory=BrowserConfig, description="Browser config"
+    )
+
+    # Proxy & UA
+    proxy: ProxyConfig = Field(
+        default_factory=ProxyConfig, description="Proxy config"
+    )
+    user_agent_strategy: UserAgentStrategy = Field(
+        UserAgentStrategy.RANDOM, description="User agent strategy"
+    )
+    user_agent_list: list[str] = Field(
+        default_factory=list, description="Custom user agent list"
+    )
+
+    # Rate limiting & retries
+    rate_limit: RateLimitConfig = Field(
+        default_factory=RateLimitConfig, description="Rate limit config"
+    )
+    retry: RetryConfig = Field(
+        default_factory=RetryConfig, description="Retry config"
+    )
+
+    # Limits
+    max_items: Optional[int] = Field(
+        None, description="Maximum items to scrape"
+    )
+
+    # Export
+    export: ExportConfig = Field(
+        default_factory=ExportConfig, description="Export config"
+    )
+
+    # Advanced
+    custom_headers: dict[str, str] = Field(
+        default_factory=dict, description="Custom HTTP headers"
+    )
+    cookies: dict[str, str] = Field(
+        default_factory=dict, description="Custom cookies"
+    )
+
+    # Timestamps
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow, description="Creation timestamp"
+    )
+    updated_at: datetime = Field(
+        default_factory=datetime.utcnow, description="Last update timestamp"
+    )
+
+    @field_validator("start_url")
+    @classmethod
+    def validate_url(cls, v: str) -> str:
+        """Basic URL validation."""
+        if not v.startswith(("http://", "https://")):
+            raise ValueError("start_url must begin with http:// or https://")
+        return v
+
+    @model_validator(mode="after")
+    def set_allowed_domains(self) -> "ScrapeJob":
+        """Auto-populate allowed_domains from start_url if empty."""
+        if not self.allowed_domains and self.start_url:
+            from urllib.parse import urlparse
+            domain = urlparse(self.start_url).netloc
+            if domain:
+                self.allowed_domains = [domain]
+        return self
+
+
+class WorkflowStep(BaseModel):
+    """A single step in a workflow."""
+
+    id: str = Field(..., description="Step identifier")
+    type: Literal["scrape", "transform", "export", "condition"] = Field(
+        ..., description="Step type"
+    )
+    job_id: Optional[str] = Field(None, description="ScrapeJob ID for scrape steps")
+    depends_on: list[str] = Field(
+        default_factory=list, description="IDs of steps this depends on"
+    )
+    condition: Optional[str] = Field(
+        None, description="Python expression for conditional execution"
+    )
+    config: dict[str, Any] = Field(
+        default_factory=dict, description="Step-specific configuration"
+    )
+
+
+class Workflow(BaseModel):
+    """
+    Multi-step workflow / DAG configuration.
+
+    Allows chaining jobs, transforms, and exports with dependencies.
+    """
+
+    id: str = Field(
+        default_factory=lambda: f"workflow_{datetime.utcnow().timestamp()}",
+        description="Unique workflow identifier",
+    )
+    name: str = Field(..., description="Workflow name")
+    description: Optional[str] = Field(None, description="Workflow description")
+    enabled: bool = Field(True, description="Whether workflow is enabled")
+
+    steps: list[WorkflowStep] = Field(
+        ..., description="Workflow steps"
+    )
+
+    schedule: Optional[str] = Field(
+        None, description="Cron expression for scheduling"
+    )
+
+    retry_policy: RetryConfig = Field(
+        default_factory=RetryConfig, description="Workflow-level retry policy"
+    )
+
+    notifications: dict[str, Any] = Field(
+        default_factory=dict, description="Notification settings"
+    )
+
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow, description="Creation timestamp"
+    )
+
+    @model_validator(mode="after")
+    def validate_dag(self) -> "Workflow":
+        """Ensure steps form a valid DAG (no cycles)."""
+        # Build dependency graph
+        step_ids = {step.id for step in self.steps}
+
+        # Check all dependencies exist
+        for step in self.steps:
+            for dep in step.depends_on:
+                if dep not in step_ids:
+                    raise ValueError(f"Step {step.id} depends on non-existent step {dep}")
+
+        # Simple cycle detection (could be more sophisticated)
+        visited = set()
+        rec_stack = set()
+
+        def has_cycle(step_id: str) -> bool:
+            visited.add(step_id)
+            rec_stack.add(step_id)
+
+            # Find step
+            step = next((s for s in self.steps if s.id == step_id), None)
+            if not step:
+                return False
+
+            for dep in step.depends_on:
+                if dep not in visited:
+                    if has_cycle(dep):
+                        return True
+                elif dep in rec_stack:
+                    return True
+
+            rec_stack.remove(step_id)
+            return False
+
+        for step in self.steps:
+            if step.id not in visited:
+                if has_cycle(step.id):
+                    raise ValueError(f"Workflow contains cycle involving step {step.id}")
+
+        return self
+
+
+class ScrapeResult(BaseModel):
+    """Result of a scrape operation."""
+
+    job_id: str = Field(..., description="Job ID")
+    status: Literal["success", "partial", "failed"] = Field(
+        ..., description="Overall status"
+    )
+    items_scraped: int = Field(0, description="Number of items scraped")
+    pages_visited: int = Field(0, description="Number of pages visited")
+    errors: list[str] = Field(default_factory=list, description="Error messages")
+    warnings: list[str] = Field(default_factory=list, description="Warning messages")
+    start_time: datetime = Field(
+        default_factory=datetime.utcnow, description="Start timestamp"
+    )
+    end_time: Optional[datetime] = Field(None, description="End timestamp")
+    duration_seconds: Optional[float] = Field(None, description="Duration in seconds")
+    data: list[dict[str, Any]] = Field(
+        default_factory=list, description="Scraped data"
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict, description="Additional metadata"
+    )
+
+    @model_validator(mode="after")
+    def calculate_duration(self) -> "ScrapeResult":
+        """Calculate duration if end_time is set."""
+        if self.end_time and not self.duration_seconds:
+            self.duration_seconds = (self.end_time - self.start_time).total_seconds()
+        return self
+

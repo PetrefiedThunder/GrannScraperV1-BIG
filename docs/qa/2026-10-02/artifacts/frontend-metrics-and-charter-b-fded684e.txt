@@ -1,0 +1,40 @@
+{
+  "browser": "153.0.8010.12",
+  "navigation": [
+    {
+      "domContentLoadedEventEnd": 18.399999999906868,
+      "loadEventEnd": 18.5,
+      "responseEnd": 2.1999999997206032
+    }
+  ],
+  "paint": [
+    {
+      "name": "first-paint",
+      "entryType": "paint",
+      "startTime": 28,
+      "duration": 0,
+      "navigationId": 9795,
+      "paintTime": 16.899999999906868,
+      "presentationTime": 28
+    },
+    {
+      "name": "first-contentful-paint",
+      "entryType": "paint",
+      "startTime": 28,
+      "duration": 0,
+      "navigationId": 9795,
+      "paintTime": 16.899999999906868,
+      "presentationTime": 28
+    }
+  ],
+  "coverage": [
+    {
+      "url": "http://127.0.0.1:18765/static/app.js",
+      "total_utf16_units": 10747,
+      "executed_utf16_units": 6087
+    }
+  ],
+  "console_errors": [],
+  "failed_requests": [],
+  "blocked": []
+}

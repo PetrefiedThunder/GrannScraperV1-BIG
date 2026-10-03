@@ -1,0 +1,27 @@
+[
+  {
+    "id": "url",
+    "tag": "INPUT",
+    "text": ""
+  },
+  {
+    "id": "max-pages",
+    "tag": "INPUT",
+    "text": ""
+  },
+  {
+    "id": "export-format",
+    "tag": "SELECT",
+    "text": "JSON\n                        CSV\n                        Excel"
+  },
+  {
+    "id": "concurrent",
+    "tag": "INPUT",
+    "text": ""
+  },
+  {
+    "id": "",
+    "tag": "BUTTON",
+    "text": "Start Auto-Scrape"
+  }
+]

@@ -1,0 +1,54 @@
+# QA sweep — 2026-10-02
+
+PR: opened by orchestrator
+
+CI status: pending at time of writing
+
+## Scope and repository map
+
+Confirmed checkout: `/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG`, branch `qa/2026-10-02-sweep`, initial HEAD `30eb7c4`. Initial working tree clean. Remote identity: `PetrefiedThunder/GrannScraperV1-BIG` (identity only; no remote calls).
+
+Python 3.11+ package managed by Poetry: `scraper/api/rest_server.py` (FastAPI), `scraper/core/` (static/browser/concurrent scraping), `scraper/config/models.py` (Pydantic contracts), `scraper/security/auth.py`, extraction/transforms/exports, cache/workflow/ML modules. `scraper/web/static/` supplies a real plain HTML/JavaScript dashboard. `scraper/cli/`, `scraper/sdk/`, README and examples are additional developer surfaces. Existing pytest tests cover models, extractors, transformations, cache, ML and SDK. No JS package/build pipeline found at discovery.
+
+All three requested QA groups apply; UX also includes quickstart/CLI/SDK ergonomics. Each group has its own pass log. Independent backend security review supports the Backend pass. A final local review validates QA-only scope and finding evidence.
+
+## Risk ranking
+
+Scores use impact (1–5) × likelihood (1–5), prioritizing source-observed exposure before broad coverage.
+
+| Rank | Area | Impact | Likelihood | Score | Reason |
+|---|---|---:|---:|---:|---|
+| 1 | API access control, user-controlled URLs and file exports | 5 | 4 | 20 | Network fetching and local files are privileged capabilities; API must enforce trust boundaries. |
+| 2 | Job lifecycle, concurrent execution, cache and result correctness | 4 | 4 | 16 | Lost, duplicate, stale or failed work undermines the primary product. |
+| 3 | Dashboard to API contract and main user flow | 4 | 4 | 16 | Browser starts jobs and exposes results; hardcoded origin and mismatched fields are early risks. |
+| 4 | Installation, dependency integrity and public SDK/CLI contract | 4 | 3 | 12 | A clean install and documented entry points must be executable. |
+| 5 | Keyboard/semantics, mobile layouts, error recovery | 3 | 4 | 12 | Broadly affects the beginner audience and access to core tasks. |
+| 6 | Extraction/transformation edge cases | 3 | 3 | 9 | Bad data can silently propagate into exports. |
+
+## Methods and separate passes
+
+1. **Backend QA:** baseline existing pytest suite with line/branch coverage, then isolated API/model/core tests and after-coverage using the same denominator. Run Ruff, mypy and package build; inspect OpenAPI through an in-process client. Use boundary/equivalence cases and property testing for pure contracts where useful. Exercise anonymous/invalid identity access, replay, concurrent run rejection, failure recovery and cache semantics with stubs. Review OWASP API risks against actual routes. Inspect resolved dependencies with an offline advisory database if available; do not call vulnerability APIs outside the permitted network scope. Timed exploratory charters: 20 minutes API boundaries; 20 minutes lifecycle/data correctness; 15 minutes install/static/dependency review.
+2. **Frontend QA:** serve the repository dashboard on loopback, stub all API/external traffic, run Playwright main flows, error handling, job/results/download interactions and browser console/network capture. Use current Playwright connected to the orchestrator browser server; never launch browsers or install browser binaries. Probe Chromium/Firefox/WebKit support without claiming a browser engine the server does not provide. No framework build/typecheck exists; use JavaScript syntax/static checks and browser runtime assertions. Record performance metrics from local navigation (not a production performance claim). Timed charters: 25 minutes primary flow/contracts; 15 minutes failure/retry/large results.
+3. **UX QA:** independent loopback/browser session with mocked states. Run axe WCAG 2.2 AA checks, keyboard focus/operation and accessibility-tree checks, desktop/mobile/zoom layouts, empty/loading/error states, Nielsen heuristics and microcopy. Save screenshots and machine reports. Screen-reader semantics are checked; actual assistive-technology speech requires a separate manual session. Review documented quickstart and public API ergonomics offline. Timed charters: 20 minutes accessibility/keyboard; 15 minutes mobile/states; 10 minutes onboarding.
+
+Test pyramid: most cases are offline unit/contract tests, a smaller browser layer proves integration and interaction. Exploratory sessions target high-impact paths that existing unit coverage misses. Real defects become findings and strict expected failures/skips with IDs; product behavior remains unchanged.
+
+## Safety, logging and exclusions
+
+- No production URLs, remote databases, providers, billing, deploys, migrations, secrets or credential files. Do not read `.env` files. Python runtime network is disabled or mocked; browser traffic is intercepted and local-only. Public package installation is permitted.
+- No commit, push, PR creation or CI polling. Orchestrator owns the single draft PR. CI remains pending at writing.
+- No product/deploy/environment/secret-baseline edits. Only QA docs, artifacts, tests and test configuration. Keep all changes uncommitted on the required branch.
+- Commands are logged with UTC timestamps, exit status and redacted output using `run_logged.py`; initial discovery commands are transcribed in `SESSION-LOG.md`. Each group owns a separate log; the master log indexes them and records coordination.
+- Cross-browser coverage depends on engines supported by the supplied remote browser server. Unavailable tools/engines and failed setup attempts remain explicit limitations.
+- Provider/browser scraping integration, live LLM calls, cloud/database exports, SMTP/SMS, real scraping targets, production performance and real multi-user deployment are out of scope. Review configuration as text only where allowed.
+- Budget target: 60–90 minutes. Prefer reproducible high-impact defects over broad style cleanup.
+
+## Execution adjustments
+
+- All three browser engines were available through the supplied remote server; Chromium ran the full frontend set and Firefox/WebKit each ran two main-flow smoke checks. No engine launch/install was needed.
+- Port 8765 was already occupied by an unrelated listener. Frontend used 18765 and UX used 8766; the existing listener was left untouched.
+- The backend root route serves HTML whose script is missing. Downstream browser checks use `/static/index.html` as an explicit workaround; separate browser and actual ASGI tests prove the root failure.
+- Public package installation succeeded. Dependency advisory traffic was not permitted; existing public cached metadata supplied a limited, stale offline assessment for 23/143 installed versions.
+- Added `pytest-socket` and Hypothesis only to dev dependencies for offline safety and property tests. No product fixes were applied.
+- Final review found repository-wide `*.json` ignores and coverage-generated local ignore files would omit required evidence. Narrow QA-directory Git inclusion rules preserve reports for ordinary staging. No CI secret-scan ignore list or baseline was changed.
+- Parallel passes finished well inside the time budget. The declared charter durations were ceilings, not claims of full-duration user studies. Only Python 3.11.15 was exercised; a Python-version matrix is out of scope for this run.

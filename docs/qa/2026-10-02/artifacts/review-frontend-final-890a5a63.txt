@@ -1,0 +1,154 @@
+# Frontend QA pass
+
+PR: opened by orchestrator
+
+CI status: pending at time of writing
+
+Counts: Critical=0 High=4 Medium=1 Low=0
+
+Scope: the plain HTML/JavaScript dashboard in `scraper/web/static/`, its asset routing, and its contract with the FastAPI API. This is a real UI; no substitution was needed. There is no frontend package manifest, TypeScript application, component-test framework, or build command. JavaScript syntax validation and focused browser tests are the appropriate checks for this surface.
+
+## Evidence and outcome
+
+- Final browser run: **23 accepted test executions: 14 ordinary passes, 9 expected failures, 0 unexpected failures, 0 skipped**. Playwright displays `23 passed` because `test.fail` expectations matched; nine assertions still expose real product bugs. [Final command output](artifacts/frontend-final-browser-suite-c390dc50.txt), [structured report](artifacts/frontend-playwright.json), [expectation/actual summary](artifacts/frontend-final-result-summary-815384ae.txt).
+- Chromium 153.0.8010.12 ran all 19 cases. Firefox 155.0 and WebKit 26.6 each passed two smoke journeys: analyze/create/run/list and view/close results. Engines were verified by actual user agents, not the requested connection label. [Engine probe](artifacts/frontend-browser-engines.json).
+- `node --check scraper/web/static/app.js` passed. No frontend build, TypeScript check, or existing JavaScript unit suite applies. [Syntax output](artifacts/frontend-javascript-syntax-b91f6a67.txt).
+- Mocks use the real API response shape. The captured create payload is validated by production `ScrapeJob`, not a JavaScript approximation. Backend QA independently reproduced FE-001/002/003 against the actual ASGI routes. [Backend unquarantined diagnostics](artifacts/backend-defect-reproduction-unquarantined-e6a8796c.txt).
+- Positive checks cover empty jobs, submission order, concurrent/sequential selection, disabled submission while analysis waits, HTML boundary validation, cancel/confirm deletion, recovery after failed analysis, list outage handling, running-to-empty completion, null result cells, and closing details.
+- Healthy mocked journeys produced no console errors, failed requests, or blocked external requests. Root navigation produces the expected script 404. All API requests are intercepted and any non-loopback non-API traffic is blocked. [Chromium flow](artifacts/frontend-main-flow-chromium.json), [Firefox flow](artifacts/frontend-main-flow-firefox.json), [WebKit flow](artifacts/frontend-main-flow-webkit.json), [root error record](artifacts/frontend-root-errors.json).
+
+The browser static server intentionally mirrors FastAPI's `/` and `/static` mounts; it does not invent a successful `/app.js` route. Downstream interface checks use `/static/index.html` as an explicit workaround for FE-001. Those checks do not establish that the real root dashboard works.
+
+## Findings
+
+| ID | Severity | Group | Title | Exact reproduction | Expected vs actual | Evidence | Suggested fix |
+|---|---|---|---|---|---|---|---|
+| FE-001 | High | Frontend | Root dashboard never loads its JavaScript | Serve the actual ASGI app locally with external operations blocked, GET `/`, then request the document's relative `app.js` URL. Alternatively run browser test `FE-001 root dashboard loads its script and initial jobs` against the matching local static routes. | Expected script 200 and initial job list. Actual `/app.js` is 404, so initial API calls never occur and the form has no JavaScript handler. `/static/app.js` returns 200. | `scraper/web/static/index.html:360`; `scraper/api/rest_server.py:55,585`; `tests/qa_backend/test_api_contracts.py:127`; [root screenshot](artifacts/frontend-root-script-404.png); [console/network](artifacts/frontend-root-errors.json) | Point script source to `/static/app.js` and retain a real root-route browser smoke test. |
+| FE-002 | High | Frontend | Maximum Pages selection is silently ignored | Open `/static/index.html`; enter fictional `https://example.invalid/catalog`; select 1, 2, or 1000 pages; submit with the mocked detected `next_button` pagination; normalize the captured POST `/api/v1/jobs` body using `ScrapeJob`. | Expected `pagination.max_pages` to equal the selected bound. Actual top-level `job.max_pages` is discarded and the persisted limit is 10 for all three cases. A one-page limit therefore does not constrain the job to one page. | `scraper/web/static/app.js:100-101`; `scraper/config/models.py:100`; browser tests `FE-002 selected page limit ... survives API model validation`; `tests/qa_backend/test_api_contracts.py:144`; [captured request and normalization](artifacts/frontend-main-flow-chromium.json) | Merge the user limit into `pagination.max_pages`; preserve detected mode/selector. Reject unknown config fields if compatibility permits. |
+| FE-003 | Medium | Frontend | JSON and Excel export selections become CSV | In the working asset route choose JSON, then Excel in a separate run; submit and validate each captured create payload with `ScrapeJob`. | Expected selected format to survive. Actual `export.format` is ignored because the API expects `export.formats`; both requests persist the default `["csv"]`. CSV is a passing control. No actual export is performed in this pass. | `scraper/web/static/app.js:102`; `scraper/config/models.py:223-224`; browser tests `FE-003 selected ... export survives API model validation`; `tests/qa_backend/test_api_contracts.py:153` | Send the supported format in the API's `formats` list and retain one contract check per visible option. |
+| FE-004 | High | Frontend | Dashboard always calls the visitor's localhost port 8000 | Serve dashboard at the isolated test origin `http://127.0.0.1:18765/static/index.html`; capture initial API requests without allowing network access. | Expected API paths on the serving origin, or an explicit configured origin. Actual every request targets `http://localhost:8000/api/v1`, regardless of host/port. Remote users or alternate local ports cannot use the displayed server reliably. | `scraper/web/static/app.js:3,24`; browser test `FE-004 dashboard API requests use the serving origin`; [captured origins](artifacts/frontend-main-flow-chromium.json) | Use a same-origin `/api/v1` base by default, with deliberate configuration for a separate API origin. |
+| FE-005 | High | Frontend | API/job/scraped strings are interpreted as HTML | Mock a job name containing inert `<strong data-qa-fixture="literal">Literal product name</strong>` text. In a separate results response, use inert `<em>` field-name text and `<strong>` value text. Open the job list/details and inspect `[data-qa-fixture]` elements. | Expected literal text with zero injected DOM elements. Actual markup becomes real elements in job headings and results cells/headers. This proves HTML injection across the API-to-dashboard boundary; script execution was intentionally not tested. The unsanitized HTML sink creates a script-injection risk. | `scraper/web/static/app.js:162-173,246,254,278`; browser tests `FE-005 job names...` and `FE-005 scraped field names...`; [inert markup screenshot](artifacts/frontend-literal-markup.png) | Build DOM nodes and set untrusted values through `textContent`; bind job actions with event listeners rather than interpolating IDs into inline handlers. |
+
+## Performance and coverage
+
+The final unthrottled local list/details run measured DOMContentLoaded **17 ms**, load **17 ms**, and first contentful paint **24 ms** in Chromium. These are local diagnostic numbers with mocked API responses; they are **not** Lighthouse scores, production performance, throttled-mobile measurements, or evidence for actual scraping latency. [Performance and V8 report](artifacts/frontend-performance.json).
+
+No pre-existing frontend coverage suite exists, so before-coverage is **not measured**, not 0%. The new diagnostic list/details journey executed **6,087 / 10,747 UTF-16 source units (56.64%)** of `app.js` using V8 range coverage. This is a narrowly defined code-unit metric, **not line/branch coverage and not aggregate coverage of all 23 executions**. Backend coverage is reported centrally in `COVERAGE.md`; no invalid before/after frontend percentage comparison is claimed.
+
+## Artifacts and limitations
+
+Screenshots use only fictional data: [root failure](artifacts/frontend-root-script-404.png), [Chromium results](artifacts/frontend-results-chromium.png), [Firefox results](artifacts/frontend-results-firefox.png), [WebKit results](artifacts/frontend-results-webkit.png), [list outage](artifacts/frontend-list-error.png), [inert markup](artifacts/frontend-literal-markup.png). Root and WebKit screenshots were also inspected visually. Full command chronology, setup failures, timed charters, edits, and outcomes are in [FRONTEND-SESSION.md](FRONTEND-SESSION.md).
+
+First setup encountered an existing listener on 8765; it was left untouched and the isolated server moved to 18765. The first executable browser run exposed a QA-only coverage API mismatch (`text/ranges` vs current `source/functions`); that harness was corrected and the complete suite rerun. Both dead ends remain logged.
+
+No production API, scraping target, real provider, database, export file operation, remote CI, or browser install was used. Scraping completion is mocked here and independently reviewed by Backend QA. This pass does not prove successful real scraping or file export. Responsive, accessibility, screen-reader semantics, and missing pagination/download affordances are owned by UX QA (UX-005), avoiding duplicate findings. No product behavior was changed.
+
+
+HARNESS DIFF SNIPPET
+75:  await page.locator('#url').fill(target);
+76:  await page.locator('#max-pages').fill(pages);
+77:  await page.locator('#export-format').selectOption(format);
+78:  await page.getByRole('button', { name: 'Start Auto-Scrape' }).click();
+79:}
+80:
+81:function modelSettings(payload) {
+82:  return JSON.parse(execFileSync(process.env.QA_PYTHON || 'python3', ['-m', 'tests.qa_frontend.validate_contract'], { input: JSON.stringify(payload), encoding: 'utf8', cwd: path.resolve(__dirname, '../..') }));
+83:}
+84:
+85:test('FE-001 root dashboard loads its script and initial jobs', async ({ page }) => {
+86:  const state = await setup(page);
+87:  const response = await page.goto('/');
+88:  expect(response.status()).toBe(200);
+89:  await expect(page.getByRole('heading', { level: 1 })).toContainText('GrandmaScrape Dashboard');
+90:  await expect(page.locator('#auto-scrape-form')).toBeVisible();
+91:  await page.screenshot({ path: path.join(artifacts, 'frontend-root-script-404.png'), fullPage: true });
+92:  fs.writeFileSync(path.join(artifacts, 'frontend-root-errors.json'), JSON.stringify(state, null, 2));
+93:  test.fail(true, 'FE-001: app.js resolves to /app.js; only /static/app.js exists');
+94:  await expect(page.locator('#job-list')).toContainText('No jobs yet');
+95:});
+96:
+97:test('working asset route: empty state then analysis/create/run/list flow', async ({ page }, testInfo) => {
+98:  const state = await setup(page);
+99:  await openWorkingAssetPath(page);
+100:  await expect(page.locator('#job-list')).toContainText('No jobs yet');
+101:  await submit(page);
+102:  await expect(page.locator('#job-list')).toContainText(`Auto-scraped: ${target}`);
+103:  const mutations = state.requests.filter(request => request.method === 'POST');
+104:  expect(mutations.map(request => new URL(request.url).pathname.replace(/job_\d+/, 'ID'))).toEqual(['/api/v1/analyze', '/api/v1/jobs', '/api/v1/jobs/ID/run']);
+105:  expect(new URL(mutations[2].url).searchParams.get('concurrent')).toBe('true');
+106:  await expect(page.locator('#url')).toHaveValue('');
+107:  expect(state.errors).toEqual([]);
+108:  expect(state.blocked).toEqual([]);
+109:  fs.writeFileSync(path.join(artifacts, `frontend-main-flow-${testInfo.project.name}.json`), JSON.stringify({ requests: state.requests, normalized_settings: modelSettings(state.created), console_errors: state.errors, failed_requests: state.failed, blocked: state.blocked }, null, 2));
+110:});
+111:
+112:for (const pages of ['1', '2', '1000']) {
+113:  test(`FE-002 selected page limit ${pages} survives API model validation`, async ({ page }) => {
+114:    const state = await setup(page);
+115:    await openWorkingAssetPath(page);
+116:    await submit(page, { pages });
+117:    await expect(page.locator('#job-list .job-item')).toHaveCount(1);
+118:    const persisted = modelSettings(state.created);
+119:    test.fail(true, 'FE-002: max_pages sent at job root is ignored instead of pagination.max_pages');
+120:    expect(persisted.max_pages).toBe(Number(pages));
+121:  });
+122:}
+123:
+124:for (const format of ['json', 'excel']) {
+125:  test(`FE-003 selected ${format} export survives API model validation`, async ({ page }) => {
+126:    const state = await setup(page);
+127:    await openWorkingAssetPath(page);
+128:    await submit(page, { format });
+129:    await expect(page.locator('#job-list .job-item')).toHaveCount(1);
+130:    const persisted = modelSettings(state.created);
+131:    test.fail(true, 'FE-003: export.format is ignored; model expects export.formats');
+132:    expect(persisted.formats).toEqual([format]);
+133:  });
+134:}
+135:
+136:test('FE-004 dashboard API requests use the serving origin', async ({ page }) => {
+137:  const state = await setup(page);
+138:  await openWorkingAssetPath(page);
+139:  test.fail(true, 'FE-004: API_BASE is permanently http://localhost:8000/api/v1');
+140:  expect([...new Set(state.requests.map(request => new URL(request.url).origin))]).toEqual([new URL(page.url()).origin]);
+141:});
+142:
+143:test('FE-005 job names are rendered as text, not HTML elements', async ({ page }) => {
+144:  // Inert formatting only: no scripts, event handlers, requests, or executable payloads.
+145:  const name = '<strong data-qa-fixture="literal">Literal product name</strong>';
+146:  await setup(page, { jobs: [{ ...sampleJob, name }] });
+147:  await openWorkingAssetPath(page);
+148:  await page.screenshot({ path: path.join(artifacts, 'frontend-literal-markup.png'), fullPage: true });
+149:  test.fail(true, 'FE-005: job.name is interpolated into innerHTML');
+150:  await expect(page.locator('[data-qa-fixture="literal"]')).toHaveCount(0);
+
+BROWSER PROBE
+// Probe only the supplied browser server. Never launch or install a browser.
+const { chromium, firefox, webkit } = require('playwright');
+const fs = require('node:fs');
+const path = require('node:path');
+
+(async () => {
+  const results = [];
+  for (const [requested, browserType] of Object.entries({ chromium, firefox, webkit })) {
+    let context;
+    try {
+      const browser = await browserType.connect(process.env.PW_TEST_CONNECT_WS_ENDPOINT || 'ws://127.0.0.1:3950/', { timeout: 4000 });
+      context = await browser.newContext({ serviceWorkers: 'block' });
+      await context.route('**/*', route => route.abort('blockedbyclient'));
+      const page = await context.newPage();
+      const userAgent = await page.evaluate(() => navigator.userAgent);
+      const actualEngine = /Firefox\//.test(userAgent) ? 'firefox' : /Chrome\//.test(userAgent) ? 'chromium' : /AppleWebKit\//.test(userAgent) ? 'webkit' : 'unknown';
+      results.push({ requested, actualEngine, version: browser.version(), userAgent, supportedAsRequested: actualEngine === requested });
+    } catch (error) {
+      results.push({ requested, supportedAsRequested: false, error: error.message });
+    } finally {
+      if (context) await context.close();
+    }
+  }
+  fs.writeFileSync(path.resolve(__dirname, '../../docs/qa/2026-10-02/artifacts/frontend-browser-engines.json'), JSON.stringify(results, null, 2));
+  console.log(JSON.stringify(results, null, 2));
+  // Closing the process releases client connections; never stop the supplied server.
+  process.exit(0);
+})().catch(error => { console.error(error); process.exit(1); });
+

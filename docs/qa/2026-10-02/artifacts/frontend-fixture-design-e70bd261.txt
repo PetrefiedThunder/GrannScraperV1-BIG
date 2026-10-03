@@ -1,0 +1,562 @@
+npx: /opt/homebrew/bin/npx
+node: /opt/homebrew/bin/node
+
+FILE scraper/strategies/intelligent_extraction.py
+1: """
+2: Advanced extraction strategies with ML-powered pattern recognition.
+3: 
+4: This module adds intelligent auto-detection of common web patterns
+5: without needing manual selectors.
+6: """
+7: 
+8: import logging
+9: from typing import Any, Optional, List, Dict
+10: from collections import Counter
+11: 
+12: from bs4 import BeautifulSoup, Tag
+13: 
+14: logger = logging.getLogger(__name__)
+15: 
+16: 
+17: class IntelligentExtractor:
+18:     """
+19:     ML-inspired pattern recognition for automatic field detection.
+20: 
+21:     Analyzes page structure to automatically identify:
+22:     - Product listings
+23:     - Article content
+24:     - Pricing information
+25:     - Dates and timestamps
+26:     - Author information
+27:     - Pagination patterns
+28:     """
+29: 
+30:     def __init__(self):
+31:         self.confidence_threshold = 0.7
+32: 
+33:     async def auto_detect_item_container(self, soup: BeautifulSoup) -> Optional[str]:
+34:         """
+35:         Automatically detect the container for list items.
+36: 
+37:         Uses heuristics to find repeating patterns.
+38:         """
+39:         # Find all tags with similar structure
+40:         candidate_containers = []
+41: 
+42:         # Look for common container patterns
+43:         for tag_name in ['div', 'article', 'li', 'tr']:
+44:             tags = soup.find_all(tag_name)
+45: 
+46:             # Group by class patterns
+47:             class_groups = {}
+48:             for tag in tags:
+49:                 classes = ' '.join(sorted(tag.get('class', [])))
+50:                 if classes:
+51:                     if classes not in class_groups:
+52:                         class_groups[classes] = []
+53:                     class_groups[classes].append(tag)
+54: 
+55:             # Find groups with 3+ items (likely a list)
+56:             for classes, group in class_groups.items():
+57:                 if len(group) >= 3:
+58:                     # Check if items have similar structure
+59:                     if self._have_similar_structure(group[:5]):
+60:                         candidate_containers.append({
+61:                             'selector': f"{tag_name}.{classes.split()[0]}" if classes else tag_name,
+62:                             'count': len(group),
+63:                             'confidence': self._calculate_confidence(group)
+64:                         })
+65: 
+66:         # Return highest confidence container
+67:         if candidate_containers:
+68:             best = max(candidate_containers, key=lambda x: x['confidence'])
+69:             if best['confidence'] > self.confidence_threshold:
+70:                 logger.info(f"Auto-detected item container: {best['selector']} ({best['count']} items)")
+71:                 return best['selector']
+72: 
+73:         return None
+74: 
+75:     def _have_similar_structure(self, tags: List[Tag]) -> bool:
+76:         """Check if tags have similar child structure."""
+77:         if not tags:
+78:             return False
+79: 
+80:         # Compare child tag patterns
+81:         structures = []
+82:         for tag in tags:
+83:             structure = [child.name for child in tag.children if hasattr(child, 'name')]
+84:             structures.append(tuple(structure))
+85: 
+86:         # Most common structure should appear in majority
+87:         if structures:
+88:             most_common = Counter(structures).most_common(1)[0]
+89:             similarity = most_common[1] / len(structures)
+90:             return similarity > 0.6
+91: 
+92:         return False
+93: 
+94:     def _calculate_confidence(self, group: List[Tag]) -> float:
+95:         """Calculate confidence score for detected pattern."""
+96:         if not group:
+97:             return 0.0
+98: 
+99:         score = 0.0
+100: 
+101:         # Similar structure increases confidence
+102:         if self._have_similar_structure(group):
+103:             score += 0.4
+104: 
+105:         # Consistent text length increases confidence
+106:         text_lengths = [len(tag.get_text(strip=True)) for tag in group]
+107:         if text_lengths:
+108:             avg_length = sum(text_lengths) / len(text_lengths)
+109:             variance = sum((l - avg_length) ** 2 for l in text_lengths) / len(text_lengths)
+110:             if variance < avg_length * 0.5:  # Low variance
+111:                 score += 0.3
+112: 
+113:         # Contains common e-commerce/content indicators
+114:         combined_text = ' '.join(tag.get_text() for tag in group[:3]).lower()
+115:         indicators = ['price', '$', '€', '£', 'buy', 'add to cart', 'read more', 'author', 'posted']
+116:         if any(ind in combined_text for ind in indicators):
+117:             score += 0.3
+118: 
+119:         return min(score, 1.0)
+120: 
+121:     async def auto_detect_fields(self, soup: BeautifulSoup, item_selector: str) -> Dict[str, Dict]:
+122:         """
+123:         Automatically detect fields within items.
+124: 
+125:         Returns suggested field configurations.
+126:         """
+127:         items = soup.select(item_selector)
+128:         if not items or len(items) < 2:
+129:             return {}
+130: 
+131:         # Analyze first few items to find common patterns
+132:         sample_items = items[:5]
+133: 
+134:         detected_fields = {}
+135: 
+136:         # Look for titles (usually largest text element)
+137:         detected_fields.update(self._detect_titles(sample_items))
+138: 
+139:         # Look for prices
+140:         detected_fields.update(self._detect_prices(sample_items))
+141: 
+142:         # Look for images
+143:         detected_fields.update(self._detect_images(sample_items))
+144: 
+145:         # Look for links
+146:         detected_fields.update(self._detect_links(sample_items))
+147: 
+148:         # Look for dates
+149:         detected_fields.update(self._detect_dates(sample_items))
+150: 
+151:         # Look for descriptions
+152:         detected_fields.update(self._detect_descriptions(sample_items))
+153: 
+154:         logger.info(f"Auto-detected {len(detected_fields)} fields")
+155:         return detected_fields
+156: 
+157:     def _detect_titles(self, items: List[Tag]) -> Dict[str, Dict]:
+158:         """Detect title/heading fields."""
+159:         fields = {}
+160: 
+161:         for heading_tag in ['h1', 'h2', 'h3', 'h4']:
+162:             headings = [item.find(heading_tag) for item in items]
+163:             headings = [h for h in headings if h]
+164: 
+165:             if len(headings) >= len(items) * 0.8:  # 80% coverage
+166:                 # Try to find common class
+167:                 classes = [h.get('class', []) for h in headings]
+168:                 common_class = self._find_common_class(classes)
+169: 
+170:                 selector = f"{heading_tag}.{common_class}" if common_class else heading_tag
+171: 
+172:                 fields['title'] = {
+173:                     'selector': selector,
+174:                     'type': 'string',
+175:                     'confidence': len(headings) / len(items),
+176:                     'auto_detected': True
+177:                 }
+178:                 break
+179: 
+180:         return fields
+181: 
+182:     def _detect_prices(self, items: List[Tag]) -> Dict[str, Dict]:
+183:         """Detect price fields."""
+184:         fields = {}
+185: 
+186:         # Look for common price patterns
+187:         price_patterns = [
+188:             {'class': 'price'},
+189:             {'class': 'cost'},
+190:             {'class': 'amount'},
+191:             {'data-price': True},
+192:         ]
+193: 
+194:         for pattern in price_patterns:
+195:             prices = []
+196:             for item in items:
+197:                 if 'class' in pattern:
+198:                     found = item.find(class_=lambda x: x and pattern['class'] in str(x).lower())
+199:                 elif 'data-price' in pattern:
+200:                     found = item.find(attrs={'data-price': True})
+201:                 else:
+202:                     found = None
+203: 
+204:                 if found:
+205:                     text = found.get_text(strip=True)
+206:                     # Check if looks like a price
+207:                     if any(symbol in text for symbol in ['$', '€', '£', '¥']) or text.replace('.', '').replace(',', '').isdigit():
+208:                         prices.append(found)
+209: 
+210:             if len(prices) >= len(items) * 0.7:  # 70% coverage
+211:                 # Build selector
+212:                 if 'class' in pattern:
+213:                     selector = f".{pattern['class']}"
+214:                 else:
+215:                     selector = f"[data-price]"
+216: 
+217:                 fields['price'] = {
+218:                     'selector': selector,
+219:                     'type': 'currency',
+220:                     'confidence': len(prices) / len(items),
+221:                     'auto_detected': True
+222:                 }
+223:                 break
+224: 
+225:         return fields
+226: 
+227:     def _detect_images(self, items: List[Tag]) -> Dict[str, Dict]:
+228:         """Detect image fields."""
+229:         fields = {}
+230: 
+231:         images = [item.find('img') for item in items]
+232:         images = [img for img in images if img and img.get('src')]
+233: 
+234:         if len(images) >= len(items) * 0.7:
+235:             # Try to find common class
+236:             classes = [img.get('class', []) for img in images]
+237:             common_class = self._find_common_class(classes)
+238: 
+239:             selector = f"img.{common_class}" if common_class else "img"
+240: 
+241:             fields['image'] = {
+242:                 'selector': selector,
+243:                 'attr': 'src',
+244:                 'type': 'url',
+245:                 'confidence': len(images) / len(items),
+246:                 'auto_detected': True
+247:             }
+248: 
+249:         return fields
+250: 
+251:     def _detect_links(self, items: List[Tag]) -> Dict[str, Dict]:
+252:         """Detect link fields."""
+253:         fields = {}
+254: 
+255:         links = [item.find('a', href=True) for item in items]
+256:         links = [link for link in links if link]
+257: 
+258:         if len(links) >= len(items) * 0.8:
+259:             classes = [link.get('class', []) for link in links]
+260:             common_class = self._find_common_class(classes)
+261: 
+262:             selector = f"a.{common_class}" if common_class else "a"
+263: 
+264:             fields['url'] = {
+265:                 'selector': selector,
+266:                 'attr': 'href',
+267:                 'type': 'url',
+268:                 'confidence': len(links) / len(items),
+269:                 'auto_detected': True
+270:             }
+271: 
+272:         return fields
+273: 
+274:     def _detect_dates(self, items: List[Tag]) -> Dict[str, Dict]:
+275:         """Detect date/time fields."""
+276:         fields = {}
+277: 
+278:         # Look for <time> tags
+279:         times = [item.find('time') for item in items]
+280:         times = [t for t in times if t]
+281: 
+282:         if len(times) >= len(items) * 0.7:
+283:             fields['date'] = {
+284:                 'selector': 'time',
+285:                 'attr': 'datetime',
+286:                 'type': 'datetime',
+287:                 'confidence': len(times) / len(items),
+288:                 'auto_detected': True
+289:             }
+290:         else:
+291:             # Look for common date class patterns
+292:             for date_class in ['date', 'time', 'published', 'timestamp']:
+293:                 dates = [item.find(class_=lambda x: x and date_class in str(x).lower()) for item in items]
+294:                 dates = [d for d in dates if d]
+295: 
+296:                 if len(dates) >= len(items) * 0.7:
+297:                     fields['date'] = {
+298:                         'selector': f'.{date_class}',
+299:                         'type': 'string',
+300:                         'confidence': len(dates) / len(items),
+301:                         'auto_detected': True
+302:                     }
+303:                     break
+304: 
+305:         return fields
+306: 
+307:     def _detect_descriptions(self, items: List[Tag]) -> Dict[str, Dict]:
+308:         """Detect description/content fields."""
+309:         fields = {}
+310: 
+311:         # Look for paragraph tags or description classes
+312:         for pattern in ['p', '.description', '.summary', '.excerpt']:
+313:             if pattern.startswith('.'):
+314:                 class_name = pattern[1:]
+315:                 descs = [item.find(class_=lambda x: x and class_name in str(x).lower()) for item in items]
+316:             else:
+317:                 descs = [item.find(pattern) for item in items]
+318: 
+319:             descs = [d for d in descs if d and len(d.get_text(strip=True)) > 20]
+320: 
+321:             if len(descs) >= len(items) * 0.6:  # 60% coverage
+322:                 fields['description'] = {
+323:                     'selector': pattern,
+324:                     'type': 'string',
+325:                     'confidence': len(descs) / len(items),
+326:                     'auto_detected': True
+327:                 }
+328:                 break
+329: 
+330:         return fields
+331: 
+332:     def _find_common_class(self, class_lists: List[List[str]]) -> Optional[str]:
+333:         """Find most common class across elements."""
+334:         if not class_lists:
+335:             return None
+336: 
+337:         all_classes = []
+338:         for classes in class_lists:
+339:             if classes:
+340:                 all_classes.extend(classes)
+341: 
+342:         if all_classes:
+343:             most_common = Counter(all_classes).most_common(1)[0]
+344:             if most_common[1] >= len(class_lists) * 0.7:  # 70% coverage
+345:                 return most_common[0]
+346: 
+347:         return None
+348: 
+349: 
+350: class SmartPaginationDetector:
+351:     """
+352:     Automatically detect pagination patterns.
+353:     """
+354: 
+355:     async def detect_pagination(self, soup: BeautifulSoup, current_url: str) -> Dict[str, Any]:
+356:         """
+357:         Detect pagination type and configuration.
+358: 
+359:         Returns pagination config.
+360:         """
+361:         # Look for next button
+362:         next_button = self._find_next_button(soup)
+363:         if next_button:
+364:             return {
+365:                 'mode': 'next_button',
+366:                 'next_button_selector': self._get_selector_for_element(next_button),
+367:                 'confidence': 0.9
+368:             }
+369: 
+370:         # Look for page number links
+371:         page_links = self._find_page_links(soup, current_url)
+372:         if page_links:
+373:             url_pattern = self._infer_url_pattern(page_links, current_url)
+374:             if url_pattern:
+375:                 return {
+376:                     'mode': 'url_pattern',
+377:                     'url_pattern': url_pattern,
+378:                     'confidence': 0.85
+379:                 }
+380: 
+381:         # Check if page has infinite scroll indicators
+382:         if self._has_infinite_scroll_indicators(soup):
+383:             return {
+384:                 'mode': 'infinite_scroll',
+385:                 'confidence': 0.7
+386:             }
+387: 
+388:         return {'mode': 'none', 'confidence': 1.0}
+389: 
+390:     def _find_next_button(self, soup: BeautifulSoup) -> Optional[Tag]:
+391:         """Find next page button."""
+392:         # Common patterns for next buttons
+393:         next_patterns = [
+394:             {'text': 'next'},
+395:             {'text': '→'},
+396:             {'text': '>'},
+397:             {'class': 'next'},
+398:             {'class': 'pagination-next'},
+399:             {'rel': 'next'},
+400:         ]
+401: 
+402:         for pattern in next_patterns:
+403:             if 'text' in pattern:
+404:                 found = soup.find('a', string=lambda x: x and pattern['text'] in str(x).lower())
+405:             elif 'class' in pattern:
+406:                 found = soup.find('a', class_=lambda x: x and pattern['class'] in str(x).lower())
+407:             elif 'rel' in pattern:
+408:                 found = soup.find('a', rel=pattern['rel'])
+409:             else:
+410:                 found = None
+411: 
+412:             if found and found.get('href'):
+413:                 return found
+414: 
+415:         return None
+416: 
+417:     def _find_page_links(self, soup: BeautifulSoup, current_url: str) -> List[Tag]:
+418:         """Find pagination page number links."""
+419:         # Look for numeric links in pagination areas
+420:         pagination_containers = soup.find_all(['nav', 'div'], class_=lambda x: x and 'pag' in str(x).lower())
+421: 
+422:         page_links = []
+423:         for container in pagination_containers:
+424:             links = container.find_all('a', href=True)
+425:             for link in links:
+426:                 text = link.get_text(strip=True)
+427:                 if text.isdigit():
+428:                     page_links.append(link)
+429: 
+430:         return page_links
+431: 
+432:     def _infer_url_pattern(self, page_links: List[Tag], current_url: str) -> Optional[str]:
+433:         """Infer URL pattern from page links."""
+434:         if len(page_links) < 2:
+435:             return None
+436: 
+437:         # Get URLs and page numbers
+438:         url_map = {}
+439:         for link in page_links:
+440:             page_num = link.get_text(strip=True)
+441:             url = link.get('href')
+442:             if page_num.isdigit() and url:
+443:                 url_map[int(page_num)] = url
+444: 
+445:         if len(url_map) < 2:
+446:             return None
+447: 
+448:         # Try to find pattern
+449:         sorted_pages = sorted(url_map.items())
+450:         url1 = sorted_pages[0][1]
+451:         url2 = sorted_pages[1][1]
+452: 
+453:         # Simple pattern detection
+454:         if 'page=' in url1 and 'page=' in url2:
+455:             base = url1.split('page=')[0]
+456:             return base + 'page={page}'
+457:         elif '/page/' in url1:
+458:             parts = url1.split('/page/')
+459:             return parts[0] + '/page/{page}'
+460: 
+461:         return None
+462: 
+463:     def _has_infinite_scroll_indicators(self, soup: BeautifulSoup) -> bool:
+464:         """Check if page likely uses infinite scroll."""
+465:         # Look for common infinite scroll libraries
+466:         scripts = soup.find_all('script', src=True)
+467:         for script in scripts:
+468:             src = script.get('src', '').lower()
+469:             if any(lib in src for lib in ['infinite-scroll', 'endless-scroll', 'waypoint']):
+470:                 return True
+471: 
+472:         return False
+473: 
+474:     def _get_selector_for_element(self, element: Tag) -> str:
+475:         """Generate CSS selector for element."""
+476:         classes = element.get('class', [])
+477:         if classes:
+478:             return f"{element.name}.{classes[0]}"
+479: 
+480:         element_id = element.get('id')
+481:         if element_id:
+482:             return f"#{element_id}"
+483: 
+484:         return element.name
+
+FILE scraper/web/static/index.html
+346:                 <div class="spinner"></div>
+347:                 <p>Loading jobs...</p>
+348:             </div>
+349:             <ul id="job-list" class="job-list"></ul>
+350:         </div>
+351: 
+352:         <!-- Job Details Modal -->
+353:         <div id="job-details" class="card hidden">
+354:             <h2>📊 Job Details</h2>
+355:             <div id="job-details-content"></div>
+356:             <button class="btn btn-secondary" onclick="hideJobDetails()">Close</button>
+357:         </div>
+358:     </div>
+359: 
+360:     <script src="app.js"></script>
+361: </body>
+362: </html>
+
+FILE docs/qa/2026-10-02/run_logged.py
+1: """Run QA commands with UTC command/outcome logs and redacted text artifacts.
+2: 
+3: Usage: python3 docs/qa/2026-10-02/run_logged.py GROUP LABEL -- command args...
+4: GROUP is coordinator, backend, frontend, ux, security, or review.
+5: """
+6: 
+7: import datetime as dt
+8: import os
+9: from pathlib import Path
+10: import re
+11: import subprocess
+12: import sys
+13: import time
+14: import uuid
+15: 
+16: ROOT = Path(__file__).resolve().parent
+17: 
+18: 
+19: def redact(value):
+20:     value = re.sub(r"(?i)(authorization\s*[:=]\s*)([^\n]+)", r"\1[REDACTED]", value)
+21:     value = re.sub(r"\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]+|sk-[A-Za-z0-9_-]{20,}|AKIA[A-Z0-9]{16})\b", "[REDACTED]", value)
+22:     value = re.sub(r"(?i)((?:password|api_key|api_secret|access_token|secret_key)\s*[:=]\s*)['\"][^'\"\n]+['\"]", r"\1'[REDACTED]'", value)
+23:     value = re.sub(r"-----BEGIN [^-]*PRIVATE KEY-----[\s\S]*?-----END [^-]*PRIVATE KEY-----", "[REDACTED]", value)
+24:     return value
+25: 
+26: 
+27: def main():
+28:     group, label, separator, *command = sys.argv[1:]
+29:     if separator != "--" or not command:
+30:         raise SystemExit("Expected GROUP LABEL -- command args...")
+31:     stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+32:     safe_label = re.sub(r"[^A-Za-z0-9_-]", "-", label)
+33:     artifact = ROOT / "artifacts" / f"{group}-{safe_label}-{uuid.uuid4().hex[:8]}.txt"
+34:     artifact.parent.mkdir(parents=True, exist_ok=True)
+35:     log = ROOT / f"{group.upper()}-SESSION.md"
+36:     env = {key: os.environ[key] for key in ("PATH", "HOME", "TMPDIR", "SHELL", "LANG", "LC_ALL", "SYSTEMROOT") if key in os.environ}
+37:     env.update({"UV_CACHE_DIR": "/private/tmp/grann-qa-20261002/uv-cache", "PIP_CACHE_DIR": "/private/tmp/grann-qa-20261002/pip-cache", "npm_config_cache": "/private/tmp/grann-qa-20261002/npm-cache", "PW_TEST_CONNECT_WS_ENDPOINT": "ws://127.0.0.1:3950/", "PYTHONDONTWRITEBYTECODE": "1", "PYTHONPATH": str(ROOT.parents[2]), "QA_OFFLINE": "1"})
+38:     with log.open("a") as handle:
+39:         handle.write(f"\n### {stamp} — {label}\n\nCommand (argv): `{redact(repr(command))}`\n\n")
+40:     started = time.monotonic()
+41:     result = subprocess.run(command, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
+42:     output = redact(result.stdout)
+43:     artifact.write_text(output)
+44:     outcome = f"Exit {result.returncode}; {time.monotonic() - started:.2f}s; [output](artifacts/{artifact.name})."
+45:     with log.open("a") as handle:
+46:         handle.write(outcome + "\n")
+47:     print(output, end="")
+48:     print(outcome)
+49:     return result.returncode
+50: 
+51: 
+52: if __name__ == "__main__":
+53:     raise SystemExit(main())
