@@ -6,6 +6,10 @@ const path = require('node:path');
 const { JSDOM } = require('jsdom');
 
 const staticDirectory = path.resolve(__dirname, '../../scraper/web/static');
+const sampleJob = {
+  id: 'qa_job', name: 'Fictional catalog', start_url: 'https://example.invalid/catalog',
+  created_at: '2026-10-02T12:00:00',
+};
 async function dashboard(t, overrides = {}) {
   const dom = new JSDOM(fs.readFileSync(path.join(staticDirectory, 'index.html'), 'utf8'), {
     url: 'http://127.0.0.1:18765/', runScripts: 'outside-only',
@@ -16,6 +20,7 @@ async function dashboard(t, overrides = {}) {
   window.setInterval = () => 0;
   window.HTMLElement.prototype.scrollIntoView = () => {};
   window.confirm = () => true;
+  window.console.error = () => {}; // Deliberate fictional error responses are asserted below.
   window.fetch = async (input, options = {}) => {
     const url = new URL(input, window.location.href);
     const request = { url, method: options.method || 'GET', body: options.body && JSON.parse(options.body) };
@@ -24,6 +29,20 @@ async function dashboard(t, overrides = {}) {
     const json = (body, status = 200) => ({ ok: status < 400, json: async () => body });
     if (endpoint === '/info') return json({ statistics: { total_jobs: state.jobs.length, running_jobs: 0, completed_jobs: 0, workflows: 0 } });
     if (endpoint === '/jobs') return json({ jobs: state.jobs });
+    if (endpoint.endsWith('/status')) {
+      if (state.statusError) return json({ detail: state.statusError }, 503);
+      return json({ is_running: false, has_result: true, status: 'success', items_scraped: 1, pages_visited: 1, errors: 0, duration: 0.5, ...state.status });
+    }
+    if (endpoint.endsWith('/results')) {
+      if (state.resultsError) return json({ detail: state.resultsError }, 503);
+      const items = state.items || [{ title: 'Fictional product', price: null }];
+      return json({ items, total_items: items.length, pagination: { has_more: false }, ...state.results });
+    }
+    if (request.method === 'DELETE') {
+      const id = decodeURIComponent(endpoint.slice('/jobs/'.length));
+      state.jobs = state.jobs.filter(job => job.id !== id);
+      return json({ status: 'deleted' });
+    }
     throw new Error(`Unexpected mocked endpoint: ${endpoint}`);
   };
   // No resources or real requests are loaded; evaluate only the checked-in script.
@@ -44,4 +63,76 @@ test('FE-004 dashboard requests use the serving origin', async t => {
   const { state } = await dashboard(t);
   assert.ok(state.requests.length > 0);
   assert.deepEqual([...new Set(state.requests.map(request => request.url.origin))], ['http://127.0.0.1:18765']);
+});
+
+// Inert text fixtures only: no scripts, executable event handlers, or requests.
+const markup = '<strong data-qa-fixture="literal">Literal product</strong>';
+
+test('FE-005 job names, URLs, and IDs remain literal text', async t => {
+  const { document } = await dashboard(t, { jobs: [{ ...sampleJob, id: markup, name: markup, start_url: markup }] });
+  assert.equal(document.querySelectorAll('[data-qa-fixture]').length, 0);
+  assert.equal(document.querySelector('.job-info h3').textContent, markup);
+  assert.equal(document.querySelectorAll('[onclick*="viewJobDetails"], [onclick*="deleteJob"]').length, 0);
+  assert.equal(document.querySelector('.job-info p').textContent.split(markup).length - 1, 2);
+});
+
+test('FE-005 scraped headers, values, and result counts remain literal text', async t => {
+  const { window, document } = await dashboard(t, {
+    jobs: [sampleJob], items: [{ [markup]: markup, empty: null }],
+    results: { total_items: markup, pagination: { has_more: true } },
+  });
+  await window.viewJobDetails(sampleJob.id);
+  assert.equal(document.querySelectorAll('[data-qa-fixture]').length, 0);
+  assert.equal(document.querySelector('th').textContent, markup);
+  assert.equal(document.querySelector('td').textContent, markup);
+  assert.equal(document.querySelectorAll('td')[1].textContent, '-');
+  assert.ok(document.querySelector('#job-details-content').textContent.includes(`Showing 10 of ${markup} items`));
+});
+
+test('FE-005 status text cannot create elements or attributes', async t => {
+  const { window, document } = await dashboard(t, {
+    jobs: [sampleJob], status: { status: markup, items_scraped: markup, pages_visited: markup, errors: markup },
+  });
+  await window.viewJobDetails(sampleJob.id);
+  assert.equal(document.querySelectorAll('[data-qa-fixture]').length, 0);
+  assert.equal(document.querySelector('.status-badge').textContent, markup);
+  assert.equal(document.querySelector('.status-badge').className, 'status-badge');
+});
+
+for (const field of ['statusError', 'resultsError']) {
+  test(`FE-005 ${field} remains literal text`, async t => {
+    const { window, document } = await dashboard(t, { jobs: [sampleJob], [field]: markup });
+    await window.viewJobDetails(sampleJob.id);
+    assert.equal(document.querySelectorAll('[data-qa-fixture]').length, 0);
+    assert.ok(document.querySelector('#job-details-content').textContent.includes(markup));
+  });
+}
+
+test('FE-005 job action listeners preserve quoted and URL-significant IDs', async t => {
+  const id = "qa_'/segment?query#fragment";
+  const { document, state } = await dashboard(t, { jobs: [{ ...sampleJob, id }] });
+  document.querySelector('.job-actions .btn').click();
+  await new Promise(setImmediate);
+  assert.ok(document.querySelector('#job-details-content').textContent.includes(`Job: ${id}`));
+  assert.ok(state.requests.some(request => request.url.pathname === `/api/v1/jobs/${encodeURIComponent(id)}/status`));
+  assert.ok(state.requests.some(request => request.url.pathname === `/api/v1/jobs/${encodeURIComponent(id)}/results`));
+  document.querySelector('.job-actions .btn-secondary').click();
+  await new Promise(setImmediate);
+  assert.ok(state.requests.some(request => request.method === 'DELETE' && request.url.pathname === `/api/v1/jobs/${encodeURIComponent(id)}`));
+  assert.equal(state.jobs.length, 0);
+});
+
+test('FE-005 refresh listener preserves job ID and renders successful results', async t => {
+  const id = "qa_'/segment?query#fragment";
+  const { window, document, state } = await dashboard(t, {
+    jobs: [{ ...sampleJob, id }], status: { is_running: true, has_result: false },
+  });
+  await window.viewJobDetails(id);
+  state.status = {};
+  document.querySelector('#job-details-content button').click();
+  await new Promise(setImmediate);
+  assert.equal(document.querySelector('.status-badge').className, 'status-badge status-success');
+  assert.equal(document.querySelector('td').textContent, 'Fictional product');
+  assert.equal(document.querySelectorAll('td')[1].textContent, '-');
+  assert.equal(state.requests.filter(request => request.url.pathname === `/api/v1/jobs/${encodeURIComponent(id)}/status`).length, 2);
 });
