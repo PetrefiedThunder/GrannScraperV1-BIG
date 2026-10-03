@@ -206,6 +206,7 @@ async def run_job(
             raise HTTPException(status_code=400, detail="Job already running")
 
         job = jobs_db[job_id]
+        results_db.pop(job_id, None)
 
         # Start job in background
         task = asyncio.create_task(
@@ -231,6 +232,8 @@ async def _execute_job(
     incremental: bool
 ) -> ScrapeResult:
     """Execute a job (called in background)."""
+    start_time = datetime.utcnow()
+    result = None
     try:
         if incremental:
             # Incremental scraping
@@ -238,7 +241,6 @@ async def _execute_job(
             incremental_scraper = IncrementalScraper(cache)
 
             # Get URLs to scrape
-            from scraper.core.engine import ScraperEngine
             engine = ScraperEngine()
             urls = await engine._generate_urls(job)
 
@@ -264,7 +266,6 @@ async def _execute_job(
             concurrent_scraper = ConcurrentScraper(job, max_workers=10)
 
             # Add URLs
-            from scraper.core.engine import ScraperEngine
             engine = ScraperEngine()
             urls = await engine._generate_urls(job)
             await concurrent_scraper.add_urls(urls)
@@ -296,10 +297,25 @@ async def _execute_job(
 
         return result
 
+    except (Exception, asyncio.CancelledError) as exc:
+        if result is None:
+            result = ScrapeResult(job_id=job_id, status="failed", start_time=start_time)
+        result.status = "failed"
+        result.end_time = datetime.utcnow()
+        result.duration_seconds = (result.end_time - result.start_time).total_seconds()
+        cancelled = isinstance(exc, asyncio.CancelledError)
+        result.errors.append("Job cancelled" if cancelled else "Job execution failed")
+        # A deleted job must not be recreated by its cancelled background task.
+        if job_id in jobs_db:
+            results_db[job_id] = result
+        if cancelled:
+            raise
+        return result
+
     finally:
         # Remove from running jobs (with lock to prevent race conditions)
         async with jobs_lock:
-            if job_id in running_jobs:
+            if running_jobs.get(job_id) is asyncio.current_task():
                 del running_jobs[job_id]
 
 

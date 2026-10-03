@@ -15,7 +15,6 @@ from scraper.scheduler.workflow_dag import WorkflowDAG, WorkflowNode
 from scraper.storage.smart_cache import IncrementalScraper, SmartCache
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-001: standard run fails with UnboundLocalError and leaves no terminal result")
 async def test_standard_api_run_persists_success(client, job, monkeypatch):
     api.jobs_db[job.id] = job
     expected = ScrapeResult(job_id=job.id, status="success", items_scraped=1, data=[{"title": "one"}])
