@@ -3,17 +3,22 @@
 import asyncio
 from unittest.mock import AsyncMock
 
-from fastapi import BackgroundTasks
+import httpx
 import pytest
+from fastapi import BackgroundTasks
 
 from scraper.api import rest_server as api
-from scraper.config.models import ScrapeResult
+from scraper.config.models import ScrapeJob, ScrapeResult
 
 
 @pytest.mark.parametrize("phase", ["scrape", "export"])
-async def test_background_exception_persists_failed_result(client, job, monkeypatch, phase):
+async def test_background_exception_persists_failed_result(
+    client: httpx.AsyncClient, job: ScrapeJob, monkeypatch: pytest.MonkeyPatch, phase: str
+) -> None:
     api.jobs_db[job.id] = job
-    expected = ScrapeResult(job_id=job.id, status="success", data=[{"title": "one"}], items_scraped=1)
+    expected = ScrapeResult(
+        job_id=job.id, status="success", data=[{"title": "one"}], items_scraped=1
+    )
     scrape = AsyncMock(return_value=expected)
     export = AsyncMock(return_value={})
     failing = scrape if phase == "scrape" else export
@@ -39,11 +44,13 @@ async def test_background_exception_persists_failed_result(client, job, monkeypa
 
 
 @pytest.mark.parametrize("delete", [False, True])
-async def test_cancellation_cleans_up_and_does_not_resurrect_deleted_job(client, job, monkeypatch, delete):
+async def test_cancellation_cleans_up_and_does_not_resurrect_deleted_job(
+    client: httpx.AsyncClient, job: ScrapeJob, monkeypatch: pytest.MonkeyPatch, delete: bool
+) -> None:
     api.jobs_db[job.id] = job
     entered = asyncio.Event()
 
-    async def blocked(_self, _job):
+    async def blocked(_self: api.ScraperEngine, _job: ScrapeJob) -> None:
         entered.set()
         await asyncio.Event().wait()
 
@@ -66,13 +73,15 @@ async def test_cancellation_cleans_up_and_does_not_resurrect_deleted_job(client,
         assert api.results_db[job.id].errors == ["Job cancelled"]
 
 
-async def test_rerun_clears_previous_result_and_can_finish(client, job, monkeypatch):
+async def test_rerun_clears_previous_result_and_can_finish(
+    client: httpx.AsyncClient, job: ScrapeJob, monkeypatch: pytest.MonkeyPatch
+) -> None:
     api.jobs_db[job.id] = job
     api.results_db[job.id] = ScrapeResult(job_id=job.id, status="failed")
     gate = asyncio.Event()
     expected = ScrapeResult(job_id=job.id, status="success")
 
-    async def blocked(_self, _job):
+    async def blocked(_self: api.ScraperEngine, _job: ScrapeJob) -> ScrapeResult:
         await gate.wait()
         return expected
 
@@ -88,11 +97,13 @@ async def test_rerun_clears_previous_result_and_can_finish(client, job, monkeypa
     assert api.results_db[job.id] == expected
 
 
-async def test_deleted_run_cannot_publish_into_recreated_job(job, monkeypatch):
+async def test_deleted_run_cannot_publish_into_recreated_job(
+    job: ScrapeJob, monkeypatch: pytest.MonkeyPatch
+) -> None:
     api.jobs_db[job.id] = job
     entered = asyncio.Event()
 
-    async def blocked(_self, _job):
+    async def blocked(_self: api.ScraperEngine, _job: ScrapeJob) -> None:
         entered.set()
         await asyncio.Event().wait()
 
