@@ -112,3 +112,16 @@ async def test_concurrent_cancellation_stops_active_and_idle_workers(job, worker
     assert scraper.active_workers == 0
     assert len(worker_tasks) == 2
     assert all(task.done() for task in worker_tasks)
+
+
+async def test_concurrent_callback_cancellation_propagates_and_stops_workers(job, worker_tasks):
+    scraper = ConcurrentScraper(job, max_workers=2)
+    await scraper.add_urls([job.start_url])
+    fetch = AsyncMock(side_effect=asyncio.CancelledError())
+
+    with pytest.raises(asyncio.CancelledError):
+        await asyncio.wait_for(scraper.run(fetch), timeout=0.5)
+
+    fetch.assert_awaited_once()
+    assert scraper.active_workers == 0
+    assert all(task.done() for task in worker_tasks)

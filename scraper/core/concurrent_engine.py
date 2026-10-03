@@ -128,6 +128,11 @@ class ConcurrentScraper:
                             })
                             self.failed_tasks += 1
 
+            except asyncio.CancelledError:
+                # Wake the collector when a callback cancels its worker.
+                await self.result_queue.put({'status': 'cancelled'})
+                raise
+
             except Exception as e:
                 logger.error(f"Worker {worker_id} error on {task.url}: {e}")
                 await self.result_queue.put({
@@ -171,6 +176,8 @@ class ConcurrentScraper:
             results_processed = 0
             while results_processed < self.total_tasks:
                 item = await self.result_queue.get()
+                if item['status'] == 'cancelled':
+                    raise asyncio.CancelledError()
                 results_processed += 1
 
                 if item['status'] == 'success':
