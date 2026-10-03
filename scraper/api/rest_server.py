@@ -504,11 +504,14 @@ async def create_workflow(request: WorkflowCreateRequest) -> Dict[str, Any]:
 
     workflow = WorkflowDAG(request.name)
 
-    for node_data in request.nodes:
-        node = WorkflowNode(**node_data)
-        workflow.add_node(node)
+    try:
+        for node_data in request.nodes:
+            node = WorkflowNode(**node_data)
+            workflow.add_node(node)
 
-    workflow.build()
+        workflow.build()
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail="Invalid workflow definition") from exc
 
     workflows_db[request.name] = workflow
 

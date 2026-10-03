@@ -113,7 +113,6 @@ async def test_workflow_without_dependencies_round_trips(client):
     assert (await client.get("/api/v1/workflows/independent")).status_code == 200
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-005: invalid workflow nodes/DAG errors escape as 500")
 @pytest.mark.parametrize("nodes", [
     [{}],
     [{"id": "a", "type": "scrape", "depends_on": ["missing"]}],

@@ -91,7 +91,6 @@ async def test_incremental_cached_items_are_returned(job, tmp_path):
     assert result["cached_items"] == [{"title": "one"}]
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-005: DAG plan runs dependents first and drops prerequisites")
 def test_workflow_orders_prerequisites_before_dependents():
     workflow = WorkflowDAG("qa-chain")
     workflow.add_node(WorkflowNode(id="fetch", type="scrape"))
