@@ -1,0 +1,680 @@
+
+FILE tests/qa_security/test_security_boundaries.py
+1:"""Offline security contracts. Known defects stay strict-xfail until repaired.
+2:
+3:Run with pytest-socket: --disable-socket --allow-unix-socket. All HTTP uses
+4:ASGITransport or MockTransport. File proofs modify only pytest tmp_path data.
+5:"""
+6:
+7:import asyncio
+8:from types import SimpleNamespace
+9:
+10:import httpx
+11:import pytest
+12:from pydantic import ValidationError
+13:
+14:from scraper.api import rest_server as api
+15:from scraper.config.models import PaginationConfig, ScrapeJob, ScrapeResult
+16:from scraper.core import engine as engine_module
+17:from scraper.core import fetcher_static
+18:
+19:
+20:@pytest.fixture(autouse=True)
+21:def isolated_api_state(monkeypatch):
+22:    """Replace globals instead of mutating state owned by another test."""
+23:    monkeypatch.setattr(api, "jobs_db", {})
+24:    monkeypatch.setattr(api, "results_db", {})
+25:    monkeypatch.setattr(api, "workflows_db", {})
+26:    monkeypatch.setattr(api, "running_jobs", {})
+27:    monkeypatch.setattr(api, "jobs_lock", asyncio.Lock())
+28:    monkeypatch.setattr(
+29:        fetcher_static, "UserAgent", lambda: SimpleNamespace(random="qa", chrome="qa")
+30:    )
+31:
+32:
+33:@pytest.fixture
+34:async def client():
+35:    async with httpx.AsyncClient(
+36:        transport=httpx.ASGITransport(app=api.app), base_url="http://qa.test"
+37:    ) as http_client:
+38:        yield http_client
+39:
+40:
+41:@pytest.mark.parametrize("identity", ["anonymous", "invalid"])
+42:@pytest.mark.parametrize("operation", ["create", "list", "detail", "results", "delete"])
+43:@pytest.mark.xfail(strict=True, reason="BE-010: privileged API routes have no auth dependency")
+44:async def test_api_rejects_unauthenticated_job_access(client, identity, operation):
+45:    job = ScrapeJob(id="qa_boundary", name="QA fixture", start_url="https://example.test")
+46:    api.jobs_db[job.id] = job
+47:    api.results_db[job.id] = ScrapeResult(job_id=job.id, status="success")
+48:    headers = {} if identity == "anonymous" else {"Authorization": "Bearer qa-invalid"}
+49:    method, path, body = {
+50:        "create": (
+51:            "POST", "/api/v1/jobs",
+52:            {"job": {"id": "qa_new", "name": "Fixture", "start_url": "https://example.test"}},
+53:        ),
+54:        "list": ("GET", "/api/v1/jobs", None),
+55:        "detail": ("GET", f"/api/v1/jobs/{job.id}", None),
+56:        "results": ("GET", f"/api/v1/jobs/{job.id}/results", None),
+57:        "delete": ("DELETE", f"/api/v1/jobs/{job.id}", None),
+58:    }[operation]
+59:    response = await client.request(method, path, json=body, headers=headers)
+60:    assert response.status_code in (401, 403)
+61:
+62:
+63:@pytest.mark.xfail(strict=True, reason="BE-010: OpenAPI declares no security on job operations")
+64:async def test_openapi_declares_auth_for_privileged_routes(client):
+65:    schema = (await client.get("/openapi.json")).json()
+66:    for method in ("get", "post"):
+67:        assert schema["paths"]["/api/v1/jobs"][method].get("security")
+68:
+69:
+70:async def test_public_health_is_accessible(client):
+71:    response = await client.get("/api/v1/health")
+72:    assert response.status_code == 200
+73:    assert response.json()["status"] == "healthy"
+74:
+75:
+76:@pytest.mark.parametrize(
+77:    "target", ["http://127.0.0.1/qa", "http://10.0.0.1/qa", "http://[::1]/qa"]
+78:)
+79:@pytest.mark.xfail(strict=True, reason="BE-011: static fetcher permits nonpublic destinations")
+80:async def test_static_fetch_blocks_nonpublic_destinations(target):
+81:    requested = []
+82:
+83:    def respond(request):
+84:        requested.append(str(request.url))
+85:        return httpx.Response(200, text="<html><body>QA fixture</body></html>")
+86:
+87:    job = ScrapeJob(name="QA fixture", start_url=target)
+88:    fetcher = fetcher_static.StaticFetcher(job)
+89:    async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as session:
+90:        fetcher.session = session
+91:        await fetcher.fetch(target)
+92:    assert requested == []
+93:
+94:
+95:@pytest.mark.xfail(strict=True, reason="BE-011: redirect targets are not revalidated")
+96:async def test_static_fetch_blocks_public_to_private_redirect(monkeypatch):
+97:    requested = []
+98:    original_client = httpx.AsyncClient
+99:
+100:    def respond(request):
+101:        requested.append(str(request.url))
+102:        if request.url.host == "example.test":
+103:            return httpx.Response(302, headers={"Location": "http://127.0.0.1/qa"})
+104:        return httpx.Response(200, text="<html><body>QA fixture</body></html>")
+105:
+106:    def isolated_client(**kwargs):
+107:        return original_client(transport=httpx.MockTransport(respond), **kwargs)
+108:
+109:    monkeypatch.setattr(fetcher_static.httpx, "AsyncClient", isolated_client)
+110:    job = ScrapeJob(name="QA fixture", start_url="https://example.test")
+111:    async with fetcher_static.StaticFetcher(job) as fetcher:
+112:        await fetcher.fetch(job.start_url)
+113:    assert requested == ["https://example.test"]
+114:
+115:
+116:async def test_static_fetch_public_fixture_positive_control():
+117:    job = ScrapeJob(name="QA fixture", start_url="https://example.test")
+118:    fetcher = fetcher_static.StaticFetcher(job)
+119:    transport = httpx.MockTransport(
+120:        lambda request: httpx.Response(200, text="<html><body>QA fixture</body></html>")
+121:    )
+122:    async with httpx.AsyncClient(transport=transport) as session:
+123:        fetcher.session = session
+124:        soup, html = await fetcher.fetch(job.start_url)
+125:    assert soup.get_text() == "QA fixture"
+126:    assert "QA fixture" in html
+127:
+128:
+129:async def run_stubbed_export_job(client, monkeypatch, tmp_path, filename):
+130:    """Exercise real API create/run/export while replacing only scraper I/O."""
+131:    class FixtureEngine:
+132:        async def _generate_urls(self, job):
+133:            return [job.start_url]
+134:
+135:    class FixtureConcurrentScraper:
+136:        def __init__(self, job, max_workers):
+137:            self.job = job
+138:
+139:        async def add_urls(self, urls):
+140:            pass
+141:
+142:        async def run(self, scrape_single):
+143:            return ScrapeResult(
+144:                job_id=self.job.id, status="success", items_scraped=1,
+145:                data=[{"title": "QA fixture"}], metadata={"job_name": self.job.name},
+146:            )
+147:
+148:    monkeypatch.setattr(engine_module, "ScraperEngine", FixtureEngine)
+149:    monkeypatch.setattr(api, "ConcurrentScraper", FixtureConcurrentScraper)
+150:    payload = {
+151:        "id": "qa_export", "name": "QA fixture", "start_url": "https://example.test",
+152:        "export": {
+153:            "base_path": str(tmp_path / "exports"),
+154:            "formats": ["json"], "filename_template": filename,
+155:        },
+156:    }
+157:    created = await client.post("/api/v1/jobs", json={"job": payload})
+158:    assert created.status_code == 200
+159:    started = await client.post("/api/v1/jobs/qa_export/run?concurrent=true")
+160:    assert started.status_code == 200
+161:    task = api.running_jobs.get("qa_export")
+162:    if task is not None:
+163:        await task
+164:
+165:
+166:@pytest.mark.xfail(strict=True, reason="BE-012: API export filename can escape base_path")
+167:async def test_api_export_cannot_overwrite_sibling_marker(client, monkeypatch, tmp_path):
+168:    marker = tmp_path / "outside.json"
+169:    marker.write_text("original QA marker", encoding="utf-8")
+170:    await run_stubbed_export_job(client, monkeypatch, tmp_path, "../outside")
+171:    assert marker.read_text(encoding="utf-8") == "original QA marker"
+172:
+173:
+174:async def test_api_export_with_safe_filename_positive_control(client, monkeypatch, tmp_path):
+175:    await run_stubbed_export_job(client, monkeypatch, tmp_path, "inside")
+176:    assert (tmp_path / "exports" / "inside.json").is_file()
+177:
+178:
+179:@pytest.mark.xfail(strict=True, reason="BE-013: pagination has no server-side upper bound")
+180:def test_pagination_rejects_excessive_work_budget():
+181:    # Validate only: never expand this count into a URL list or run a scrape.
+182:    with pytest.raises(ValidationError):
+183:        PaginationConfig(mode="url_pattern", url_pattern="https://example.test/{page}", max_pages=10**9)
+184:
+
+FILE tests/qa_frontend/dashboard.spec.cjs
+1:const { test, expect } = require('@playwright/test');
+2:const fs = require('node:fs');
+3:const path = require('node:path');
+4:const { execFileSync } = require('node:child_process');
+5:const artifacts = path.resolve(__dirname, '../../docs/qa/2026-10-02/artifacts');
+6:const target = 'https://example.invalid/catalog';
+7:// Response keys mirror rest_server.py:94-143,306-358,365-410,557-578.
+8:const analysis = {
+9:  url: target, item_selector: '.product',
+10:  fields: { title: { selector: 'h2', type: 'string', confidence: 1, auto_detected: true } },
+11:  pagination: { mode: 'next_button', next_button_selector: 'a.next', confidence: 0.9 },
+12:  analysis: { html_size: 100, links: 2, images: 0, title: 'Fictional catalog' },
+13:};
+14:const sampleJob = {
+15:  id: 'qa_job', name: 'Fictional catalog', start_url: target, enabled: true,
+16:  created_at: '2026-10-02T12:00:00',
+17:};
+18:
+19:async function setup(page, overrides = {}) {
+20:  const state = { jobs: [], requests: [], errors: [], failed: [], blocked: [], ...overrides };
+21:  page.on('pageerror', error => state.errors.push(error.message));
+22:  page.on('console', message => { if (message.type() === 'error') state.errors.push(message.text()); });
+23:  page.on('requestfailed', request => state.failed.push({ url: request.url(), error: request.failure()?.errorText }));
+24:  await page.context().route('**/*', async route => {
+25:    const request = route.request();
+26:    const url = new URL(request.url());
+27:    if (url.pathname.startsWith('/api/v1/')) {
+28:      // All API calls are intercepted, even the incorrect localhost:8000 origin.
+29:      state.requests.push({ url: request.url(), method: request.method(), body: request.postDataJSON() });
+30:      const json = async (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+31:      const endpoint = url.pathname.slice('/api/v1'.length);
+32:      if (endpoint === '/info') return json({ version: '1.0.0', name: 'GrandmaScrape API', statistics: { total_jobs: state.jobs.length, running_jobs: 0, completed_jobs: state.jobs.length, workflows: 0 }, features: [] });
+33:      if (endpoint === '/analyze') {
+34:        if (state.analyzeGate) await state.analyzeGate;
+35:        if (state.analyzeStatus) return json({ detail: state.analyzeDetail || 'Fictional analysis failure' }, state.analyzeStatus);
+36:        if (state.analyzeNonJSON) return route.fulfill({ status: 502, contentType: 'text/plain', body: 'Fictional service unavailable' });
+37:        return json(analysis);
+38:      }
+39:      if (endpoint === '/jobs' && request.method() === 'POST') {
+40:        state.created = request.postDataJSON();
+41:        const job = state.created.job;
+42:        state.jobs.push({ ...sampleJob, id: job.id, name: job.name, start_url: job.start_url });
+43:        return json({ job_id: job.id, status: 'created', message: `Job ${job.name} created successfully` });
+44:      }
+45:      if (endpoint === '/jobs') {
+46:        if (state.listStatus) return json({ detail: 'Fictional temporary outage' }, state.listStatus);
+47:        return json({ total: state.jobs.length, jobs: state.jobs });
+48:      }
+49:      if (endpoint.endsWith('/run')) return json({ job_id: state.created?.job.id || 'qa_job', status: 'running', message: 'Job started', concurrent: url.searchParams.get('concurrent') === 'true', incremental: false });
+50:      if (endpoint.endsWith('/status')) return json({ job_id: 'qa_job', is_running: false, has_result: true, status: 'success', items_scraped: 1, pages_visited: 1, errors: 0, duration: 0.5, ...state.status });
+51:      if (endpoint.endsWith('/results')) {
+52:        const items = state.items || [{ title: 'Fictional product', price: '$10.00' }];
+53:        return json({ job_id: 'qa_job', status: 'success', total_items: items.length, pages_visited: 1, errors: [], items: items.slice(0, 10), pagination: { limit: 10, offset: 0, has_more: items.length > 10 } });
+54:      }
+55:      if (request.method() === 'DELETE') {
+56:        state.jobs = state.jobs.filter(job => job.id !== endpoint.split('/').pop());
+57:        return json({ status: 'deleted', job_id: 'qa_job' });
+58:      }
+59:      return json({ detail: 'Unmocked API request' }, 500);
+60:    }
+61:    if (url.origin === 'http://127.0.0.1:18765') return route.continue();
+62:    state.blocked.push(request.url());
+63:    return route.abort('blockedbyclient');
+64:  });
+65:  return state;
+66:}
+67:
+68:async function openWorkingAssetPath(page) {
+69:  // Explicit workaround for FE-001; never confuse this with the real / entry page.
+70:  await page.goto('/static/index.html');
+71:  await expect(page.locator('#job-list-loading')).toBeHidden();
+72:}
+73:
+74:async function submit(page, { pages = '2', format = 'json' } = {}) {
+75:  await page.locator('#url').fill(target);
+76:  await page.locator('#max-pages').fill(pages);
+77:  await page.locator('#export-format').selectOption(format);
+78:  await page.getByRole('button', { name: 'Start Auto-Scrape' }).click();
+79:}
+80:
+81:function modelSettings(payload) {
+82:  return JSON.parse(execFileSync(process.env.QA_PYTHON || 'python3', [path.join(__dirname, 'validate_contract.py')], { input: JSON.stringify(payload), encoding: 'utf8' }));
+83:}
+84:
+85:test('FE-001 root dashboard loads its script and initial jobs', async ({ page }) => {
+86:  const state = await setup(page);
+87:  await page.goto('/');
+88:  await page.screenshot({ path: path.join(artifacts, 'frontend-root-script-404.png'), fullPage: true });
+89:  fs.writeFileSync(path.join(artifacts, 'frontend-root-errors.json'), JSON.stringify(state, null, 2));
+90:  test.fail(true, 'FE-001: app.js resolves to /app.js; only /static/app.js exists');
+91:  await expect(page.locator('#job-list')).toContainText('No jobs yet');
+92:});
+93:
+94:test('working asset route: empty state then analysis/create/run/list flow', async ({ page }) => {
+95:  const state = await setup(page);
+96:  await openWorkingAssetPath(page);
+97:  await expect(page.locator('#job-list')).toContainText('No jobs yet');
+98:  await submit(page);
+99:  await expect(page.locator('#job-list')).toContainText(`Auto-scraped: ${target}`);
+100:  const mutations = state.requests.filter(request => request.method === 'POST');
+101:  expect(mutations.map(request => new URL(request.url).pathname.replace(/job_\d+/, 'ID'))).toEqual(['/api/v1/analyze', '/api/v1/jobs', '/api/v1/jobs/ID/run']);
+102:  expect(new URL(mutations[2].url).searchParams.get('concurrent')).toBe('true');
+103:  await expect(page.locator('#url')).toHaveValue('');
+104:  expect(state.errors).toEqual([]);
+105:  expect(state.blocked).toEqual([]);
+106:  fs.writeFileSync(path.join(artifacts, 'frontend-main-flow.json'), JSON.stringify({ requests: state.requests, normalized_settings: modelSettings(state.created), console_errors: state.errors, failed_requests: state.failed, blocked: state.blocked }, null, 2));
+107:});
+108:
+109:for (const pages of ['1', '2', '1000']) {
+110:  test(`FE-002 selected page limit ${pages} survives API model validation`, async ({ page }) => {
+111:    const state = await setup(page);
+112:    await openWorkingAssetPath(page);
+113:    await submit(page, { pages });
+114:    await expect(page.locator('#job-list .job-item')).toHaveCount(1);
+115:    const persisted = modelSettings(state.created);
+116:    test.fail(true, 'FE-002: max_pages sent at job root is ignored instead of pagination.max_pages');
+117:    expect(persisted.max_pages).toBe(Number(pages));
+118:  });
+119:}
+120:
+121:for (const format of ['json', 'excel']) {
+122:  test(`FE-003 selected ${format} export survives API model validation`, async ({ page }) => {
+123:    const state = await setup(page);
+124:    await openWorkingAssetPath(page);
+125:    await submit(page, { format });
+126:    await expect(page.locator('#job-list .job-item')).toHaveCount(1);
+127:    test.fail(true, 'FE-003: export.format is ignored; model expects export.formats');
+128:    expect(modelSettings(state.created).formats).toEqual([format]);
+129:  });
+130:}
+131:
+132:test('FE-004 dashboard API requests use the serving origin', async ({ page }) => {
+133:  const state = await setup(page);
+134:  await openWorkingAssetPath(page);
+135:  test.fail(true, 'FE-004: API_BASE is permanently http://localhost:8000/api/v1');
+136:  expect([...new Set(state.requests.map(request => new URL(request.url).origin))]).toEqual([new URL(page.url()).origin]);
+137:});
+138:
+139:test('FE-005 job names are rendered as text, not HTML elements', async ({ page }) => {
+140:  // Inert formatting only: no scripts, event handlers, requests, or executable payloads.
+141:  const name = '<strong data-qa-fixture="literal">Literal product name</strong>';
+142:  await setup(page, { jobs: [{ ...sampleJob, name }] });
+143:  await openWorkingAssetPath(page);
+144:  await page.screenshot({ path: path.join(artifacts, 'frontend-literal-markup.png'), fullPage: true });
+145:  test.fail(true, 'FE-005: job.name is interpolated into innerHTML');
+146:  await expect(page.locator('[data-qa-fixture="literal"]')).toHaveCount(0);
+147:});
+148:
+149:test('FE-005 scraped field names and values remain literal text', async ({ page }) => {
+150:  await setup(page, { jobs: [sampleJob], items: [{ '<em data-qa-fixture="field">literal heading</em>': '<strong data-qa-fixture="value">literal value</strong>' }] });
+151:  await openWorkingAssetPath(page);
+152:  await page.getByRole('button', { name: 'View Details' }).click();
+153:  await expect(page.locator('.results-table')).toBeVisible();
+154:  test.fail(true, 'FE-005: results are interpolated into innerHTML');
+155:  await expect(page.locator('[data-qa-fixture]')).toHaveCount(0);
+156:});
+157:
+158:test('results can be opened and closed; null values show a dash', async ({ page }) => {
+159:  const state = await setup(page, { jobs: [sampleJob], items: [{ title: 'Fictional product', price: null }] });
+160:  await openWorkingAssetPath(page);
+161:  await page.getByRole('button', { name: 'View Details' }).click();
+162:  await expect(page.locator('.results-table tbody tr')).toHaveCount(1);
+163:  await expect(page.locator('.results-table tbody td').nth(1)).toHaveText('-');
+164:  await page.screenshot({ path: path.join(artifacts, 'frontend-results.png'), fullPage: true });
+165:  await page.getByRole('button', { name: 'Close', exact: true }).click();
+166:  await expect(page.locator('#job-details')).toBeHidden();
+167:  expect(state.errors).toEqual([]);
+168:});
+169:
+170:test('delete requires confirmation; cancelling keeps job; confirming removes it', async ({ page }) => {
+171:  const state = await setup(page, { jobs: [sampleJob] });
+172:  await openWorkingAssetPath(page);
+173:  page.once('dialog', dialog => dialog.dismiss());
+174:  await page.getByRole('button', { name: 'Delete', exact: true }).click();
+175:  expect(state.requests.some(request => request.method === 'DELETE')).toBe(false);
+176:  page.once('dialog', dialog => dialog.accept());
+177:  await page.getByRole('button', { name: 'Delete', exact: true }).click();
+178:  await expect(page.locator('#job-list')).toContainText('No jobs yet');
+179:  expect(state.requests.filter(request => request.method === 'DELETE')).toHaveLength(1);
+180:});
+181:
+182:test('analyze error preserves input and lets user retry successfully', async ({ page }) => {
+183:  const state = await setup(page, { analyzeStatus: 400 });
+184:  await openWorkingAssetPath(page);
+185:  await submit(page);
+186:  await expect(page.locator('#alert-container')).toContainText('Fictional analysis failure');
+187:  await expect(page.getByRole('button', { name: 'Start Auto-Scrape' })).toBeEnabled();
+188:  await expect(page.locator('#url')).toHaveValue(target);
+189:  expect(state.created).toBeUndefined();
+190:  state.analyzeStatus = 0;
+191:  await page.getByRole('button', { name: 'Start Auto-Scrape' }).click();
+192:  await expect(page.locator('#job-list .job-item')).toHaveCount(1);
+193:});
+194:
+195:test('request in progress disables submit until analysis finishes', async ({ page }) => {
+196:  let finish;
+197:  const analyzeGate = new Promise(resolve => { finish = resolve; });
+198:  const state = await setup(page, { analyzeGate });
+199:  await openWorkingAssetPath(page);
+200:  await submit(page);
+201:  await expect(page.getByRole('button', { name: 'Analyzing...' })).toBeDisabled();
+202:  expect(state.requests.filter(request => request.url.endsWith('/analyze'))).toHaveLength(1);
+203:  finish();
+204:  await expect(page.getByRole('button', { name: 'Start Auto-Scrape' })).toBeEnabled();
+205:});
+206:
+207:test('browser validation blocks page limits outside the visible range', async ({ page }) => {
+208:  const state = await setup(page);
+209:  await openWorkingAssetPath(page);
+210:  for (const pages of ['0', '1001', '1.5']) {
+211:    await submit(page, { pages });
+212:    expect(await page.locator('#max-pages').evaluate(input => input.validity.valid)).toBe(false);
+213:  }
+214:  expect(state.requests.filter(request => request.method === 'POST')).toHaveLength(0);
+215:});
+216:
+217:test('list outage clears spinner and exposes failure', async ({ page }) => {
+218:  await setup(page, { listStatus: 503 });
+219:  await openWorkingAssetPath(page);
+220:  await expect(page.locator('#job-list')).toContainText('Failed to load jobs');
+221:  await page.screenshot({ path: path.join(artifacts, 'frontend-list-error.png'), fullPage: true });
+222:});
+223:
+224:test('local navigation performance and console/network evidence', async ({ page, browser }) => {
+225:  const state = await setup(page, { jobs: [sampleJob] });
+226:  await page.coverage.startJSCoverage();
+227:  await openWorkingAssetPath(page);
+228:  await page.getByRole('button', { name: 'View Details' }).click();
+229:  await expect(page.locator('.results-table')).toBeVisible();
+230:  const metrics = await page.evaluate(() => ({
+231:    navigation: performance.getEntriesByType('navigation').map(entry => entry.toJSON()),
+232:    paint: performance.getEntriesByType('paint').map(entry => entry.toJSON()),
+233:    resources: performance.getEntriesByType('resource').map(entry => ({ name: entry.name, duration: entry.duration, transferSize: entry.transferSize })),
+234:    userAgent: navigator.userAgent,
+235:  }));
+236:  const coverage = (await page.coverage.stopJSCoverage()).filter(entry => entry.url.endsWith('/app.js')).map(entry => ({
+237:    url: entry.url, total_bytes: entry.text.length,
+238:    executed_bytes: entry.ranges.reduce((total, range) => total + range.end - range.start, 0),
+239:    ranges: entry.ranges,
+240:  }));
+241:  fs.writeFileSync(path.join(artifacts, 'frontend-performance.json'), JSON.stringify({ ...metrics, browserVersion: browser.version(), console_errors: state.errors, failed_requests: state.failed, blocked: state.blocked, coverage, note: 'Unthrottled loopback diagnostic; not Lighthouse or production measurement. Coverage limited to this empty/list/details journey.' }, null, 2));
+242:  expect(state.errors).toEqual([]);
+243:  expect(state.blocked).toEqual([]);
+244:});
+
+FILE tests/qa_frontend/playwright.config.cjs
+1:const { defineConfig } = require('@playwright/test');
+2:const path = require('node:path');
+3:const artifacts = path.resolve(__dirname, '../../docs/qa/2026-10-02/artifacts');
+4:module.exports = defineConfig({
+5:  testDir: __dirname,
+6:  testMatch: 'dashboard.spec.cjs',
+7:  fullyParallel: false,
+8:  workers: 1,
+9:  retries: 0,
+10:  timeout: 20000,
+11:  expect: { timeout: 2500 },
+12:  reporter: [['list'], ['json', { outputFile: path.join(artifacts, 'frontend-playwright.json') }]],
+13:  outputDir: path.join(artifacts, 'frontend-test-results'),
+14:  use: {
+15:    browserName: 'chromium',
+16:    baseURL: 'http://127.0.0.1:18765',
+17:    viewport: { width: 1440, height: 1000 },
+18:    serviceWorkers: 'block',
+19:    screenshot: 'off',
+20:    trace: 'off',
+21:    connectOptions: { wsEndpoint: process.env.PW_TEST_CONNECT_WS_ENDPOINT || 'ws://127.0.0.1:3950/' },
+22:  },
+23:  webServer: {
+24:    command: `node ${JSON.stringify(path.join(__dirname, 'server.cjs'))}`,
+25:    url: 'http://127.0.0.1:18765/',
+26:    reuseExistingServer: false,
+27:    timeout: 10000,
+28:  },
+29:});
+
+FILE tests/qa_ux/dashboard.spec.cjs
+1:/* Offline UX regression checks. The browser is supplied by the orchestrator;
+2: * only the contexts created here are closed. No external request is allowed.
+3: */
+4:const { test, expect, chromium } = require('@playwright/test');
+5:const http = require('node:http');
+6:const fs = require('node:fs');
+7:const path = require('node:path');
+8:
+9:const root = path.resolve(__dirname, '../..');
+10:const artifacts = path.join(root, 'docs/qa/2026-10-02/artifacts');
+11:const origin = 'http://127.0.0.1:8766';
+12:let server;
+13:let browser;
+14:let context;
+15:let page;
+16:let state;
+17:let externalBlocked;
+18:const jobs = [{
+19:  id: 'qa-fictional-001', name: 'Fictional catalogue sample',
+20:  start_url: 'https://catalogue.example.invalid/products/autumn-collection',
+21:  created_at: '2026-10-02T12:00:00Z', enabled: true,
+22:}];
+23:function save(name, content) {
+24:  fs.writeFileSync(path.join(artifacts, `ux-${name}.json`), JSON.stringify(content, null, 2));
+25:}
+26:async function shot(name) {
+27:  await page.screenshot({ path: path.join(artifacts, `ux-${name}.png`), fullPage: true });
+28:}
+29:async function open(options = {}) {
+30:  state = { jobs, ...options };
+31:  await page.goto(`${origin}/static/index.html`);
+32:  await expect(page.locator('#job-list-loading')).toHaveClass(/hidden/);
+33:}
+34:async function audit(name) {
+35:  await page.addScriptTag({ path: require.resolve('axe-core/axe.min.js') });
+36:  const result = await page.evaluate(async () => axe.run(document, {
+37:    runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'] },
+38:  }));
+39:  save(`axe-${name}`, result);
+40:  fs.writeFileSync(path.join(artifacts, `ux-semantics-${name}.txt`), await page.locator('body').ariaSnapshot());
+41:  return result;
+42:}
+43:
+44:test.beforeAll(async () => {
+45:  fs.mkdirSync(artifacts, { recursive: true });
+46:  server = http.createServer((request, response) => {
+47:    const pathname = new URL(request.url, origin).pathname;
+48:    const file = pathname === '/' || pathname === '/static/index.html' ? 'index.html'
+49:      : pathname === '/static/app.js' ? 'app.js' : null;
+50:    if (!file) { response.writeHead(404); response.end('Not found'); return; }
+51:    response.setHeader('Content-Type', file.endsWith('.js') ? 'application/javascript' : 'text/html');
+52:    response.end(fs.readFileSync(path.join(root, 'scraper/web/static', file)));
+53:  });
+54:  await new Promise(resolve => server.listen(8766, '127.0.0.1', resolve));
+55:  browser = await chromium.connect(process.env.PW_TEST_CONNECT_WS_ENDPOINT);
+56:});
+57:
+58:test.beforeEach(async () => {
+59:  context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+60:  page = await context.newPage();
+61:  externalBlocked = [];
+62:  state = { jobs };
+63:  await context.route('**/*', async route => {
+64:    const url = new URL(route.request().url());
+65:    if (url.origin === origin) { await route.continue(); return; }
+66:    if (url.origin !== 'http://localhost:8000' || !url.pathname.startsWith('/api/v1/')) {
+67:      externalBlocked.push(url.origin + url.pathname);
+68:      await route.abort('blockedbyclient'); return;
+69:    }
+70:    const endpoint = url.pathname.replace('/api/v1', '');
+71:    const method = route.request().method();
+72:    if (state.delayJobs && endpoint === '/jobs') await new Promise(resolve => setTimeout(resolve, 1000));
+73:    let status = 200;
+74:    let payload;
+75:    if (endpoint === '/info') payload = { statistics: { total_jobs: state.jobs.length, running_jobs: 0, completed_jobs: state.jobs.length, workflows: 0 } };
+76:    else if (endpoint === '/jobs' && method === 'GET') {
+77:      status = state.errorJobs ? 503 : 200;
+78:      payload = state.errorJobs ? { detail: 'Temporary QA fixture outage' } : { jobs: state.jobs };
+79:    } else if (endpoint.endsWith('/status')) payload = {
+80:      job_id: jobs[0].id, is_running: false, has_result: true, status: 'success',
+81:      items_scraped: 25, pages_visited: 1, errors: 0, duration: 0.5,
+82:    };
+83:    else if (endpoint.endsWith('/results')) payload = {
+84:      items: Array.from({ length: 10 }, (_, index) => ({ name: `Fictional product ${index + 1}`, price: index + 10, category: 'Sample catalogue' })),
+85:      total_items: 25, pagination: { has_more: true, limit: 10, offset: 0 },
+86:    };
+87:    else if (endpoint === '/analyze') { status = 503; payload = { detail: 'Temporary QA fixture outage' }; }
+88:    else { status = 404; payload = { detail: 'Unconfigured QA fixture' }; }
+89:    await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(payload) });
+90:  });
+91:});
+92:
+93:test.afterEach(async () => {
+94:  expect(externalBlocked).toEqual([]);
+95:  await context.close();
+96:});
+97:test.afterAll(async () => { await new Promise(resolve => server.close(resolve)); });
+98:
+99:test('baseline: named controls, keyboard operation, native invalid URL, empty/loading semantics evidence', async () => {
+100:  await open({ jobs: [] });
+101:  await expect(page.getByText('No jobs yet. Start an auto-scrape above!')).toBeVisible();
+102:  await expect(page.getByRole('textbox', { name: 'Website URL:' })).toBeVisible();
+103:  await expect(page.getByRole('spinbutton', { name: 'Maximum Pages:' })).toBeVisible();
+104:  const focusOrder = [];
+105:  for (let i = 0; i < 5; i++) {
+106:    await page.keyboard.press('Tab');
+107:    focusOrder.push(await page.evaluate(() => ({ id: document.activeElement.id, tag: document.activeElement.tagName, text: document.activeElement.textContent.trim() })));
+108:  }
+109:  expect(focusOrder.map(item => item.id)).toEqual(['url', 'max-pages', 'export-format', 'concurrent', '']);
+110:  await page.getByRole('checkbox').focus();
+111:  await page.keyboard.press('Space');
+112:  await expect(page.getByRole('checkbox')).not.toBeChecked();
+113:  await page.locator('#url').fill('invalid-url');
+114:  await page.getByRole('button', { name: 'Start Auto-Scrape' }).click();
+115:  expect(await page.locator('#url').evaluate(element => element.validity.typeMismatch)).toBe(true);
+116:  save('keyboard-order', focusOrder);
+117:  await audit('empty');
+118:  await shot('desktop-empty');
+119:  state.delayJobs = true;
+120:  await page.evaluate(() => { window.qaLoading = loadJobs(); });
+121:  await expect(page.locator('#job-list-loading')).toBeVisible();
+122:  await shot('loading');
+123:  await page.evaluate(() => window.qaLoading);
+124:});
+125:
+126:test('UX-001: populated mobile page reflows without document horizontal overflow', async () => {
+127:  await page.setViewportSize({ width: 375, height: 812 });
+128:  await open();
+129:  await shot('mobile-jobs');
+130:  const dimensions = await page.evaluate(() => ({ viewport: innerWidth, document: document.documentElement.scrollWidth, job: document.querySelector('.job-item').getBoundingClientRect().toJSON() }));
+131:  save('mobile-layout', dimensions);
+132:  test.fail(true, 'UX-001: job text and horizontal action row overflow the mobile viewport');
+133:  expect(dimensions.document).toBeLessThanOrEqual(dimensions.viewport);
+134:});
+135:
+136:test('UX-002: text has WCAG AA contrast in completed results', async () => {
+137:  await open();
+138:  await page.getByRole('button', { name: 'View Details' }).click();
+139:  await expect(page.locator('table')).toBeVisible();
+140:  const result = await audit('completed');
+141:  await shot('desktop-results');
+142:  test.fail(true, 'UX-002: visible normal-size text does not meet 4.5:1 contrast');
+143:  expect(result.violations.filter(item => item.id === 'color-contrast')).toEqual([]);
+144:});
+145:
+146:test('UX-003: dynamic error is announced to screen readers', async () => {
+147:  await open();
+148:  await page.locator('#url').fill('https://catalogue.example.invalid');
+149:  await page.getByRole('button', { name: 'Start Auto-Scrape' }).click();
+150:  await expect(page.locator('.alert-error').first()).toBeVisible();
+151:  await shot('error-feedback');
+152:  save('error-semantics', await page.locator('.alert-error').evaluateAll(elements => elements.map(element => ({ text: element.textContent, role: element.getAttribute('role'), live: element.getAttribute('aria-live'), ancestorLive: Boolean(element.closest('[aria-live], [role="alert"], [role="status"]')) }))));
+153:  test.fail(true, 'UX-003: alert container and inserted feedback lack live-region semantics');
+154:  await expect(page.locator('[role="alert"], [aria-live="assertive"], [aria-live="polite"]')).not.toHaveCount(0);
+155:});
+156:
+157:test('UX-004: opening details moves keyboard focus into visible detail context', async () => {
+158:  await open();
+159:  const details = page.getByRole('button', { name: 'View Details' });
+160:  await details.focus();
+161:  await page.keyboard.press('Enter');
+162:  await expect(page.locator('table')).toBeVisible();
+163:  const focus = await page.evaluate(() => ({ text: document.activeElement.textContent, insideDetails: Boolean(document.activeElement.closest('#job-details')) }));
+164:  save('details-focus', focus);
+165:  await shot('details-keyboard-focus');
+166:  test.fail(true, 'UX-004: only visual scroll changes; focus remains on original View Details');
+167:  expect(focus.insideDetails).toBe(true);
+168:});
+169:
+170:test('UX-005: users can retrieve result items beyond the preview', async () => {
+171:  await open();
+172:  await page.getByRole('button', { name: 'View Details' }).click();
+173:  await expect(page.getByText('Showing 10 of 25 items')).toBeVisible();
+174:  expect(await page.locator('tbody tr').count()).toBe(10);
+175:  save('result-actions', await page.getByRole('button').allTextContents());
+176:  test.fail(true, 'UX-005: no next-page, export, download or full-results action exists');
+177:  await expect(page.getByRole('button', { name: /next|download|export|all results/i }).or(page.getByRole('link', { name: /next|download|export|all results/i }))).not.toHaveCount(0);
+178:});
+179:
+180:test('UX-006: failed job-list load offers an in-app retry', async () => {
+181:  await open({ errorJobs: true });
+182:  await expect(page.getByText('Failed to load jobs', { exact: true })).toBeVisible();
+183:  await shot('jobs-error');
+184:  await audit('jobs-error');
+185:  test.fail(true, 'UX-006: job list stays failed and has no Retry or Refresh control');
+186:  await expect(page.getByRole('button', { name: /retry|refresh/i })).not.toHaveCount(0);
+187:});
+188:
+189:test('evidence: 200 percent text scale and close focus state', async () => {
+190:  await open();
+191:  await page.evaluate(() => { document.body.style.fontSize = '200%'; });
+192:  await shot('text-scale-200');
+193:  save('text-scale-200', await page.evaluate(() => ({ viewport: innerWidth, document: document.documentElement.scrollWidth })));
+194:  await page.getByRole('button', { name: 'View Details' }).click();
+195:  await expect(page.locator('table')).toBeVisible();
+196:  await page.getByRole('button', { name: 'Close', exact: true }).focus();
+197:  await page.keyboard.press('Enter');
+198:  save('close-focus', await page.evaluate(() => ({ tag: document.activeElement.tagName, id: document.activeElement.id, hidden: Boolean(document.activeElement.closest('.hidden')) })));
+199:  await expect(page.locator('#job-details')).toBeHidden();
+200:});
+
+FILE tests/qa_ux/playwright.config.cjs
+1:const { defineConfig } = require('@playwright/test');
+2:const path = require('node:path');
+3:
+4:module.exports = defineConfig({
+5:  testDir: __dirname,
+6:  testMatch: '*.spec.cjs',
+7:  workers: 1,
+8:  fullyParallel: false,
+9:  timeout: 30000,
+10:  expect: { timeout: 1500 },
+11:  reporter: [['list'], ['json', { outputFile: path.resolve(__dirname, '../../docs/qa/2026-10-02/artifacts/ux-playwright-results.json') }]],
+12:  outputDir: '../../docs/qa/2026-10-02/artifacts/ux-test-output',
+13:});

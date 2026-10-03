@@ -1,0 +1,39 @@
+qa/2026-10-02-sweep
+ pyproject.toml | 2 ++
+ 1 file changed, 2 insertions(+)
+diff --git a/pyproject.toml b/pyproject.toml
+index c556646..6251020 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -51,6 +51,8 @@ pytest = "^8.0.0"
+ pytest-asyncio = "^0.23.0"
+ pytest-mock = "^3.12.0"
+ pytest-cov = "^4.1.0"
++pytest-socket = "^0.8.0"
++hypothesis = "^6.0.0"
+ ruff = "^0.2.0"
+ mypy = "^1.8.0"
+ ipython = "^8.21.0"
+ M pyproject.toml
+?? docs/qa/
+?? tests/qa_backend/
+?? tests/qa_frontend/
+?? tests/qa_security/
+?? tests/qa_ux/
+Untracked files 213
+docs/qa/2026-10-02: 199
+tests/qa_backend/conftest.py: 1
+tests/qa_backend/test_api_contracts.py: 1
+tests/qa_backend/test_boundaries_exports.py: 1
+tests/qa_backend/test_execution.py: 1
+tests/qa_frontend/README.md: 1
+tests/qa_frontend/dashboard.spec.cjs: 1
+tests/qa_frontend/playwright.config.cjs: 1
+tests/qa_frontend/probe_browsers.cjs: 1
+tests/qa_frontend/server.cjs: 1
+tests/qa_frontend/validate_contract.py: 1
+tests/qa_security/test_security_boundaries.py: 1
+tests/qa_ux/dashboard.spec.cjs: 1
+tests/qa_ux/playwright.config.cjs: 1
+tests/qa_ux/test_cli_docs.py: 1
+Unexpected []

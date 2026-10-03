@@ -1,0 +1,9 @@
+Missing report links: []
+Coverage percent: 56.64
+Frontend files:
+tests/qa_frontend/dashboard.spec.cjs
+tests/qa_frontend/validate_contract.py
+tests/qa_frontend/README.md
+tests/qa_frontend/probe_browsers.cjs
+tests/qa_frontend/server.cjs
+tests/qa_frontend/playwright.config.cjs

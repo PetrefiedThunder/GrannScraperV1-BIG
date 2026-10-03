@@ -1,0 +1,857 @@
+['javascript-typescript-vue-web-frontend-security.md', 'python-flask-web-server-security.md', 'golang-general-backend-security.md', 'python-fastapi-web-server-security.md', 'javascript-express-web-server-security.md', 'python-django-web-server-security.md', 'javascript-jquery-web-frontend-security.md', 'javascript-typescript-nextjs-web-server-security.md', 'javascript-general-web-frontend-security.md', 'javascript-typescript-react-web-frontend-security.md']
+
+FILE scraper/api/rest_server.py
+480: 
+481: 
+482: @app.get("/api/v1/workflows")
+483: async def list_workflows() -> Dict[str, Any]:
+484:     """List all workflows."""
+485:     return {
+486:         "total": len(workflows_db),
+487:         "workflows": [
+488:             {
+489:                 "name": name,
+490:                 "nodes": len(workflow.nodes),
+491:                 "levels": len(workflow.execution_order)
+492:             }
+493:             for name, workflow in workflows_db.items()
+494:         ]
+495:     }
+496: 
+497: 
+498: @app.get("/api/v1/workflows/{workflow_name}")
+499: async def get_workflow(workflow_name: str) -> Dict[str, Any]:
+500:     """Get workflow details."""
+501:     if workflow_name not in workflows_db:
+502:         raise HTTPException(status_code=404, detail="Workflow not found")
+503: 
+504:     workflow = workflows_db[workflow_name]
+505: 
+506:     return {
+507:         "name": workflow.name,
+508:         "nodes": {
+509:             node_id: {
+510:                 "type": node.type,
+511:                 "depends_on": node.depends_on,
+512:                 "status": node.status.value
+513:             }
+514:             for node_id, node in workflow.nodes.items()
+515:         },
+516:         "execution_plan": workflow.get_execution_plan()
+517:     }
+518: 
+519: 
+520: # ============================================================================
+521: # CACHE MANAGEMENT ENDPOINTS
+522: # ============================================================================
+523: 
+524: @app.get("/api/v1/cache/stats")
+525: async def get_cache_stats() -> Dict[str, Any]:
+526:     """Get cache statistics."""
+527:     cache = SmartCache()
+528:     return cache.get_stats()
+529: 
+530: 
+531: @app.delete("/api/v1/cache")
+532: async def clear_cache(
+533:     expired_only: bool = Query(False, description="Only clear expired entries"),
+534:     ttl_seconds: int = Query(3600, description="TTL for expired check")
+535: ) -> Dict[str, Any]:
+536:     """Clear cache."""
+537:     cache = SmartCache()
+538: 
+539:     if expired_only:
+540:         deleted = cache.clear_expired(ttl_seconds)
+541:         return {"status": "cleared", "expired_entries_deleted": deleted}
+542:     else:
+543:         cache.clear_all()
+544:         return {"status": "cleared", "message": "All cache cleared"}
+545: 
+546: 
+547: # ============================================================================
+548: # HEALTH & INFO ENDPOINTS
+549: # ============================================================================
+550: 
+551: @app.get("/api/v1/health")
+552: async def health_check() -> Dict[str, str]:
+553:     """Health check endpoint."""
+554:     return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+555: 
+556: 
+557: @app.get("/api/v1/info")
+558: async def get_info() -> Dict[str, Any]:
+559:     """Get API information and statistics."""
+560:     return {
+561:         "version": "1.0.0",
+562:         "name": "GrandmaScrape API",
+563:         "statistics": {
+564:             "total_jobs": len(jobs_db),
+565:             "running_jobs": len(running_jobs),
+566:             "completed_jobs": len(results_db),
+567:             "workflows": len(workflows_db)
+568:         },
+569:         "features": [
+570:             "auto_detection",
+571:             "concurrent_scraping",
+572:             "incremental_scraping",
+573:             "data_quality_analysis",
+574:             "anomaly_detection",
+575:             "workflow_dag",
+576:             "smart_caching"
+577:         ]
+578:     }
+579: 
+580: 
+581: # ============================================================================
+582: # WEB DASHBOARD
+583: # ============================================================================
+584: 
+585: @app.get("/", response_class=HTMLResponse)
+586: async def serve_dashboard():
+587:     """Serve the web dashboard."""
+588:     base_static_path = Path(__file__).parent.parent / "web" / "static"
+589:     index_path = base_static_path / "index.html"
+590: 
+591:     # Validate path to prevent directory traversal
+592:     try:
+593:         index_path_resolved = index_path.resolve()
+594:         base_path_resolved = base_static_path.resolve()
+595: 
+596:         if not str(index_path_resolved).startswith(str(base_path_resolved)):
+597:             raise HTTPException(status_code=403, detail="Access denied")
+598: 
+599:         if index_path_resolved.exists() and index_path_resolved.is_file():
+600:             return FileResponse(index_path_resolved)
+601:     except Exception as e:
+602:         logger.warning(f"Error serving dashboard: {e}")
+603: 
+604:     return HTMLResponse(
+605:         content="""
+606:         <html>
+607:             <head><title>GrandmaScrape API</title></head>
+608:             <body style="font-family: sans-serif; text-align: center; padding: 50px;">
+609:                 <h1>GrandmaScrape API</h1>
+610:                 <p>API is running!</p>
+611:                 <p>Dashboard not found. Please check web/static/index.html</p>
+612:                 <p><a href="/docs">View API Documentation</a></p>
+613:             </body>
+614:         </html>
+615:         """,
+616:         status_code=200
+617:     )
+618: 
+619: 
+620: # ============================================================================
+621: # RUN SERVER
+622: # ============================================================================
+623: 
+624: def run_server(host: str = "0.0.0.0", port: int = 8000):
+625:     """Run the API server."""
+626:     import uvicorn
+627: 
+628:     logger.info(f"Starting GrandmaScrape API server on {host}:{port}")
+629: 
+630:     uvicorn.run(
+631:         app,
+632:         host=host,
+633:         port=port,
+634:         log_level="info"
+635:     )
+636: 
+637: 
+638: if __name__ == "__main__":
+639:     run_server()
+
+FILE scraper/security/auth.py
+1: """
+2: Production Security Features.
+3: 
+4: Enterprise-grade authentication, authorization, and rate limiting.
+5: Competitors charge $299-999/month for these features.
+6: """
+7: 
+8: import asyncio
+9: import hashlib
+10: import hmac
+11: import logging
+12: import os
+13: import secrets
+14: import time
+15: from datetime import datetime, timedelta
+16: from functools import wraps
+17: from typing import Any, Callable, Dict, List, Optional
+18: 
+19: from fastapi import HTTPException, Request, Security
+20: from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+21: from pydantic import BaseModel
+22: 
+23: logger = logging.getLogger(__name__)
+24: 
+25: 
+26: # ============================================================================
+27: # API KEY MANAGEMENT
+28: # ============================================================================
+29: 
+30: class APIKey(BaseModel):
+31:     """API key model."""
+32:     key_prefix: str
+33:     key_hash: str
+34:     name: str
+35:     created_at: datetime
+36:     last_used: Optional[datetime] = None
+37:     rate_limit: int = 100  # requests per minute
+38:     allowed_endpoints: Optional[List[str]] = None  # None = all endpoints
+39:     expires_at: Optional[datetime] = None
+40:     is_active: bool = True
+41:     metadata: Dict[str, Any] = {}
+42:     rotated_from: Optional[str] = None
+43: 
+44: 
+45: class SecurityAuditLogger:
+46:     """
+47:     Security event logger for auditing and incident response.
+48: 
+49:     Captures high-value events for security monitoring.
+50:     """
+51: 
+52:     def __init__(self):
+53:         self.events: List[Dict[str, Any]] = []
+54: 
+55:     def log_event(self, event_type: str, details: Dict[str, Any]) -> None:
+56:         """Record a security event."""
+57:         event = {
+58:             "event_type": event_type,
+59:             "details": details,
+60:             "timestamp": datetime.utcnow().isoformat()
+61:         }
+62:         self.events.append(event)
+63:         logger.warning(f"Security event: {event_type} | {details}")
+64: 
+65: 
+66: class APIKeyManager:
+67:     """
+68:     Manage API keys for authentication.
+69: 
+70:     Features:
+71:     - Generate secure API keys
+72:     - Validate and authenticate requests
+73:     - Track usage per key
+74:     - Rate limiting per key
+75:     - Key expiration
+76:     - Endpoint-specific permissions
+77:     """
+78: 
+79:     def __init__(self):
+80:         """Initialize API key manager."""
+81:         self.keys_by_hash: Dict[str, APIKey] = {}
+82:         self.usage_stats: Dict[str, Dict[str, Any]] = {}
+83:         self.pepper = os.getenv("GRANDMASCRAPE_API_KEY_PEPPER", "")
+84:         self.audit_logger = SecurityAuditLogger()
+85: 
+86:     def _hash_key(self, key: str) -> str:
+87:         """Hash an API key with a server-side pepper."""
+88:         return hmac.new(
+89:             self.pepper.encode(),
+90:             key.encode(),
+91:             hashlib.sha256
+92:         ).hexdigest()
+93: 
+94:     @staticmethod
+95:     def _key_prefix(key: str, length: int = 8) -> str:
+96:         """Return a safe prefix for auditing without exposing full keys."""
+97:         return key[:length]
+98: 
+99:     def generate_key(
+100:         self,
+101:         name: str,
+102:         rate_limit: int = 100,
+103:         allowed_endpoints: Optional[List[str]] = None,
+104:         expires_in_days: Optional[int] = None,
+105:         metadata: Optional[Dict[str, Any]] = None
+106:     ) -> str:
+107:         """
+108:         Generate a new API key.
+109: 
+110:         Args:
+111:             name: Descriptive name for the key
+112:             rate_limit: Requests per minute
+113:             allowed_endpoints: List of allowed endpoints (None = all)
+114:             expires_in_days: Key expiration in days (None = never)
+115:             metadata: Additional metadata
+116: 
+117:         Returns:
+118:             Generated API key
+119:         """
+120:         # Generate secure random key
+121:         key = f"gms_{secrets.token_urlsafe(32)}"
+122: 
+123:         expires_at = None
+124:         if expires_in_days:
+125:             expires_at = datetime.utcnow() + timedelta(days=expires_in_days)
+126: 
+127:         key_hash = self._hash_key(key)
+128:         api_key = APIKey(
+129:             key_prefix=self._key_prefix(key),
+130:             key_hash=key_hash,
+131:             name=name,
+132:             created_at=datetime.utcnow(),
+133:             rate_limit=rate_limit,
+134:             allowed_endpoints=allowed_endpoints,
+135:             expires_at=expires_at,
+136:             metadata=metadata or {}
+137:         )
+138: 
+139:         self.keys_by_hash[key_hash] = api_key
+140: 
+141:         logger.info(f"Generated API key: {name} (rate_limit={rate_limit}/min)")
+142: 
+143:         return key
+144: 
+145:     def validate_key(self, key: str, endpoint: Optional[str] = None) -> bool:
+146:         """
+147:         Validate an API key.
+148: 
+149:         Args:
+150:             key: API key to validate
+151:             endpoint: Endpoint being accessed
+152: 
+153:         Returns:
+154:             True if valid, False otherwise
+155:         """
+156:         key_hash = self._hash_key(key)
+157:         if key_hash not in self.keys_by_hash:
+158:             self.audit_logger.log_event(
+159:                 "auth.invalid_key",
+160:                 details={"key_prefix": self._key_prefix(key)}
+161:             )
+162:             logger.warning(f"Invalid API key attempted: {key[:10]}...")
+163:             return False
+164: 
+165:         api_key = self.keys_by_hash[key_hash]
+166: 
+167:         # Check if active
+168:         if not api_key.is_active:
+169:             self.audit_logger.log_event(
+170:                 "auth.inactive_key",
+171:                 details={"key_prefix": api_key.key_prefix, "name": api_key.name}
+172:             )
+173:             logger.warning(f"Inactive API key used: {api_key.name}")
+174:             return False
+175: 
+176:         # Check expiration
+177:         if api_key.expires_at and datetime.utcnow() > api_key.expires_at:
+178:             self.audit_logger.log_event(
+179:                 "auth.expired_key",
+180:                 details={"key_prefix": api_key.key_prefix, "name": api_key.name}
+181:             )
+182:             logger.warning(f"Expired API key used: {api_key.name}")
+183:             return False
+184: 
+185:         # Check endpoint permissions
+186:         if api_key.allowed_endpoints and endpoint:
+187:             if endpoint not in api_key.allowed_endpoints:
+188:                 self.audit_logger.log_event(
+189:                     "auth.endpoint_denied",
+190:                     details={"key_prefix": api_key.key_prefix, "endpoint": endpoint}
+191:                 )
+192:                 logger.warning(f"Unauthorized endpoint access: {api_key.name} -> {endpoint}")
+193:                 return False
+194: 
+195:         # Update last used
+196:         api_key.last_used = datetime.utcnow()
+197: 
+198:         return True
+199: 
+200:     def get_key(self, key: str) -> Optional[APIKey]:
+201:         """Retrieve API key record from a raw key."""
+202:         key_hash = self._hash_key(key)
+203:         return self.keys_by_hash.get(key_hash)
+204: 
+205:     def revoke_key(self, key: str):
+206:         """Revoke an API key."""
+207:         key_hash = self._hash_key(key)
+208:         if key_hash in self.keys_by_hash:
+209:             self.keys_by_hash[key_hash].is_active = False
+210:             logger.info(f"Revoked API key: {self.keys_by_hash[key_hash].name}")
+211: 
+212:     def rotate_key(
+213:         self,
+214:         old_key: str,
+215:         name: Optional[str] = None,
+216:         rate_limit: Optional[int] = None,
+217:         allowed_endpoints: Optional[List[str]] = None,
+218:         expires_in_days: Optional[int] = None,
+219:         metadata: Optional[Dict[str, Any]] = None
+220:     ) -> str:
+221:         """Rotate an existing API key and revoke the old one."""
+222:         existing = self.get_key(old_key)
+223:         if not existing:
+224:             raise ValueError("Old API key not found for rotation.")
+225: 
+226:         new_key = self.generate_key(
+227:             name=name or existing.name,
+228:             rate_limit=rate_limit or existing.rate_limit,
+229:             allowed_endpoints=allowed_endpoints or existing.allowed_endpoints,
+230:             expires_in_days=expires_in_days,
+231:             metadata=metadata or existing.metadata
+232:         )
+233: 
+234:         new_record = self.get_key(new_key)
+235:         if new_record:
+236:             new_record.rotated_from = existing.key_prefix
+237: 
+238:         self.revoke_key(old_key)
+239:         self.audit_logger.log_event(
+240:             "auth.key_rotated",
+241:             details={
+242:                 "old_key_prefix": existing.key_prefix,
+243:                 "new_key_prefix": self._key_prefix(new_key)
+244:             }
+245:         )
+
+FILE scraper/core/engine.py
+1: """
+2: Core scraping engine.
+3: 
+4: Orchestrates fetchers, extractors, pagination, and data flow.
+5: """
+6: 
+7: import asyncio
+8: import logging
+9: from datetime import datetime
+10: from typing import Any, Optional
+11: from urllib.parse import urljoin
+12: 
+13: from bs4 import BeautifulSoup
+14: 
+15: from scraper.config.models import (
+16:     FieldType,
+17:     PaginationMode,
+18:     ScrapeJob,
+19:     ScrapeResult,
+20: )
+21: from scraper.core.fetcher_browser import BrowserFetcher
+22: from scraper.core.fetcher_static import StaticFetcher
+23: from scraper.core.rate_limiter import RateLimiter, SessionManager
+24: from scraper.extractors.selector_extractor import (
+25:     MediaExtractor,
+26:     SelectorExtractor,
+27:     TableExtractor,
+28: )
+29: from scraper.extractors.llm_extractor import LLMExtractor
+30: 
+31: logger = logging.getLogger(__name__)
+32: 
+33: 
+34: class ScraperEngine:
+35:     """
+36:     Main scraping engine.
+37: 
+38:     Coordinates:
+39:     - Fetching (static or browser)
+40:     - Extraction (selectors, tables, media, LLM)
+41:     - Pagination (next button, URL pattern, infinite scroll)
+42:     - Rate limiting & session management
+43:     - Result aggregation
+44:     """
+45: 
+46:     def __init__(self):
+47:         """Initialize scraper engine."""
+48:         self.session_manager = SessionManager()
+49: 
+50:     async def run_job(self, job: ScrapeJob) -> ScrapeResult:
+51:         """
+52:         Execute a complete scrape job.
+53: 
+54:         Args:
+55:             job: ScrapeJob configuration
+56: 
+57:         Returns:
+58:             ScrapeResult with scraped data and metadata
+59:         """
+60:         logger.info(f"Starting job: {job.name}")
+61:         start_time = datetime.utcnow()
+62: 
+63:         result = ScrapeResult(
+64:             job_id=job.id,
+65:             status="success",
+66:             start_time=start_time,
+67:         )
+68: 
+69:         try:
+70:             # Initialize components
+71:             rate_limiter = RateLimiter(job.rate_limit)
+72:             selector_extractor = SelectorExtractor()
+73:             table_extractor = TableExtractor()
+74:             media_extractor = MediaExtractor()
+75:             llm_extractor = LLMExtractor() if self._has_llm_fields(job) else None
+76: 
+77:             # Choose fetcher based on job config
+78:             use_browser = job.browser.enabled or self._needs_browser(job)
+79: 
+80:             if use_browser:
+81:                 logger.info("Using browser fetcher")
+82:                 fetcher = BrowserFetcher(job)
+83:             else:
+84:                 logger.info("Using static fetcher")
+85:                 fetcher = StaticFetcher(job)
+86: 
+87:             async with fetcher:
+88:                 # Generate URLs to scrape
+89:                 urls = await self._generate_urls(job)
+90: 
+91:                 logger.info(f"Will scrape {len(urls)} URLs")
+92: 
+93:                 # Scrape each URL
+94:                 for i, url in enumerate(urls):
+95:                     if job.max_items and len(result.data) >= job.max_items:
+96:                         logger.info(f"Reached max items limit: {job.max_items}")
+97:                         break
+98: 
+99:                     # Rate limiting
+100:                     from urllib.parse import urlparse
+101:                     domain = urlparse(url).netloc
+102:                     await rate_limiter.acquire(domain)
+103: 
+104:                     try:
+105:                         # Fetch page
+106:                         soup, html = await fetcher.fetch(url)
+107: 
+108:                         if not soup:
+109:                             result.errors.append(f"Failed to fetch {url}")
+110:                             self.session_manager.mark_failed(url)
+111:                             continue
+112: 
+113:                         self.session_manager.mark_visited(url)
+114:                         result.pages_visited += 1
+115: 
+116:                         # Extract items from page
+117:                         items = await self._extract_items(
+118:                             soup,
+119:                             html,
+120:                             job,
+121:                             url,
+122:                             selector_extractor,
+123:                             table_extractor,
+124:                             media_extractor,
+125:                             llm_extractor,
+126:                         )
+127: 
+128:                         result.data.extend(items)
+129:                         result.items_scraped += len(items)
+130: 
+131:                         logger.info(
+132:                             f"Page {i + 1}/{len(urls)}: "
+133:                             f"Extracted {len(items)} items "
+134:                             f"(total: {result.items_scraped})"
+135:                         )
+136: 
+137:                     except Exception as e:
+138:                         error_msg = f"Error scraping {url}: {e}"
+139:                         logger.error(error_msg)
+140:                         result.errors.append(error_msg)
+141:                         self.session_manager.mark_failed(url)
+142: 
+143:                     finally:
+144:                         rate_limiter.release(domain)
+145: 
+146:             # Finalize result
+147:             result.end_time = datetime.utcnow()
+148:             result.duration_seconds = (
+149:                 result.end_time - result.start_time
+150:             ).total_seconds()
+151: 
+152:             if result.errors:
+153:                 result.status = "partial" if result.data else "failed"
+154: 
+155:             result.metadata = {
+156:                 "session_stats": self.session_manager.get_stats(),
+157:                 "job_name": job.name,
+158:                 "job_id": job.id,
+159:             }
+160: 
+161:             logger.info(
+162:                 f"Job completed: {result.items_scraped} items, "
+163:                 f"{result.pages_visited} pages, "
+164:                 f"{len(result.errors)} errors"
+165:             )
+166: 
+167:             return result
+168: 
+169:         except Exception as e:
+170:             logger.error(f"Job failed: {e}")
+171:             result.end_time = datetime.utcnow()
+172:             result.status = "failed"
+173:             result.errors.append(str(e))
+174:             return result
+175: 
+176:     async def _generate_urls(self, job: ScrapeJob) -> list[str]:
+177:         """
+178:         Generate list of URLs to scrape based on pagination config.
+179: 
+180:         Args:
+181:             job: ScrapeJob configuration
+182: 
+183:         Returns:
+184:             List of URLs
+185:         """
+186:         urls = [job.start_url]
+187: 
+188:         pagination = job.pagination
+189: 
+190:         if pagination.mode == PaginationMode.NONE:
+191:             return urls
+192: 
+193:         elif pagination.mode == PaginationMode.URL_PATTERN:
+194:             # Generate URLs from pattern
+195:             if pagination.url_pattern:
+196:                 urls = []
+197:                 for page_num in range(
+198:                     pagination.start_page,
+199:                     pagination.start_page + pagination.max_pages
+200:                 ):
+201:                     url = pagination.url_pattern.format(page=page_num)
+202:                     urls.append(url)
+203: 
+204:         elif pagination.mode == PaginationMode.NEXT_BUTTON:
+205:             # Will handle dynamically during scraping
+206:             # For now, return start URL
+207:             pass
+208: 
+209:         elif pagination.mode == PaginationMode.INFINITE_SCROLL:
+210:             # Handled by browser fetcher
+211:             # Return single URL
+212:             pass
+213: 
+214:         return urls
+215: 
+216:     async def _extract_items(
+217:         self,
+218:         soup: BeautifulSoup,
+219:         html: str,
+220:         job: ScrapeJob,
+221:         url: str,
+222:         selector_extractor: SelectorExtractor,
+223:         table_extractor: TableExtractor,
+224:         media_extractor: MediaExtractor,
+225:         llm_extractor: Optional[LLMExtractor],
+226:     ) -> list[dict[str, Any]]:
+227:         """
+228:         Extract items from a page.
+229: 
+230:         Args:
+231:             soup: Parsed HTML
+232:             html: Raw HTML
+233:             job: Job configuration
+234:             url: Current URL
+235:             selector_extractor: Selector extractor
+236:             table_extractor: Table extractor
+237:             media_extractor: Media extractor
+238:             llm_extractor: Optional LLM extractor
+239: 
+240:         Returns:
+241:             List of extracted items (dicts)
+242:         """
+243:         items = []
+244: 
+245:         # If item_selector is provided, extract multiple items
+246:         if job.item_selector:
+247:             item_elements = soup.select(job.item_selector)
+248:             logger.debug(f"Found {len(item_elements)} items with selector {job.item_selector}")
+249: 
+250:             for item_element in item_elements:
+251:                 # Create a soup for just this item
+252:                 item_soup = BeautifulSoup(str(item_element), "lxml")
+253: 
+254:                 # Extract fields from this item
+255:                 item_data = await self._extract_fields(
+256:                     item_soup,
+257:                     job,
+258:                     url,
+259:                     selector_extractor,
+260:                     table_extractor,
+261:                     media_extractor,
+262:                     llm_extractor,
+263:                 )
+264: 
+265:                 if item_data:
+266:                     items.append(item_data)
+267: 
+268:         else:
+269:             # Extract from entire page (single item)
+270:             item_data = await self._extract_fields(
+271:                 soup,
+272:                 job,
+273:                 url,
+274:                 selector_extractor,
+275:                 table_extractor,
+276:                 media_extractor,
+277:                 llm_extractor,
+278:             )
+279: 
+280:             if item_data:
+281:                 items.append(item_data)
+282: 
+283:         return items
+284: 
+285:     async def _extract_fields(
+286:         self,
+287:         soup: BeautifulSoup,
+288:         job: ScrapeJob,
+289:         url: str,
+290:         selector_extractor: SelectorExtractor,
+291:         table_extractor: TableExtractor,
+292:         media_extractor: MediaExtractor,
+293:         llm_extractor: Optional[LLMExtractor],
+294:     ) -> dict[str, Any]:
+295:         """
+296:         Extract all configured fields from soup.
+297: 
+298:         Args:
+299:             soup: Parsed HTML (for single item or full page)
+300:             job: Job configuration
+301:             url: Current URL
+302:             selector_extractor: Selector extractor
+303:             table_extractor: Table extractor
+304:             media_extractor: Media extractor
+305:             llm_extractor: Optional LLM extractor
+306: 
+307:         Returns:
+308:             Dict of field values
+309:         """
+310:         data = {}
+311:         context = {"url": url}
+312: 
+313:         for field_name, field_config in job.fields.items():
+314:             try:
+315:                 # Choose extractor based on config
+316:                 if field_config.use_llm and llm_extractor:
+317:                     value = await llm_extractor.extract(
+318:                         soup, field_name, field_config, context
+319:                     )
+320:                 elif field_config.selector and "table" in field_config.selector.lower():
+321:                     # Heuristic: if selector contains "table", use table extractor
+322:                     value = await table_extractor.extract(
+323:                         soup, field_name, field_config, context
+324:                     )
+325:                 elif field_config.type in (FieldType.URL,) or "img" in str(field_config.selector):
+326:                     # Use media extractor for images/videos
+327:                     value = await media_extractor.extract(
+328:                         soup, field_name, field_config, context
+329:                     )
+330:                 else:
+
+FILE tests/conftest.py
+1: """
+2: Pytest configuration and fixtures.
+3: """
+4: 
+5: import pytest
+6: 
+7: 
+8: @pytest.fixture
+9: def sample_html():
+10:     """Sample HTML for testing."""
+11:     return """
+12:     <!DOCTYPE html>
+13:     <html>
+14:     <head><title>Test Page</title></head>
+15:     <body>
+16:         <div class="container">
+17:             <article class="item">
+18:                 <h2 class="title">Item 1</h2>
+19:                 <p class="description">Description 1</p>
+20:                 <span class="price">$19.99</span>
+21:                 <a class="link" href="/item1">Link 1</a>
+22:             </article>
+23:             <article class="item">
+24:                 <h2 class="title">Item 2</h2>
+25:                 <p class="description">Description 2</p>
+26:                 <span class="price">$29.99</span>
+27:                 <a class="link" href="/item2">Link 2</a>
+28:             </article>
+29:         </div>
+30:     </body>
+31:     </html>
+32:     """
+33: 
+34: 
+35: @pytest.fixture
+36: def sample_job_data():
+37:     """Sample job configuration data."""
+38:     return {
+39:         "name": "test_job",
+40:         "start_url": "https://example.com",
+41:         "item_selector": ".item",
+42:         "fields": {
+43:             "title": {
+44:                 "selector": ".title",
+45:                 "type": "string",
+46:             },
+47:             "price": {
+48:                 "selector": ".price",
+49:                 "type": "currency",
+50:             },
+51:         },
+52:         "pagination": {
+53:             "mode": "none",
+54:         },
+55:         "export": {
+56:             "formats": ["json"],
+57:         },
+58:     }
+
+FILE docs/qa/2026-10-02/run_logged.py
+1: """Run QA commands with UTC command/outcome logs and redacted text artifacts.
+2: 
+3: Usage: python3 docs/qa/2026-10-02/run_logged.py GROUP LABEL -- command args...
+4: GROUP is coordinator, backend, frontend, ux, security, or review.
+5: """
+6: 
+7: import datetime as dt
+8: import os
+9: from pathlib import Path
+10: import re
+11: import subprocess
+12: import sys
+13: import time
+14: import uuid
+15: 
+16: ROOT = Path(__file__).resolve().parent
+17: 
+18: 
+19: def redact(value):
+20:     value = re.sub(r"(?i)(authorization\s*[:=]\s*)([^\n]+)", r"\1[REDACTED]", value)
+21:     value = re.sub(r"\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]+|sk-[A-Za-z0-9_-]{20,}|AKIA[A-Z0-9]{16})\b", "[REDACTED]", value)
+22:     value = re.sub(r"(?i)((?:password|api_key|api_secret|access_token|secret_key)\s*[:=]\s*)['\"][^'\"\n]+['\"]", r"\1'[REDACTED]'", value)
+23:     value = re.sub(r"-----BEGIN [^-]*PRIVATE KEY-----[\s\S]*?-----END [^-]*PRIVATE KEY-----", "[REDACTED]", value)
+24:     return value
+25: 
+26: 
+27: def main():
+28:     group, label, separator, *command = sys.argv[1:]
+29:     if separator != "--" or not command:
+30:         raise SystemExit("Expected GROUP LABEL -- command args...")
+31:     stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+32:     safe_label = re.sub(r"[^A-Za-z0-9_-]", "-", label)
+33:     artifact = ROOT / "artifacts" / f"{group}-{safe_label}-{uuid.uuid4().hex[:8]}.txt"
+34:     artifact.parent.mkdir(parents=True, exist_ok=True)
+35:     log = ROOT / f"{group.upper()}-SESSION.md"
+36:     env = {key: os.environ[key] for key in ("PATH", "HOME", "TMPDIR", "SHELL", "LANG", "LC_ALL", "SYSTEMROOT") if key in os.environ}
+37:     env.update({"UV_CACHE_DIR": "/private/tmp/grann-qa-20261002/uv-cache", "PIP_CACHE_DIR": "/private/tmp/grann-qa-20261002/pip-cache", "npm_config_cache": "/private/tmp/grann-qa-20261002/npm-cache", "PW_TEST_CONNECT_WS_ENDPOINT": "ws://127.0.0.1:3950/", "PYTHONDONTWRITEBYTECODE": "1", "PYTHONPATH": str(ROOT.parents[2]), "QA_OFFLINE": "1"})
+38:     with log.open("a") as handle:
+39:         handle.write(f"\n### {stamp} — {label}\n\nCommand (argv): `{redact(repr(command))}`\n\n")
+40:     started = time.monotonic()
+41:     result = subprocess.run(command, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
+42:     output = redact(result.stdout)
+43:     artifact.write_text(output)
+44:     outcome = f"Exit {result.returncode}; {time.monotonic() - started:.2f}s; [output](artifacts/{artifact.name})."
+45:     with log.open("a") as handle:
+46:         handle.write(outcome + "\n")
+47:     print(output, end="")
+48:     print(outcome)
+49:     return result.returncode
+50: 
+51: 
+52: if __name__ == "__main__":
+53:     raise SystemExit(main())

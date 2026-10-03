@@ -1,0 +1,27 @@
+scraper/config/models.py:100:    max_pages: int = Field(10, description="Maximum pages to scrape", ge=1)
+scraper/config/models.py:189:    respect_robots_txt: bool = Field(
+scraper/config/models.py:220:class ExportConfig(BaseModel):
+scraper/config/models.py:226:    base_path: Path = Field(
+scraper/config/models.py:229:    filename_template: str = Field(
+scraper/config/models.py:328:    def validate_url(cls, v: str) -> str:
+scraper/api/rest_server.py:87:    max_pages: int = 1
+scraper/api/rest_server.py:106:    jobs_db[job.id] = job
+scraper/api/rest_server.py:294:        export_manager = ExportManager(job.export)
+scraper/api/rest_server.py:295:        await export_manager.export_result(result)
+49:async def test_api_rejects_unauthenticated_job_access(client, identity, operation):
+74:async def test_openapi_declares_auth_for_privileged_routes(client):
+80:async def test_public_health_is_accessible(client):
+92:async def test_static_fetch_blocks_nonpublic_destinations(target):
+110:async def test_static_fetch_blocks_public_to_private_redirect(monkeypatch):
+130:async def test_static_fetch_public_fixture_positive_control():
+148:async def test_analyze_rejects_nonpublic_url(client, monkeypatch):
+214:async def test_api_export_cannot_overwrite_sibling_marker(client, monkeypatch, tmp_path):
+221:async def test_api_export_with_safe_filename_positive_control(client, monkeypatch, tmp_path):
+229:def test_pagination_rejects_excessive_work_budget():
+246:async def test_api_rejects_excessive_work_budget(client):
+295:async def test_engine_respects_robots_disallow(monkeypatch):
+302:async def test_robots_parser_rejects_disallow_positive_control(monkeypatch):
+314:def test_api_rate_limiter_does_not_log_credential_identifier(caplog):
+Missing report artifacts: []
+Security case functions:
+Security source length: 319

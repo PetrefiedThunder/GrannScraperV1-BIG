@@ -1,0 +1,1941 @@
+
+FILE scraper/web/static/app.js
+// GrandmaScrape Dashboard JavaScript
+
+const API_BASE = 'http://localhost:8000/api/v1';
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+function showAlert(message, type = 'info') {
+    const container = document.getElementById('alert-container');
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type}`;
+    alert.textContent = message;
+    container.appendChild(alert);
+
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        alert.remove();
+    }, 5000);
+}
+
+async function apiCall(endpoint, options = {}) {
+    try {
+        const response = await fetch(`${API_BASE}${endpoint}`, {
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers,
+            },
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'API request failed');
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error('API Error:', error);
+        showAlert(`Error: ${error.message}`, 'error');
+        throw error;
+    }
+}
+
+// ============================================================================
+// STATS & INFO
+// ============================================================================
+
+async function loadStats() {
+    try {
+        const info = await apiCall('/info');
+        const stats = info.statistics;
+
+        document.getElementById('stat-jobs').textContent = stats.total_jobs;
+        document.getElementById('stat-running').textContent = stats.running_jobs;
+        document.getElementById('stat-completed').textContent = stats.completed_jobs;
+        document.getElementById('stat-workflows').textContent = stats.workflows;
+    } catch (error) {
+        console.error('Failed to load stats:', error);
+    }
+}
+
+// ============================================================================
+// AUTO-SCRAPE FORM
+// ============================================================================
+
+document.getElementById('auto-scrape-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const url = document.getElementById('url').value;
+    const maxPages = parseInt(document.getElementById('max-pages').value);
+    const exportFormat = document.getElementById('export-format').value;
+    const concurrent = document.getElementById('concurrent').checked;
+
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Analyzing...';
+
+    try {
+        // Step 1: Analyze URL
+        showAlert(`Analyzing ${url}...`, 'info');
+
+        const analysis = await apiCall('/analyze', {
+            method: 'POST',
+            body: JSON.stringify({ url, max_pages: 1 }),
+        });
+
+        showAlert(`Auto-detected ${Object.keys(analysis.fields || {}).length} fields!`, 'success');
+
+        // Step 2: Create job
+        submitBtn.textContent = 'Creating job...';
+
+        const jobData = {
+            job: {
+                id: `job_${Date.now()}`,
+                name: `Auto-scraped: ${url}`,
+                start_url: url,
+                item_selector: analysis.item_selector,
+                fields: analysis.fields || {},
+                pagination: analysis.pagination || {},
+                max_pages: maxPages,
+                export: { format: exportFormat },
+                browser: { enabled: false },
+                rate_limit: { requests_per_second: 2 },
+                enabled: true,
+            },
+        };
+
+        const createResult = await apiCall('/jobs', {
+            method: 'POST',
+            body: JSON.stringify(jobData),
+        });
+
+        const jobId = createResult.job_id;
+
+        // Step 3: Run job
+        submitBtn.textContent = 'Starting scrape...';
+
+        await apiCall(`/jobs/${jobId}/run?concurrent=${concurrent}&incremental=false`, {
+            method: 'POST',
+        });
+
+        showAlert(`Job ${jobId} started! Check the job list below.`, 'success');
+
+        // Reset form
+        submitBtn.textContent = 'Start Auto-Scrape';
+        submitBtn.disabled = false;
+        e.target.reset();
+
+        // Reload jobs
+        await loadJobs();
+
+    } catch (error) {
+        submitBtn.textContent = 'Start Auto-Scrape';
+        submitBtn.disabled = false;
+        showAlert(`Failed to start scrape: ${error.message}`, 'error');
+    }
+});
+
+// ============================================================================
+// JOB LIST
+// ============================================================================
+
+async function loadJobs() {
+    const listElement = document.getElementById('job-list');
+    const loadingElement = document.getElementById('job-list-loading');
+
+    loadingElement.classList.remove('hidden');
+    listElement.innerHTML = '';
+
+    try {
+        const data = await apiCall('/jobs');
+        const jobs = data.jobs;
+
+        if (jobs.length === 0) {
+            listElement.innerHTML = '<li style="text-align: center; padding: 20px; color: #999;">No jobs yet. Start an auto-scrape above!</li>';
+        } else {
+            jobs.forEach(job => {
+                const li = document.createElement('li');
+                li.className = 'job-item';
+
+                li.innerHTML = `
+                    <div class="job-info">
+                        <h3>${job.name}</h3>
+                        <p>
+                            <strong>URL:</strong> ${job.start_url}<br>
+                            <strong>ID:</strong> ${job.id}<br>
+                            <strong>Created:</strong> ${new Date(job.created_at).toLocaleString()}
+                        </p>
+                    </div>
+                    <div class="job-actions">
+                        <button class="btn" onclick="viewJobDetails('${job.id}')">View Details</button>
+                        <button class="btn btn-secondary" onclick="deleteJob('${job.id}')">Delete</button>
+                    </div>
+                `;
+
+                listElement.appendChild(li);
+            });
+        }
+
+        await loadStats();
+
+    } catch (error) {
+        listElement.innerHTML = '<li style="text-align: center; padding: 20px; color: #dc3545;">Failed to load jobs</li>';
+    } finally {
+        loadingElement.classList.add('hidden');
+    }
+}
+
+async function deleteJob(jobId) {
+    if (!confirm('Are you sure you want to delete this job?')) {
+        return;
+    }
+
+    try {
+        await apiCall(`/jobs/${jobId}`, { method: 'DELETE' });
+        showAlert(`Job ${jobId} deleted`, 'success');
+        await loadJobs();
+    } catch (error) {
+        showAlert(`Failed to delete job: ${error.message}`, 'error');
+    }
+}
+
+// ============================================================================
+// JOB DETAILS
+// ============================================================================
+
+async function viewJobDetails(jobId) {
+    const detailsCard = document.getElementById('job-details');
+    const contentDiv = document.getElementById('job-details-content');
+
+    detailsCard.classList.remove('hidden');
+    contentDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading...</p></div>';
+
+    try {
+        // Get job status
+        const status = await apiCall(`/jobs/${jobId}/status`);
+
+        let html = `
+            <h3>Job: ${jobId}</h3>
+            <p><strong>Running:</strong> ${status.is_running ? 'Yes' : 'No'}</p>
+            <p><strong>Has Results:</strong> ${status.has_result ? 'Yes' : 'No'}</p>
+        `;
+
+        if (status.has_result) {
+            html += `
+                <p><strong>Status:</strong> <span class="status-badge status-${status.status}">${status.status}</span></p>
+                <p><strong>Items Scraped:</strong> ${status.items_scraped}</p>
+                <p><strong>Pages Visited:</strong> ${status.pages_visited}</p>
+                <p><strong>Errors:</strong> ${status.errors}</p>
+                <p><strong>Duration:</strong> ${status.duration?.toFixed(2)}s</p>
+            `;
+
+            // Get results
+            try {
+                const results = await apiCall(`/jobs/${jobId}/results?limit=10`);
+
+                html += '<h3>Results (first 10 items):</h3>';
+
+                if (results.items.length > 0) {
+                    // Create table
+                    const fields = Object.keys(results.items[0]);
+
+                    html += '<table class="results-table"><thead><tr>';
+                    fields.forEach(field => {
+                        html += `<th>${field}</th>`;
+                    });
+                    html += '</tr></thead><tbody>';
+
+                    results.items.forEach(item => {
+                        html += '<tr>';
+                        fields.forEach(field => {
+                            const value = item[field];
+                            html += `<td>${value !== null && value !== undefined ? value : '-'}</td>`;
+                        });
+                        html += '</tr>';
+                    });
+
+                    html += '</tbody></table>';
+
+                    if (results.pagination.has_more) {
+                        html += `<p style="margin-top: 10px; color: #666;"><em>Showing 10 of ${results.total_items} items</em></p>`;
+                    }
+                } else {
+                    html += '<p>No results yet.</p>';
+                }
+
+            } catch (error) {
+                html += `<p style="color: #dc3545;">Failed to load results: ${error.message}</p>`;
+            }
+        } else if (status.is_running) {
+            html += '<p><em>Job is still running. Refresh to see updates.</em></p>';
+            html += '<button class="btn" onclick="viewJobDetails(\'' + jobId + '\')">Refresh</button>';
+        } else {
+            html += '<p><em>No results available yet.</em></p>';
+        }
+
+        contentDiv.innerHTML = html;
+
+    } catch (error) {
+        contentDiv.innerHTML = `<p style="color: #dc3545;">Error loading job details: ${error.message}</p>`;
+    }
+
+    // Scroll to details
+    detailsCard.scrollIntoView({ behavior: 'smooth' });
+}
+
+function hideJobDetails() {
+    document.getElementById('job-details').classList.add('hidden');
+}
+
+// ============================================================================
+// INITIALIZATION
+// ============================================================================
+
+async function init() {
+    // Load initial data
+    await loadStats();
+    await loadJobs();
+
+    // Auto-refresh every 10 seconds
+    setInterval(async () => {
+        await loadStats();
+    }, 10000);
+}
+
+// Start the app
+init().catch(console.error);
+
+
+FILE scraper/web/static/index.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GrandmaScrape Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .job-list {
+            list-style: none;
+        }
+
+        .job-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: transform 0.2s;
+        }
+
+        .job-item:hover {
+            transform: translateX(5px);
+            background: #e9ecef;
+        }
+
+        .job-info {
+            flex: 1;
+        }
+
+        .job-info h3 {
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .job-info p {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .job-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .status-running {
+            background: #ffd700;
+            color: #000;
+        }
+
+        .status-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .status-failed {
+            background: #dc3545;
+            color: white;
+        }
+
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .results-table th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+        }
+
+        .results-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .results-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-card h3 {
+            font-size: 2em;
+            margin-bottom: 5px;
+        }
+
+        .stat-card p {
+            opacity: 0.9;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border-left: 4px solid #17a2b8;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧓 GrandmaScrape Dashboard</h1>
+            <p>Enterprise web scraping made grandma-simple</p>
+        </div>
+
+        <!-- API Info Stats -->
+        <div id="stats" class="stats-grid">
+            <div class="stat-card">
+                <h3 id="stat-jobs">0</h3>
+                <p>Total Jobs</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="stat-running">0</h3>
+                <p>Running</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="stat-completed">0</h3>
+                <p>Completed</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="stat-workflows">0</h3>
+                <p>Workflows</p>
+            </div>
+        </div>
+
+        <!-- Alert Messages -->
+        <div id="alert-container"></div>
+
+        <!-- Auto-Scrape Form -->
+        <div class="card">
+            <h2>🚀 Auto-Scrape (Grandma-Simple!)</h2>
+            <form id="auto-scrape-form">
+                <div class="form-group">
+                    <label for="url">Website URL:</label>
+                    <input
+                        type="url"
+                        id="url"
+                        name="url"
+                        placeholder="https://example.com"
+                        required
+                    >
+                </div>
+                <div class="form-group">
+                    <label for="max-pages">Maximum Pages:</label>
+                    <input
+                        type="number"
+                        id="max-pages"
+                        name="max-pages"
+                        value="10"
+                        min="1"
+                        max="1000"
+                    >
+                </div>
+                <div class="form-group">
+                    <label for="export-format">Export Format:</label>
+                    <select id="export-format" name="export-format">
+                        <option value="json">JSON</option>
+                        <option value="csv">CSV</option>
+                        <option value="excel">Excel</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="concurrent" name="concurrent" checked>
+                        Use concurrent scraping (10x faster)
+                    </label>
+                </div>
+                <button type="submit" class="btn">Start Auto-Scrape</button>
+            </form>
+        </div>
+
+        <!-- Job List -->
+        <div class="card">
+            <h2>📋 Your Jobs</h2>
+            <div id="job-list-loading" class="loading hidden">
+                <div class="spinner"></div>
+                <p>Loading jobs...</p>
+            </div>
+            <ul id="job-list" class="job-list"></ul>
+        </div>
+
+        <!-- Job Details Modal -->
+        <div id="job-details" class="card hidden">
+            <h2>📊 Job Details</h2>
+            <div id="job-details-content"></div>
+            <button class="btn btn-secondary" onclick="hideJobDetails()">Close</button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
+
+
+FILE scraper/api/rest_server.py
+"""
+Full-featured REST API server.
+
+Expose all scraping capabilities via REST API for:
+- Remote job management
+- Programmatic access
+- Integration with other systems
+- Web dashboard backend
+"""
+
+import asyncio
+import logging
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Query
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, StreamingResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
+
+from scraper.config.models import ScrapeJob, ScrapeResult
+from scraper.core.engine import ScraperEngine
+from scraper.core.concurrent_engine import ConcurrentScraper
+from scraper.export.export_manager import ExportManager
+from scraper.ml.data_intelligence import DataQualityAnalyzer, AnomalyDetector
+from scraper.storage.smart_cache import SmartCache, IncrementalScraper
+from scraper.scheduler.workflow_dag import WorkflowDAG, WorkflowBuilder
+
+logger = logging.getLogger(__name__)
+
+# Create FastAPI app
+app = FastAPI(
+    title="GrandmaScrape API",
+    description="Enterprise web scraping API - grandma-simple, enterprise-grade",
+    version="1.0.0",
+)
+
+# CORS middleware
+import os
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,  # Configured via environment variable
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
+)
+
+# Mount static files for web dashboard
+static_path = Path(__file__).parent.parent / "web" / "static"
+if static_path.exists():
+    app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+
+# In-memory storage (use database in production)
+jobs_db: Dict[str, ScrapeJob] = {}
+results_db: Dict[str, ScrapeResult] = {}
+workflows_db: Dict[str, WorkflowDAG] = {}
+running_jobs: Dict[str, asyncio.Task] = {}
+jobs_lock = asyncio.Lock()  # Protect concurrent access to running_jobs
+
+
+# Request/Response models
+class JobCreateRequest(BaseModel):
+    """Request to create a new scraping job."""
+    job: ScrapeJob
+
+
+class JobRunRequest(BaseModel):
+    """Request to run a job."""
+    job_id: str
+    concurrent: bool = False
+    incremental: bool = False
+
+
+class WorkflowCreateRequest(BaseModel):
+    """Request to create a workflow."""
+    name: str
+    nodes: List[Dict[str, Any]]
+
+
+class AnalyzeRequest(BaseModel):
+    """Request to analyze a URL."""
+    url: str
+    max_pages: int = 1
+
+
+# ============================================================================
+# JOB MANAGEMENT ENDPOINTS
+# ============================================================================
+
+@app.post("/api/v1/jobs")
+async def create_job(request: JobCreateRequest) -> Dict[str, Any]:
+    """
+    Create a new scraping job.
+
+    Returns job ID.
+    """
+    job = request.job
+
+    if job.id in jobs_db:
+        raise HTTPException(status_code=400, detail="Job ID already exists")
+
+    jobs_db[job.id] = job
+
+    logger.info(f"Created job: {job.id}")
+
+    return {
+        "job_id": job.id,
+        "status": "created",
+        "message": f"Job {job.name} created successfully"
+    }
+
+
+@app.get("/api/v1/jobs")
+async def list_jobs(
+    enabled_only: bool = Query(False, description="Only show enabled jobs")
+) -> Dict[str, Any]:
+    """
+    List all jobs.
+
+    Returns list of jobs with metadata.
+    """
+    jobs = list(jobs_db.values())
+
+    if enabled_only:
+        jobs = [j for j in jobs if j.enabled]
+
+    return {
+        "total": len(jobs),
+        "jobs": [
+            {
+                "id": job.id,
+                "name": job.name,
+                "start_url": job.start_url,
+                "enabled": job.enabled,
+                "created_at": job.created_at.isoformat(),
+            }
+            for job in jobs
+        ]
+    }
+
+
+@app.get("/api/v1/jobs/{job_id}")
+async def get_job(job_id: str) -> ScrapeJob:
+    """Get job details."""
+    import re
+    # Validate job_id format
+    if not job_id or not re.match(r'^[a-zA-Z0-9_-]+$', job_id):
+        raise HTTPException(status_code=400, detail="Invalid job_id format")
+
+    if job_id not in jobs_db:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    return jobs_db[job_id]
+
+
+@app.delete("/api/v1/jobs/{job_id}")
+async def delete_job(job_id: str) -> Dict[str, str]:
+    """Delete a job."""
+    import re
+    # Validate job_id format
+    if not job_id or not re.match(r'^[a-zA-Z0-9_-]+$', job_id):
+        raise HTTPException(status_code=400, detail="Invalid job_id format")
+
+    if job_id not in jobs_db:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    # Cancel if running (with lock to prevent race conditions)
+    async with jobs_lock:
+        if job_id in running_jobs:
+            running_jobs[job_id].cancel()
+            del running_jobs[job_id]
+
+    del jobs_db[job_id]
+
+    logger.info(f"Deleted job: {job_id}")
+
+    return {"status": "deleted", "job_id": job_id}
+
+
+# ============================================================================
+# JOB EXECUTION ENDPOINTS
+# ============================================================================
+
+@app.post("/api/v1/jobs/{job_id}/run")
+async def run_job(
+    job_id: str,
+    background_tasks: BackgroundTasks,
+    concurrent: bool = Query(False, description="Use concurrent scraping"),
+    incremental: bool = Query(False, description="Use incremental scraping")
+) -> Dict[str, Any]:
+    """
+    Run a scraping job.
+
+    Returns immediately with job status. Use /results endpoint to get results.
+    """
+    if job_id not in jobs_db:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    # Use lock to prevent race conditions when checking and starting jobs
+    async with jobs_lock:
+        if job_id in running_jobs:
+            raise HTTPException(status_code=400, detail="Job already running")
+
+        job = jobs_db[job_id]
+
+        # Start job in background
+        task = asyncio.create_task(
+            _execute_job(job_id, job, concurrent, incremental)
+        )
+        running_jobs[job_id] = task
+
+    logger.info(f"Started job: {job_id} (concurrent={concurrent}, incremental={incremental})")
+
+    return {
+        "job_id": job_id,
+        "status": "running",
+        "message": f"Job {job.name} started",
+        "concurrent": concurrent,
+        "incremental": incremental
+    }
+
+
+async def _execute_job(
+    job_id: str,
+    job: ScrapeJob,
+    concurrent: bool,
+    incremental: bool
+) -> ScrapeResult:
+    """Execute a job (called in background)."""
+    try:
+        if incremental:
+            # Incremental scraping
+            cache = SmartCache()
+            incremental_scraper = IncrementalScraper(cache)
+
+            # Get URLs to scrape
+            from scraper.core.engine import ScraperEngine
+            engine = ScraperEngine()
+            urls = await engine._generate_urls(job)
+
+            # Scrape incrementally
+            result_data = await incremental_scraper.scrape_incremental(
+                urls,
+                lambda url: engine.run_job(job),
+                ttl_seconds=3600
+            )
+
+            # Convert to ScrapeResult
+            result = ScrapeResult(
+                job_id=job_id,
+                status="success",
+                items_scraped=len(result_data['new_items']),
+                pages_visited=result_data['stats']['urls_scraped'],
+                data=result_data['new_items'],
+                metadata=result_data['stats']
+            )
+
+        elif concurrent:
+            # Concurrent scraping
+            concurrent_scraper = ConcurrentScraper(job, max_workers=10)
+
+            # Add URLs
+            from scraper.core.engine import ScraperEngine
+            engine = ScraperEngine()
+            urls = await engine._generate_urls(job)
+            await concurrent_scraper.add_urls(urls)
+
+            # Execute
+            async def scrape_single(url):
+                temp_job = ScrapeJob(
+                    name=job.name,
+                    start_url=url,
+                    item_selector=job.item_selector,
+                    fields=job.fields,
+                )
+                r = await engine.run_job(temp_job)
+                return r.data
+
+            result = await concurrent_scraper.run(scrape_single)
+
+        else:
+            # Standard scraping
+            engine = ScraperEngine()
+            result = await engine.run_job(job)
+
+        # Store result
+        results_db[job_id] = result
+
+        # Export
+        export_manager = ExportManager(job.export)
+        await export_manager.export_result(result)
+
+        return result
+
+    finally:
+        # Remove from running jobs (with lock to prevent race conditions)
+        async with jobs_lock:
+            if job_id in running_jobs:
+                del running_jobs[job_id]
+
+
+@app.get("/api/v1/jobs/{job_id}/status")
+async def get_job_status(job_id: str) -> Dict[str, Any]:
+    """Get job execution status."""
+    if job_id not in jobs_db:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    is_running = job_id in running_jobs
+    has_result = job_id in results_db
+
+    status = {
+        "job_id": job_id,
+        "is_running": is_running,
+        "has_result": has_result,
+    }
+
+    if has_result:
+        result = results_db[job_id]
+        status.update({
+            "status": result.status,
+            "items_scraped": result.items_scraped,
+            "pages_visited": result.pages_visited,
+            "errors": len(result.errors),
+            "duration": result.duration_seconds,
+        })
+
+    return status
+
+
+@app.get("/api/v1/jobs/{job_id}/results")
+async def get_job_results(
+    job_id: str,
+    limit: int = Query(100, description="Max items to return"),
+    offset: int = Query(0, description="Offset for pagination")
+) -> Dict[str, Any]:
+    """Get job results with pagination."""
+    if job_id not in results_db:
+        raise HTTPException(status_code=404, detail="No results found")
+
+    result = results_db[job_id]
+
+    return {
+        "job_id": job_id,
+        "status": result.status,
+        "total_items": result.items_scraped,
+        "pages_visited": result.pages_visited,
+        "errors": result.errors,
+        "items": result.data[offset:offset + limit],
+        "pagination": {
+            "limit": limit,
+            "offset": offset,
+            "has_more": offset + limit < len(result.data)
+        }
+    }
+
+
+# ============================================================================
+# SMART FEATURES ENDPOINTS
+# ============================================================================
+
+@app.post("/api/v1/analyze")
+async def analyze_url(request: AnalyzeRequest) -> Dict[str, Any]:
+    """
+    Analyze a URL and auto-detect structure.
+
+    Returns detected selectors, fields, and pagination.
+    """
+    from scraper.config.models import ScrapeJob
+    from scraper.core.fetcher_static import StaticFetcher
+    from scraper.strategies.intelligent_extraction import (
+        IntelligentExtractor,
+        SmartPaginationDetector
+    )
+
+    # Fetch page
+    temp_job = ScrapeJob(name="analysis", start_url=request.url)
+
+    async with StaticFetcher(temp_job) as fetcher:
+        soup, html = await fetcher.fetch(request.url)
+
+        if not soup:
+            raise HTTPException(status_code=400, detail="Failed to fetch URL")
+
+    # Auto-detect
+    extractor = IntelligentExtractor()
+    pagination_detector = SmartPaginationDetector()
+
+    item_selector = await extractor.auto_detect_item_container(soup)
+    detected_fields = await extractor.auto_detect_fields(
+        soup,
+        item_selector or "body"
+    )
+    pagination_config = await pagination_detector.detect_pagination(soup, request.url)
+
+    return {
+        "url": request.url,
+        "item_selector": item_selector,
+        "fields": detected_fields,
+        "pagination": pagination_config,
+        "analysis": {
+            "html_size": len(html),
+            "links": len(soup.find_all('a')),
+            "images": len(soup.find_all('img')),
+            "title": soup.title.string if soup.title else None
+        }
+    }
+
+
+@app.post("/api/v1/jobs/{job_id}/quality-check")
+async def check_data_quality(job_id: str) -> Dict[str, Any]:
+    """
+    Run data quality analysis on job results.
+
+    Returns quality score and recommendations.
+    """
+    if job_id not in results_db:
+        raise HTTPException(status_code=404, detail="No results found")
+
+    result = results_db[job_id]
+
+    analyzer = DataQualityAnalyzer()
+    quality_report = analyzer.analyze_dataset(result.data)
+
+    return {
+        "job_id": job_id,
+        "quality_report": quality_report
+    }
+
+
+@app.post("/api/v1/jobs/{job_id}/detect-anomalies")
+async def detect_anomalies(job_id: str) -> Dict[str, Any]:
+    """
+    Detect anomalies in job results compared to baseline.
+
+    Useful for monitoring if site structure changed.
+    """
+    if job_id not in results_db:
+        raise HTTPException(status_code=404, detail="No results found")
+
+    result = results_db[job_id]
+
+    detector = AnomalyDetector()
+    anomaly_report = detector.detect_anomalies(result.data)
+
+    return {
+        "job_id": job_id,
+        "anomaly_report": anomaly_report
+    }
+
+
+# ============================================================================
+# WORKFLOW ENDPOINTS
+# ============================================================================
+
+@app.post("/api/v1/workflows")
+async def create_workflow(request: WorkflowCreateRequest) -> Dict[str, Any]:
+    """Create a new workflow."""
+    from scraper.scheduler.workflow_dag import WorkflowNode
+
+    workflow = WorkflowDAG(request.name)
+
+    for node_data in request.nodes:
+        node = WorkflowNode(**node_data)
+        workflow.add_node(node)
+
+    workflow.build()
+
+    workflows_db[request.name] = workflow
+
+    return {
+        "workflow_name": request.name,
+        "nodes": len(workflow.nodes),
+        "execution_levels": len(workflow.execution_order),
+        "status": "created"
+    }
+
+
+@app.get("/api/v1/workflows")
+async def list_workflows() -> Dict[str, Any]:
+    """List all workflows."""
+    return {
+        "total": len(workflows_db),
+        "workflows": [
+            {
+                "name": name,
+                "nodes": len(workflow.nodes),
+                "levels": len(workflow.execution_order)
+            }
+            for name, workflow in workflows_db.items()
+        ]
+    }
+
+
+@app.get("/api/v1/workflows/{workflow_name}")
+async def get_workflow(workflow_name: str) -> Dict[str, Any]:
+    """Get workflow details."""
+    if workflow_name not in workflows_db:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+
+    workflow = workflows_db[workflow_name]
+
+    return {
+        "name": workflow.name,
+        "nodes": {
+            node_id: {
+                "type": node.type,
+                "depends_on": node.depends_on,
+                "status": node.status.value
+            }
+            for node_id, node in workflow.nodes.items()
+        },
+        "execution_plan": workflow.get_execution_plan()
+    }
+
+
+# ============================================================================
+# CACHE MANAGEMENT ENDPOINTS
+# ============================================================================
+
+@app.get("/api/v1/cache/stats")
+async def get_cache_stats() -> Dict[str, Any]:
+    """Get cache statistics."""
+    cache = SmartCache()
+    return cache.get_stats()
+
+
+@app.delete("/api/v1/cache")
+async def clear_cache(
+    expired_only: bool = Query(False, description="Only clear expired entries"),
+    ttl_seconds: int = Query(3600, description="TTL for expired check")
+) -> Dict[str, Any]:
+    """Clear cache."""
+    cache = SmartCache()
+
+    if expired_only:
+        deleted = cache.clear_expired(ttl_seconds)
+        return {"status": "cleared", "expired_entries_deleted": deleted}
+    else:
+        cache.clear_all()
+        return {"status": "cleared", "message": "All cache cleared"}
+
+
+# ============================================================================
+# HEALTH & INFO ENDPOINTS
+# ============================================================================
+
+@app.get("/api/v1/health")
+async def health_check() -> Dict[str, str]:
+    """Health check endpoint."""
+    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+
+
+@app.get("/api/v1/info")
+async def get_info() -> Dict[str, Any]:
+    """Get API information and statistics."""
+    return {
+        "version": "1.0.0",
+        "name": "GrandmaScrape API",
+        "statistics": {
+            "total_jobs": len(jobs_db),
+            "running_jobs": len(running_jobs),
+            "completed_jobs": len(results_db),
+            "workflows": len(workflows_db)
+        },
+        "features": [
+            "auto_detection",
+            "concurrent_scraping",
+            "incremental_scraping",
+            "data_quality_analysis",
+            "anomaly_detection",
+            "workflow_dag",
+            "smart_caching"
+        ]
+    }
+
+
+# ============================================================================
+# WEB DASHBOARD
+# ============================================================================
+
+@app.get("/", response_class=HTMLResponse)
+async def serve_dashboard():
+    """Serve the web dashboard."""
+    base_static_path = Path(__file__).parent.parent / "web" / "static"
+    index_path = base_static_path / "index.html"
+
+    # Validate path to prevent directory traversal
+    try:
+        index_path_resolved = index_path.resolve()
+        base_path_resolved = base_static_path.resolve()
+
+        if not str(index_path_resolved).startswith(str(base_path_resolved)):
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        if index_path_resolved.exists() and index_path_resolved.is_file():
+            return FileResponse(index_path_resolved)
+    except Exception as e:
+        logger.warning(f"Error serving dashboard: {e}")
+
+    return HTMLResponse(
+        content="""
+        <html>
+            <head><title>GrandmaScrape API</title></head>
+            <body style="font-family: sans-serif; text-align: center; padding: 50px;">
+                <h1>GrandmaScrape API</h1>
+                <p>API is running!</p>
+                <p>Dashboard not found. Please check web/static/index.html</p>
+                <p><a href="/docs">View API Documentation</a></p>
+            </body>
+        </html>
+        """,
+        status_code=200
+    )
+
+
+# ============================================================================
+# RUN SERVER
+# ============================================================================
+
+def run_server(host: str = "0.0.0.0", port: int = 8000):
+    """Run the API server."""
+    import uvicorn
+
+    logger.info(f"Starting GrandmaScrape API server on {host}:{port}")
+
+    uvicorn.run(
+        app,
+        host=host,
+        port=port,
+        log_level="info"
+    )
+
+
+if __name__ == "__main__":
+    run_server()
+
+
+FILE scraper/config/models.py
+"""
+Core data models for GrandmaScrape Platform.
+
+Defines all configuration and runtime models using Pydantic v2.
+"""
+
+from datetime import datetime
+from enum import Enum
+from pathlib import Path
+from typing import Any, Literal, Optional
+
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+
+class PaginationMode(str, Enum):
+    """Pagination strategy modes."""
+
+    NONE = "none"
+    NEXT_BUTTON = "next_button"
+    URL_PATTERN = "url_pattern"
+    INFINITE_SCROLL = "infinite_scroll"
+
+
+class UserAgentStrategy(str, Enum):
+    """User agent rotation strategies."""
+
+    RANDOM = "random"
+    FIXED = "fixed"
+    ROTATING_LIST = "rotating_list"
+
+
+class FieldType(str, Enum):
+    """Data types for extracted fields."""
+
+    STRING = "string"
+    INT = "int"
+    FLOAT = "float"
+    BOOL = "bool"
+    DATE = "date"
+    DATETIME = "datetime"
+    CURRENCY = "currency"
+    URL = "url"
+    EMAIL = "email"
+    PHONE = "phone"
+
+
+class FieldConfig(BaseModel):
+    """Configuration for a single field to extract."""
+
+    selector: Optional[str] = Field(
+        None, description="CSS or XPath selector for the field"
+    )
+    attr: Optional[str] = Field(
+        "text", description="HTML attribute to extract (text, href, src, etc.)"
+    )
+    type: FieldType = Field(
+        FieldType.STRING, description="Data type of the field"
+    )
+    use_llm: bool = Field(
+        False, description="Use LLM for intelligent extraction"
+    )
+    llm_description: Optional[str] = Field(
+        None, description="Natural language description for LLM extraction"
+    )
+    required: bool = Field(
+        False, description="Whether this field is required"
+    )
+    default: Optional[Any] = Field(
+        None, description="Default value if extraction fails"
+    )
+    regex: Optional[str] = Field(
+        None, description="Regex pattern to apply after extraction"
+    )
+    multiple: bool = Field(
+        False, description="Extract multiple values (returns list)"
+    )
+
+    @field_validator("selector")
+    @classmethod
+    def validate_selector(cls, v: Optional[str]) -> Optional[str]:
+        """Ensure selector is provided if not using LLM."""
+        if v and v.strip():
+            return v.strip()
+        return None
+
+
+class PaginationConfig(BaseModel):
+    """Pagination configuration."""
+
+    mode: PaginationMode = Field(
+        PaginationMode.NONE, description="Pagination strategy"
+    )
+    next_button_selector: Optional[str] = Field(
+        None, description="CSS selector for next button (next_button mode)"
+    )
+    url_pattern: Optional[str] = Field(
+        None, description="URL pattern with {page} placeholder (url_pattern mode)"
+    )
+    start_page: int = Field(1, description="Starting page number", ge=1)
+    max_pages: int = Field(10, description="Maximum pages to scrape", ge=1)
+    scroll_times: int = Field(
+        5, description="Number of scrolls (infinite_scroll mode)", ge=1
+    )
+    scroll_pause: float = Field(
+        1.0, description="Pause between scrolls in seconds", ge=0.1
+    )
+
+    @model_validator(mode="after")
+    def validate_pagination_config(self) -> "PaginationConfig":
+        """Ensure required fields are set based on mode."""
+        if self.mode == PaginationMode.NEXT_BUTTON and not self.next_button_selector:
+            raise ValueError("next_button_selector required for next_button mode")
+        if self.mode == PaginationMode.URL_PATTERN and not self.url_pattern:
+            raise ValueError("url_pattern required for url_pattern mode")
+        return self
+
+
+class BrowserConfig(BaseModel):
+    """Browser automation configuration."""
+
+    enabled: bool = Field(False, description="Use browser automation")
+    headless: bool = Field(True, description="Run browser in headless mode")
+    wait_for_selector: Optional[str] = Field(
+        None, description="Wait for this selector before extraction"
+    )
+    wait_timeout: int = Field(
+        30000, description="Wait timeout in milliseconds", ge=1000
+    )
+    page_load_timeout: int = Field(
+        60000, description="Page load timeout in milliseconds", ge=1000
+    )
+    user_agent: Optional[str] = Field(
+        None, description="Custom user agent for browser"
+    )
+    viewport_width: int = Field(1920, description="Viewport width", ge=800)
+    viewport_height: int = Field(1080, description="Viewport height", ge=600)
+    javascript_enabled: bool = Field(True, description="Enable JavaScript")
+    block_images: bool = Field(False, description="Block images for faster loading")
+    block_css: bool = Field(False, description="Block CSS for faster loading")
+    capture_screenshot: bool = Field(
+        False, description="Capture screenshot of each page"
+    )
+    screenshot_path: Optional[Path] = Field(
+        None, description="Directory to save screenshots"
+    )
+
+
+class ProxyConfig(BaseModel):
+    """Proxy configuration."""
+
+    enabled: bool = Field(False, description="Enable proxy rotation")
+    proxy_list: list[str] = Field(
+        default_factory=list, description="List of proxy URLs"
+    )
+    rotation_strategy: Literal["round_robin", "random", "least_used"] = Field(
+        "round_robin", description="Proxy rotation strategy"
+    )
+    test_on_start: bool = Field(
+        True, description="Test proxies before using"
+    )
+
+    @field_validator("proxy_list")
+    @classmethod
+    def validate_proxy_list(cls, v: list[str]) -> list[str]:
+        """Ensure proxy URLs are valid."""
+        if not v:
+            return v
+        # Basic validation - could be more sophisticated
+        valid_proxies = []
+        for proxy in v:
+            if proxy.startswith(("http://", "https://", "socks5://")):
+                valid_proxies.append(proxy)
+        return valid_proxies
+
+
+class RateLimitConfig(BaseModel):
+    """Rate limiting configuration."""
+
+    enabled: bool = Field(True, description="Enable rate limiting")
+    min_delay: float = Field(
+        1.0, description="Minimum delay between requests in seconds", ge=0.0
+    )
+    max_delay: float = Field(
+        3.0, description="Maximum delay between requests in seconds", ge=0.0
+    )
+    max_concurrent_requests: int = Field(
+        5, description="Maximum concurrent requests", ge=1, le=100
+    )
+    respect_robots_txt: bool = Field(
+        True, description="Respect robots.txt directives"
+    )
+    requests_per_second: Optional[float] = Field(
+        None, description="Hard limit on requests per second", ge=0.1
+    )
+
+    @model_validator(mode="after")
+    def validate_delays(self) -> "RateLimitConfig":
+        """Ensure min_delay <= max_delay."""
+        if self.min_delay > self.max_delay:
+            raise ValueError("min_delay must be <= max_delay")
+        return self
+
+
+class RetryConfig(BaseModel):
+    """Retry configuration."""
+
+    max_retries: int = Field(3, description="Maximum retry attempts", ge=0, le=10)
+    backoff_factor: float = Field(
+        2.0, description="Exponential backoff factor", ge=1.0
+    )
+    retry_on_status: list[int] = Field(
+        default_factory=lambda: [429, 500, 502, 503, 504],
+        description="HTTP status codes to retry on",
+    )
+    timeout: int = Field(
+        30, description="Request timeout in seconds", ge=1, le=300
+    )
+
+
+class ExportConfig(BaseModel):
+    """Export configuration."""
+
+    formats: list[str] = Field(
+        default_factory=lambda: ["csv"], description="Export formats"
+    )
+    base_path: Path = Field(
+        Path.home() / "scraper_results", description="Base directory for exports"
+    )
+    filename_template: str = Field(
+        "{job_name}_{timestamp}", description="Filename template"
+    )
+    include_metadata: bool = Field(
+        True, description="Include metadata in exports"
+    )
+    compression: Optional[Literal["gzip", "zip", "bz2"]] = Field(
+        None, description="Compression format"
+    )
+
+
+class ScrapeJob(BaseModel):
+    """
+    Complete scraping job configuration.
+
+    This is the core model that defines everything about a scrape.
+    """
+
+    # Metadata
+    id: str = Field(
+        default_factory=lambda: f"job_{datetime.utcnow().timestamp()}",
+        description="Unique job identifier",
+    )
+    name: str = Field(..., description="Human-readable job name")
+    description: Optional[str] = Field(None, description="Job description")
+    enabled: bool = Field(True, description="Whether job is enabled")
+    tags: list[str] = Field(default_factory=list, description="Job tags")
+
+    # Target
+    start_url: str = Field(..., description="Starting URL")
+    allowed_domains: list[str] = Field(
+        default_factory=list, description="Allowed domains for crawling"
+    )
+
+    # Extraction
+    item_selector: Optional[str] = Field(
+        None, description="CSS/XPath selector for item containers"
+    )
+    fields: dict[str, FieldConfig] = Field(
+        default_factory=dict, description="Field extraction configs"
+    )
+
+    # Pagination
+    pagination: PaginationConfig = Field(
+        default_factory=PaginationConfig, description="Pagination config"
+    )
+
+    # Browser
+    browser: BrowserConfig = Field(
+        default_factory=BrowserConfig, description="Browser config"
+    )
+
+    # Proxy & UA
+    proxy: ProxyConfig = Field(
+        default_factory=ProxyConfig, description="Proxy config"
+    )
+    user_agent_strategy: UserAgentStrategy = Field(
+        UserAgentStrategy.RANDOM, description="User agent strategy"
+    )
+    user_agent_list: list[str] = Field(
+        default_factory=list, description="Custom user agent list"
+    )
+
+    # Rate limiting & retries
+    rate_limit: RateLimitConfig = Field(
+        default_factory=RateLimitConfig, description="Rate limit config"
+    )
+    retry: RetryConfig = Field(
+        default_factory=RetryConfig, description="Retry config"
+    )
+
+    # Limits
+    max_items: Optional[int] = Field(
+        None, description="Maximum items to scrape"
+    )
+
+    # Export
+    export: ExportConfig = Field(
+        default_factory=ExportConfig, description="Export config"
+    )
+
+    # Advanced
+    custom_headers: dict[str, str] = Field(
+        default_factory=dict, description="Custom HTTP headers"
+    )
+    cookies: dict[str, str] = Field(
+        default_factory=dict, description="Custom cookies"
+    )
+
+    # Timestamps
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow, description="Creation timestamp"
+    )
+    updated_at: datetime = Field(
+        default_factory=datetime.utcnow, description="Last update timestamp"
+    )
+
+    @field_validator("start_url")
+    @classmethod
+    def validate_url(cls, v: str) -> str:
+        """Basic URL validation."""
+        if not v.startswith(("http://", "https://")):
+            raise ValueError("start_url must begin with http:// or https://")
+        return v
+
+    @model_validator(mode="after")
+    def set_allowed_domains(self) -> "ScrapeJob":
+        """Auto-populate allowed_domains from start_url if empty."""
+        if not self.allowed_domains and self.start_url:
+            from urllib.parse import urlparse
+            domain = urlparse(self.start_url).netloc
+            if domain:
+                self.allowed_domains = [domain]
+        return self
+
+
+class WorkflowStep(BaseModel):
+    """A single step in a workflow."""
+
+    id: str = Field(..., description="Step identifier")
+    type: Literal["scrape", "transform", "export", "condition"] = Field(
+        ..., description="Step type"
+    )
+    job_id: Optional[str] = Field(None, description="ScrapeJob ID for scrape steps")
+    depends_on: list[str] = Field(
+        default_factory=list, description="IDs of steps this depends on"
+    )
+    condition: Optional[str] = Field(
+        None, description="Python expression for conditional execution"
+    )
+    config: dict[str, Any] = Field(
+        default_factory=dict, description="Step-specific configuration"
+    )
+
+
+class Workflow(BaseModel):
+    """
+    Multi-step workflow / DAG configuration.
+
+    Allows chaining jobs, transforms, and exports with dependencies.
+    """
+
+    id: str = Field(
+        default_factory=lambda: f"workflow_{datetime.utcnow().timestamp()}",
+        description="Unique workflow identifier",
+    )
+    name: str = Field(..., description="Workflow name")
+    description: Optional[str] = Field(None, description="Workflow description")
+    enabled: bool = Field(True, description="Whether workflow is enabled")
+
+    steps: list[WorkflowStep] = Field(
+        ..., description="Workflow steps"
+    )
+
+    schedule: Optional[str] = Field(
+        None, description="Cron expression for scheduling"
+    )
+
+    retry_policy: RetryConfig = Field(
+        default_factory=RetryConfig, description="Workflow-level retry policy"
+    )
+
+    notifications: dict[str, Any] = Field(
+        default_factory=dict, description="Notification settings"
+    )
+
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow, description="Creation timestamp"
+    )
+
+    @model_validator(mode="after")
+    def validate_dag(self) -> "Workflow":
+        """Ensure steps form a valid DAG (no cycles)."""
+        # Build dependency graph
+        step_ids = {step.id for step in self.steps}
+
+        # Check all dependencies exist
+        for step in self.steps:
+            for dep in step.depends_on:
+                if dep not in step_ids:
+                    raise ValueError(f"Step {step.id} depends on non-existent step {dep}")
+
+        # Simple cycle detection (could be more sophisticated)
+        visited = set()
+        rec_stack = set()
+
+        def has_cycle(step_id: str) -> bool:
+            visited.add(step_id)
+            rec_stack.add(step_id)
+
+            # Find step
+            step = next((s for s in self.steps if s.id == step_id), None)
+            if not step:
+                return False
+
+            for dep in step.depends_on:
+                if dep not in visited:
+                    if has_cycle(dep):
+                        return True
+                elif dep in rec_stack:
+                    return True
+
+            rec_stack.remove(step_id)
+            return False
+
+        for step in self.steps:
+            if step.id not in visited:
+                if has_cycle(step.id):
+                    raise ValueError(f"Workflow contains cycle involving step {step.id}")
+
+        return self
+
+
+class ScrapeResult(BaseModel):
+    """Result of a scrape operation."""
+
+    job_id: str = Field(..., description="Job ID")
+    status: Literal["success", "partial", "failed"] = Field(
+        ..., description="Overall status"
+    )
+    items_scraped: int = Field(0, description="Number of items scraped")
+    pages_visited: int = Field(0, description="Number of pages visited")
+    errors: list[str] = Field(default_factory=list, description="Error messages")
+    warnings: list[str] = Field(default_factory=list, description="Warning messages")
+    start_time: datetime = Field(
+        default_factory=datetime.utcnow, description="Start timestamp"
+    )
+    end_time: Optional[datetime] = Field(None, description="End timestamp")
+    duration_seconds: Optional[float] = Field(None, description="Duration in seconds")
+    data: list[dict[str, Any]] = Field(
+        default_factory=list, description="Scraped data"
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict, description="Additional metadata"
+    )
+
+    @model_validator(mode="after")
+    def calculate_duration(self) -> "ScrapeResult":
+        """Calculate duration if end_time is set."""
+        if self.end_time and not self.duration_seconds:
+            self.duration_seconds = (self.end_time - self.start_time).total_seconds()
+        return self
+
+
+FILE /Users/sellers/.codex/skills/playwright/SKILL.md
+---
+name: "playwright"
+description: "Use when the task requires automating a real browser from the terminal (navigation, form filling, snapshots, screenshots, data extraction, UI-flow debugging) via `playwright-cli` or the bundled wrapper script."
+---
+
+
+# Playwright CLI Skill
+
+Drive a real browser from the terminal using `playwright-cli`. Prefer the bundled wrapper script so the CLI works even when it is not globally installed.
+Treat this skill as CLI-first automation. Do not pivot to `@playwright/test` unless the user explicitly asks for test files.
+
+## Prerequisite check (required)
+
+Before proposing commands, check whether `npx` is available (the wrapper depends on it):
+
+```bash
+command -v npx >/dev/null 2>&1
+```
+
+If it is not available, pause and ask the user to install Node.js/npm (which provides `npx`). Provide these steps verbatim:
+
+```bash
+# Verify Node/npm are installed
+node --version
+npm --version
+
+# If missing, install Node.js/npm, then:
+npm install -g @playwright/cli@latest
+playwright-cli --help
+```
+
+Once `npx` is present, proceed with the wrapper script. A global install of `playwright-cli` is optional.
+
+## Skill path (set once)
+
+```bash
+export CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
+export PWCLI="$CODEX_HOME/skills/playwright/scripts/playwright_cli.sh"
+```
+
+User-scoped skills install under `$CODEX_HOME/skills` (default: `~/.codex/skills`).
+
+## Quick start
+
+Use the wrapper script:
+
+```bash
+"$PWCLI" open https://playwright.dev --headed
+"$PWCLI" snapshot
+"$PWCLI" click e15
+"$PWCLI" type "Playwright"
+"$PWCLI" press Enter
+"$PWCLI" screenshot
+```
+
+If the user prefers a global install, this is also valid:
+
+```bash
+npm install -g @playwright/cli@latest
+playwright-cli --help
+```
+
+## Core workflow
+
+1. Open the page.
+2. Snapshot to get stable element refs.
+3. Interact using refs from the latest snapshot.
+4. Re-snapshot after navigation or significant DOM changes.
+5. Capture artifacts (screenshot, pdf, traces) when useful.
+
+Minimal loop:
+
+```bash
+"$PWCLI" open https://example.com
+"$PWCLI" snapshot
+"$PWCLI" click e3
+"$PWCLI" snapshot
+```
+
+## When to snapshot again
+
+Snapshot again after:
+
+- navigation
+- clicking elements that change the UI substantially
+- opening/closing modals or menus
+- tab switches
+
+Refs can go stale. When a command fails due to a missing ref, snapshot again.
+
+## Recommended patterns
+
+### Form fill and submit
+
+```bash
+"$PWCLI" open https://example.com/form
+"$PWCLI" snapshot
+"$PWCLI" fill e1 "user@example.com"
+"$PWCLI" fill e2 "password123"
+"$PWCLI" click e3
+"$PWCLI" snapshot
+```
+
+### Debug a UI flow with traces
+
+```bash
+"$PWCLI" open https://example.com --headed
+"$PWCLI" tracing-start
+# ...interactions...
+"$PWCLI" tracing-stop
+```
+
+### Multi-tab work
+
+```bash
+"$PWCLI" tab-new https://example.com
+"$PWCLI" tab-list
+"$PWCLI" tab-select 0
+"$PWCLI" snapshot
+```
+
+## Wrapper script
+
+The wrapper script uses `npx --package @playwright/cli playwright-cli` so the CLI can run without a global install:
+
+```bash
+"$PWCLI" --help
+```
+
+Prefer the wrapper unless the repository already standardizes on a global install.
+
+## References
+
+Open only what you need:
+
+- CLI command reference: `references/cli.md`
+- Practical workflows and troubleshooting: `references/workflows.md`
+
+## Guardrails
+
+- Always snapshot before referencing element ids like `e12`.
+- Re-snapshot when refs seem stale.
+- Prefer explicit commands over `eval` and `run-code` unless needed.
+- When you do not have a fresh snapshot, use placeholder refs like `eX` and say why; do not bypass refs with `run-code`.
+- Use `--headed` when a visual check will help.
+- When capturing artifacts in this repo, use `output/playwright/` and avoid introducing new top-level artifact folders.
+- Default to CLI commands and workflows, not Playwright test specs.
+

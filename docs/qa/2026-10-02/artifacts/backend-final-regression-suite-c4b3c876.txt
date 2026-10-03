@@ -1,0 +1,33 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0
+rootdir: /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG
+configfile: pyproject.toml
+plugins: asyncio-0.23.8, mock-3.16.0, platformdirs-4.12.2, hypothesis-6.168.3, socket-0.8.1, cov-4.1.0, anyio-4.15.1
+asyncio: mode=Mode.AUTO
+collected 43 items
+
+tests/qa_backend/test_api_contracts.py ...........xxxx.xxxx.xx           [ 53%]
+tests/qa_backend/test_boundaries_exports.py .....x....                   [ 76%]
+tests/qa_backend/test_execution.py xxxxxx.x.x                            [100%]
+
+=========================== short test summary info ============================
+XFAIL tests/qa_backend/test_api_contracts.py::test_server_generated_job_id_round_trips - BE-004: server-generated IDs contain a dot rejected by detail/delete
+XFAIL tests/qa_backend/test_api_contracts.py::test_invalid_results_pagination_is_rejected[limit=0] - BE-008: results accepts zero/negative limit and negative offset
+XFAIL tests/qa_backend/test_api_contracts.py::test_invalid_results_pagination_is_rejected[limit=-1] - BE-008: results accepts zero/negative limit and negative offset
+XFAIL tests/qa_backend/test_api_contracts.py::test_invalid_results_pagination_is_rejected[offset=-1] - BE-008: results accepts zero/negative limit and negative offset
+XFAIL tests/qa_backend/test_api_contracts.py::test_bad_workflow_returns_validation_error[nodes0] - BE-005: invalid workflow nodes/DAG errors escape as 500
+XFAIL tests/qa_backend/test_api_contracts.py::test_bad_workflow_returns_validation_error[nodes1] - BE-005: invalid workflow nodes/DAG errors escape as 500
+XFAIL tests/qa_backend/test_api_contracts.py::test_bad_workflow_returns_validation_error[nodes2] - BE-005: invalid workflow nodes/DAG errors escape as 500
+XFAIL tests/qa_backend/test_api_contracts.py::test_dashboard_script_is_available - FE-001: root dashboard app.js path is not served
+XFAIL tests/qa_backend/test_api_contracts.py::test_dashboard_requested_page_limit_is_preserved - FE-002: dashboard max_pages is an ignored top-level field
+XFAIL tests/qa_backend/test_api_contracts.py::test_dashboard_requested_export_format_is_preserved - FE-003: dashboard export.format is ignored; CSV default wins
+XFAIL tests/qa_backend/test_boundaries_exports.py::test_proxy_enabled_fetch_reaches_configured_transport - BE-007: proxy-enabled fetch passes unsupported proxies keyword to AsyncClient.get
+XFAIL tests/qa_backend/test_execution.py::test_standard_api_run_persists_success - BE-001: standard run fails with UnboundLocalError and leaves no terminal result
+XFAIL tests/qa_backend/test_execution.py::test_concurrent_scraper_finishes_after_completed_work - BE-002: concurrent workers never exit once active_workers reaches zero
+XFAIL tests/qa_backend/test_execution.py::test_incremental_api_run_accepts_engine_result - BE-003: incremental API callback passes ScrapeResult instead of item dicts
+XFAIL tests/qa_backend/test_execution.py::test_incremental_repeat_uses_cache - BE-003: incremental scraping never caches page freshness, so replay re-fetches all URLs
+XFAIL tests/qa_backend/test_execution.py::test_incremental_cached_items_are_returned - BE-003: cached items are omitted from incremental results
+XFAIL tests/qa_backend/test_execution.py::test_workflow_orders_prerequisites_before_dependents - BE-005: DAG plan runs dependents first and drops prerequisites
+XFAIL tests/qa_backend/test_execution.py::test_engine_respects_item_limit_within_page - BE-006: max_items is checked only before a page and allows page overshoot
+XFAIL tests/qa_backend/test_execution.py::test_engine_follows_next_button - BE-009: next-button pagination never follows the discovered link
+======================== 24 passed, 19 xfailed in 0.68s ========================

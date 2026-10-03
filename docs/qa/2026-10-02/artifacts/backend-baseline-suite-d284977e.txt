@@ -1,0 +1,723 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0
+rootdir: /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG
+configfile: pyproject.toml
+plugins: asyncio-0.23.8, mock-3.16.0, platformdirs-4.12.2, hypothesis-6.168.3, socket-0.8.1, cov-4.1.0, anyio-4.15.1
+asyncio: mode=Mode.AUTO
+collected 169 items
+
+tests/test_data_intelligence.py .FFF.FFF.FFFFF                           [  8%]
+tests/test_extractors.py ......                                          [ 11%]
+tests/test_llm_extractor.py ............................................ [ 37%]
+...............................................                          [ 65%]
+tests/test_models.py ..........                                          [ 71%]
+tests/test_sdk.py .........                                              [ 76%]
+tests/test_smart_cache.py EEEEEEEEEEEEEEEEEE                             [ 87%]
+tests/test_transforms.py .....................                           [100%]
+
+==================================== ERRORS ====================================
+__________ ERROR at setup of TestSmartCache.test_cache_initialization __________
+
+    @pytest.fixture
+    def temp_cache():
+        """Create a temporary cache for testing."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_path = Path(tmpdir) / "test_cache.db"
+>           cache = SmartCache(str(cache_path))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_smart_cache.py:18: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <scraper.storage.smart_cache.SmartCache object at 0x10be4e1d0>
+cache_dir = '/tmp/tmpewngzyte/test_cache.db'
+
+    def __init__(self, cache_dir: Optional[Path] = None):
+        self.cache_dir = cache_dir or (Path.home() / ".grandma-scraper" / "cache")
+>       self.cache_dir.mkdir(parents=True, exist_ok=True)
+        ^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'str' object has no attribute 'mkdir'
+
+scraper/storage/smart_cache.py:33: AttributeError
+_______________ ERROR at setup of TestSmartCache.test_cache_page _______________
+
+    @pytest.fixture
+    def temp_cache():
+        """Create a temporary cache for testing."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_path = Path(tmpdir) / "test_cache.db"
+>           cache = SmartCache(str(cache_path))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_smart_cache.py:18: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <scraper.storage.smart_cache.SmartCache object at 0x10bd77ed0>
+cache_dir = '/tmp/tmpnwpxkov8/test_cache.db'
+
+    def __init__(self, cache_dir: Optional[Path] = None):
+        self.cache_dir = cache_dir or (Path.home() / ".grandma-scraper" / "cache")
+>       self.cache_dir.mkdir(parents=True, exist_ok=True)
+        ^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'str' object has no attribute 'mkdir'
+
+scraper/storage/smart_cache.py:33: AttributeError
+_________ ERROR at setup of TestSmartCache.test_should_scrape_new_url __________
+
+    @pytest.fixture
+    def temp_cache():
+        """Create a temporary cache for testing."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_path = Path(tmpdir) / "test_cache.db"
+>           cache = SmartCache(str(cache_path))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_smart_cache.py:18: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <scraper.storage.smart_cache.SmartCache object at 0x10be13f50>
+cache_dir = '/tmp/tmpitfcz68p/test_cache.db'
+
+    def __init__(self, cache_dir: Optional[Path] = None):
+        self.cache_dir = cache_dir or (Path.home() / ".grandma-scraper" / "cache")
+>       self.cache_dir.mkdir(parents=True, exist_ok=True)
+        ^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'str' object has no attribute 'mkdir'
+
+scraper/storage/smart_cache.py:33: AttributeError
+_______ ERROR at setup of TestSmartCache.test_should_scrape_cached_fresh _______
+
+    @pytest.fixture
+    def temp_cache():
+        """Create a temporary cache for testing."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_path = Path(tmpdir) / "test_cache.db"
+>           cache = SmartCache(str(cache_path))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_smart_cache.py:18: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <scraper.storage.smart_cache.SmartCache object at 0x10b078b90>
+cache_dir = '/tmp/tmp_zmk0ony/test_cache.db'
+
+    def __init__(self, cache_dir: Optional[Path] = None):
+        self.cache_dir = cache_dir or (Path.home() / ".grandma-scraper" / "cache")
+>       self.cache_dir.mkdir(parents=True, exist_ok=True)
+        ^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'str' object has no attribute 'mkdir'
+
+scraper/storage/smart_cache.py:33: AttributeError
+______ ERROR at setup of TestSmartCache.test_should_scrape_cached_expired ______
+
+    @pytest.fixture
+    def temp_cache():
+        """Create a temporary cache for testing."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_path = Path(tmpdir) / "test_cache.db"
+>           cache = SmartCache(str(cache_path))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_smart_cache.py:18: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <scraper.storage.smart_cache.SmartCache object at 0x10bdbc890>
+cache_dir = '/tmp/tmpb6cdy3vy/test_cache.db'
+
+    def __init__(self, cache_dir: Optional[Path] = None):
+        self.cache_dir = cache_dir or (Path.home() / ".grandma-scraper" / "cache")
+>       self.cache_dir.mkdir(parents=True, exist_ok=True)
+        ^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'str' object has no attribute 'mkdir'
+
+scraper/storage/smart_cache.py:33: AttributeError
+_____ ERROR at setup of TestSmartCache.test_content_hash_change_detection ______
+
+    @pytest.fixture
+    def temp_cache():
+        """Create a temporary cache for testing."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_path = Path(tmpdir) / "test_cache.db"
+>           cache = SmartCache(str(cache_path))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_smart_cache.py:18: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <scraper.storage.smart_cache.SmartCache object at 0x10be826d0>
+cache_dir = '/tmp/tmpnndma58x/test_cache.db'
+
+    def __init__(self, cache_dir: Optional[Path] = None):
+        self.cache_dir = cache_dir or (Path.home() / ".grandma-scraper" / "cache")
+>       self.cache_dir.mkdir(parents=True, exist_ok=True)
+        ^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'str' object has no attribute 'mkdir'
+
+scraper/storage/smart_cache.py:33: AttributeError
+___________ ERROR at setup of TestSmartCache.test_get_cached_content ___________
+
+    @pytest.fixture
+    def temp_cache():
+        """Create a temporary cache for testing."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_path = Path(tmpdir) / "test_cache.db"
+>           cache = SmartCache(str(cache_path))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_smart_cache.py:18: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <scraper.storage.smart_cache.SmartCache object at 0x10be20b90>
+cache_dir = '/tmp/tmpmu132o1u/test_cache.db'
+
+    def __init__(self, cache_dir: Optional[Path] = None):
+        self.cache_dir = cache_dir or (Path.home() / ".grandma-scraper" / "cache")
+>       self.cache_dir.mkdir(parents=True, exist_ok=True)
+        ^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'str' object has no attribute 'mkdir'
+
+scraper/storage/smart_cache.py:33: AttributeError
+_____________ ERROR at setup of TestSmartCache.test_clear_expired ______________
+
+    @pytest.fixture
+    def temp_cache():
+        """Create a temporary cache for testing."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_path = Path(tmpdir) / "test_cache.db"
+>           cache = SmartCache(str(cache_path))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_smart_cache.py:18: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <scraper.storage.smart_cache.SmartCache object at 0x10afe10d0>
+cache_dir = '/tmp/tmpdsnqt8l8/test_cache.db'
+
+    def __init__(self, cache_dir: Optional[Path] = None):
+        self.cache_dir = cache_dir or (Path.home() / ".grandma-scraper" / "cache")
+>       self.cache_dir.mkdir(parents=True, exist_ok=True)
+        ^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'str' object has no attribute 'mkdir'
+
+scraper/storage/smart_cache.py:33: AttributeError
+_______________ ERROR at setup of TestSmartCache.test_clear_all ________________
+
+    @pytest.fixture
+    def temp_cache():
+        """Create a temporary cache for testing."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_path = Path(tmpdir) / "test_cache.db"
+>           cache = SmartCache(str(cache_path))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_smart_cache.py:18: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <scraper.storage.smart_cache.SmartCache object at 0x10be82d90>
+cache_dir = '/tmp/tmpokybahg3/test_cache.db'
+
+    def __init__(self, cache_dir: Optional[Path] = None):
+        self.cache_dir = cache_dir or (Path.home() / ".grandma-scraper" / "cache")
+>       self.cache_dir.mkdir(parents=True, exist_ok=True)
+        ^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'str' object has no attribute 'mkdir'
+
+scraper/storage/smart_cache.py:33: AttributeError
+_______________ ERROR at setup of TestSmartCache.test_get_stats ________________
+
+    @pytest.fixture
+    def temp_cache():
+        """Create a temporary cache for testing."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_path = Path(tmpdir) / "test_cache.db"
+>           cache = SmartCache(str(cache_path))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_smart_cache.py:18: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <scraper.storage.smart_cache.SmartCache object at 0x10bcdd610>
+cache_dir = '/tmp/tmplbetddaq/test_cache.db'
+
+    def __init__(self, cache_dir: Optional[Path] = None):
+        self.cache_dir = cache_dir or (Path.home() / ".grandma-scraper" / "cache")
+>       self.cache_dir.mkdir(parents=True, exist_ok=True)
+        ^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'str' object has no attribute 'mkdir'
+
+scraper/storage/smart_cache.py:33: AttributeError
+___________ ERROR at setup of TestSmartCache.test_hit_miss_tracking ____________
+
+    @pytest.fixture
+    def temp_cache():
+        """Create a temporary cache for testing."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_path = Path(tmpdir) / "test_cache.db"
+>           cache = SmartCache(str(cache_path))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_smart_cache.py:18: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <scraper.storage.smart_cache.SmartCache object at 0x10bf21390>
+cache_dir = '/tmp/tmprbzw380t/test_cache.db'
+
+    def __init__(self, cache_dir: Optional[Path] = None):
+        self.cache_dir = cache_dir or (Path.home() / ".grandma-scraper" / "cache")
+>       self.cache_dir.mkdir(parents=True, exist_ok=True)
+        ^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'str' object has no attribute 'mkdir'
+
+scraper/storage/smart_cache.py:33: AttributeError
+__ ERROR at setup of TestIncrementalScraper.test_scrape_incremental_new_urls ___
+
+    @pytest.fixture
+    def temp_cache():
+        """Create a temporary cache for testing."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_path = Path(tmpdir) / "test_cache.db"
+>           cache = SmartCache(str(cache_path))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_smart_cache.py:18: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <scraper.storage.smart_cache.SmartCache object at 0x10b07af50>
+cache_dir = '/tmp/tmpoh8dti35/test_cache.db'
+
+    def __init__(self, cache_dir: Optional[Path] = None):
+        self.cache_dir = cache_dir or (Path.home() / ".grandma-scraper" / "cache")
+>       self.cache_dir.mkdir(parents=True, exist_ok=True)
+        ^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'str' object has no attribute 'mkdir'
+
+scraper/storage/smart_cache.py:33: AttributeError
+_ ERROR at setup of TestIncrementalScraper.test_scrape_incremental_cached_urls _
+
+    @pytest.fixture
+    def temp_cache():
+        """Create a temporary cache for testing."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_path = Path(tmpdir) / "test_cache.db"
+>           cache = SmartCache(str(cache_path))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_smart_cache.py:18: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <scraper.storage.smart_cache.SmartCache object at 0x108bd0950>
+cache_dir = '/tmp/tmp1mhn4c2f/test_cache.db'
+
+    def __init__(self, cache_dir: Optional[Path] = None):
+        self.cache_dir = cache_dir or (Path.home() / ".grandma-scraper" / "cache")
+>       self.cache_dir.mkdir(parents=True, exist_ok=True)
+        ^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'str' object has no attribute 'mkdir'
+
+scraper/storage/smart_cache.py:33: AttributeError
+____ ERROR at setup of TestIncrementalScraper.test_scrape_incremental_mixed ____
+
+    @pytest.fixture
+    def temp_cache():
+        """Create a temporary cache for testing."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_path = Path(tmpdir) / "test_cache.db"
+>           cache = SmartCache(str(cache_path))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_smart_cache.py:18: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <scraper.storage.smart_cache.SmartCache object at 0x10bc46350>
+cache_dir = '/tmp/tmp75m0miex/test_cache.db'
+
+    def __init__(self, cache_dir: Optional[Path] = None):
+        self.cache_dir = cache_dir or (Path.home() / ".grandma-scraper" / "cache")
+>       self.cache_dir.mkdir(parents=True, exist_ok=True)
+        ^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'str' object has no attribute 'mkdir'
+
+scraper/storage/smart_cache.py:33: AttributeError
+________ ERROR at setup of TestIncrementalScraper.test_get_changed_urls ________
+
+    @pytest.fixture
+    def temp_cache():
+        """Create a temporary cache for testing."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_path = Path(tmpdir) / "test_cache.db"
+>           cache = SmartCache(str(cache_path))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_smart_cache.py:18: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <scraper.storage.smart_cache.SmartCache object at 0x10b651210>
+cache_dir = '/tmp/tmpmcvrrb6p/test_cache.db'
+
+    def __init__(self, cache_dir: Optional[Path] = None):
+        self.cache_dir = cache_dir or (Path.home() / ".grandma-scraper" / "cache")
+>       self.cache_dir.mkdir(parents=True, exist_ok=True)
+        ^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'str' object has no attribute 'mkdir'
+
+scraper/storage/smart_cache.py:33: AttributeError
+______ ERROR at setup of TestCachePerformance.test_large_content_handling ______
+
+    @pytest.fixture
+    def temp_cache():
+        """Create a temporary cache for testing."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_path = Path(tmpdir) / "test_cache.db"
+>           cache = SmartCache(str(cache_path))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_smart_cache.py:18: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <scraper.storage.smart_cache.SmartCache object at 0x10bd06e10>
+cache_dir = '/tmp/tmpuenxre26/test_cache.db'
+
+    def __init__(self, cache_dir: Optional[Path] = None):
+        self.cache_dir = cache_dir or (Path.home() / ".grandma-scraper" / "cache")
+>       self.cache_dir.mkdir(parents=True, exist_ok=True)
+        ^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'str' object has no attribute 'mkdir'
+
+scraper/storage/smart_cache.py:33: AttributeError
+________ ERROR at setup of TestCachePerformance.test_many_urls_caching _________
+
+    @pytest.fixture
+    def temp_cache():
+        """Create a temporary cache for testing."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_path = Path(tmpdir) / "test_cache.db"
+>           cache = SmartCache(str(cache_path))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_smart_cache.py:18: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <scraper.storage.smart_cache.SmartCache object at 0x10bf23ad0>
+cache_dir = '/tmp/tmpf74ybci7/test_cache.db'
+
+    def __init__(self, cache_dir: Optional[Path] = None):
+        self.cache_dir = cache_dir or (Path.home() / ".grandma-scraper" / "cache")
+>       self.cache_dir.mkdir(parents=True, exist_ok=True)
+        ^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'str' object has no attribute 'mkdir'
+
+scraper/storage/smart_cache.py:33: AttributeError
+____ ERROR at setup of TestCachePerformance.test_hash_collision_resistance _____
+
+    @pytest.fixture
+    def temp_cache():
+        """Create a temporary cache for testing."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_path = Path(tmpdir) / "test_cache.db"
+>           cache = SmartCache(str(cache_path))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_smart_cache.py:18: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <scraper.storage.smart_cache.SmartCache object at 0x10af29d50>
+cache_dir = '/tmp/tmp3c12qqhf/test_cache.db'
+
+    def __init__(self, cache_dir: Optional[Path] = None):
+        self.cache_dir = cache_dir or (Path.home() / ".grandma-scraper" / "cache")
+>       self.cache_dir.mkdir(parents=True, exist_ok=True)
+        ^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'str' object has no attribute 'mkdir'
+
+scraper/storage/smart_cache.py:33: AttributeError
+=================================== FAILURES ===================================
+___________ TestDataQualityAnalyzer.test_analyze_incomplete_dataset ____________
+
+self = <tests.test_data_intelligence.TestDataQualityAnalyzer object at 0x10b651410>
+incomplete_data = [{'description': 'Test', 'price': 19.99, 'title': 'Product 1'}, {'description': 'Test product', 'price': None, 'title': ''}, {'description': 'Test', 'price': -10.0, 'title': 'Product 3'}]
+
+    def test_analyze_incomplete_dataset(self, incomplete_data):
+        """Test analysis of incomplete dataset."""
+        analyzer = DataQualityAnalyzer()
+        report = analyzer.analyze_dataset(incomplete_data)
+    
+>       assert report["quality_score"] < 0.7  # Low quality data
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       assert 89.44 < 0.7
+
+tests/test_data_intelligence.py:91: AssertionError
+____________ TestDataQualityAnalyzer.test_completeness_calculation _____________
+
+self = <tests.test_data_intelligence.TestDataQualityAnalyzer object at 0x10b651b10>
+sample_data = [{'category': 'Electronics', 'created_at': '2024-01-01T00:00:00', 'description': 'Great product with many features', '...gory': 'Home', 'created_at': '2024-01-03T00:00:00', 'description': 'Best seller in its category', 'price': 39.99, ...}]
+
+    def test_completeness_calculation(self, sample_data):
+        """Test completeness metric."""
+        analyzer = DataQualityAnalyzer()
+        completeness = analyzer._calculate_completeness(sample_data)
+    
+>       assert completeness == 1.0  # All fields present
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       assert 100.0 == 1.0
+
+tests/test_data_intelligence.py:103: AssertionError
+____________ TestDataQualityAnalyzer.test_completeness_with_missing ____________
+
+self = <tests.test_data_intelligence.TestDataQualityAnalyzer object at 0x10b652890>
+incomplete_data = [{'description': 'Test', 'price': 19.99, 'title': 'Product 1'}, {'description': 'Test product', 'price': None, 'title': ''}, {'description': 'Test', 'price': -10.0, 'title': 'Product 3'}]
+
+    def test_completeness_with_missing(self, incomplete_data):
+        """Test completeness with missing values."""
+        analyzer = DataQualityAnalyzer()
+        completeness = analyzer._calculate_completeness(incomplete_data)
+    
+>       assert completeness < 1.0  # Some fields missing
+        ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       assert 77.77777777777779 < 1.0
+
+tests/test_data_intelligence.py:110: AssertionError
+______________ TestDataQualityAnalyzer.test_validity_calculation _______________
+
+self = <tests.test_data_intelligence.TestDataQualityAnalyzer object at 0x10bceba50>
+incomplete_data = [{'description': 'Test', 'price': 19.99, 'title': 'Product 1'}, {'description': 'Test product', 'price': None, 'title': ''}, {'description': 'Test', 'price': -10.0, 'title': 'Product 3'}]
+
+    def test_validity_calculation(self, incomplete_data):
+        """Test validity metric."""
+        analyzer = DataQualityAnalyzer()
+        validity = analyzer._calculate_validity(incomplete_data)
+    
+>       assert validity < 1.0  # Invalid price (-10.0)
+        ^^^^^^^^^^^^^^^^^^^^^
+E       assert 88.88888888888887 < 1.0
+
+tests/test_data_intelligence.py:124: AssertionError
+_________________ TestAnomalyDetector.test_detect_no_anomalies _________________
+
+self = <tests.test_data_intelligence.TestAnomalyDetector object at 0x10b0dc090>
+sample_data = [{'category': 'Electronics', 'created_at': '2024-01-01T00:00:00', 'description': 'Great product with many features', '...gory': 'Home', 'created_at': '2024-01-03T00:00:00', 'description': 'Best seller in its category', 'price': 39.99, ...}]
+
+    def test_detect_no_anomalies(self, sample_data):
+        """Test detection with normal data."""
+        detector = AnomalyDetector()
+        report = detector.detect_anomalies(sample_data)
+    
+        assert "anomaly_score" in report
+>       assert "severity" in report
+E       AssertionError: assert 'severity' in {'anomalies': [], 'anomaly_score': 0, 'is_normal': True}
+
+tests/test_data_intelligence.py:136: AssertionError
+___________________ TestAnomalyDetector.test_detect_outliers ___________________
+
+self = <tests.test_data_intelligence.TestAnomalyDetector object at 0x10b0dc2d0>
+
+    def test_detect_outliers(self):
+        """Test outlier detection."""
+        data = [
+            {"price": 10.0, "stock": 100},
+            {"price": 12.0, "stock": 120},
+            {"price": 11.0, "stock": 110},
+            {"price": 1000.0, "stock": 1},  # Outlier
+        ]
+    
+        detector = AnomalyDetector()
+        report = detector.detect_anomalies(data)
+    
+        # Should detect the outlier
+>       assert len(report["anomalies"]) > 0
+E       assert 0 > 0
+E        +  where 0 = len([])
+
+tests/test_data_intelligence.py:155: AssertionError
+________________ TestSmartCategorizer.test_categorize_products _________________
+
+self = <tests.test_data_intelligence.TestSmartCategorizer object at 0x10b0df110>
+
+    def test_categorize_products(self):
+        """Test product categorization."""
+        data = [
+            {"description": "Laptop computer with great specs"},
+            {"description": "Desktop computer for gaming"},
+            {"description": "Wireless mouse and keyboard"},
+            {"description": "Office chair with lumbar support"},
+            {"description": "Standing desk for home office"},
+            {"description": "Monitor with 4K resolution"},
+        ]
+    
+        categorizer = SmartCategorizer()
+>       categories = categorizer.categorize(data, n_categories=2, text_field="description")
+                     ^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'SmartCategorizer' object has no attribute 'categorize'
+
+tests/test_data_intelligence.py:191: AttributeError
+_______________ TestSmartCategorizer.test_suggest_category_names _______________
+
+self = <tests.test_data_intelligence.TestSmartCategorizer object at 0x10b0df710>
+
+    def test_suggest_category_names(self):
+        """Test category name suggestion."""
+        data = [
+            {"description": "laptop computer notebook"},
+            {"description": "desktop computer tower"},
+            {"description": "chair desk furniture"},
+        ]
+    
+        categorizer = SmartCategorizer()
+>       result = categorizer.categorize(data, n_categories=2, text_field="description")
+                 ^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'SmartCategorizer' object has no attribute 'categorize'
+
+tests/test_data_intelligence.py:209: AttributeError
+___________________ TestSmartCategorizer.test_empty_dataset ____________________
+
+self = <tests.test_data_intelligence.TestSmartCategorizer object at 0x10b0dfd10>
+
+    def test_empty_dataset(self):
+        """Test with empty dataset."""
+        categorizer = SmartCategorizer()
+>       result = categorizer.categorize([], n_categories=2, text_field="description")
+                 ^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'SmartCategorizer' object has no attribute 'categorize'
+
+tests/test_data_intelligence.py:221: AttributeError
+__________________ TestIntegration.test_full_quality_pipeline __________________
+
+self = <tests.test_data_intelligence.TestIntegration object at 0x10b10bc50>
+sample_data = [{'category': 'Electronics', 'created_at': '2024-01-01T00:00:00', 'description': 'Great product with many features', '...gory': 'Home', 'created_at': '2024-01-03T00:00:00', 'description': 'Best seller in its category', 'price': 39.99, ...}]
+
+    def test_full_quality_pipeline(self, sample_data):
+        """Test complete quality analysis pipeline."""
+        analyzer = DataQualityAnalyzer()
+        detector = AnomalyDetector()
+    
+        # Analyze quality
+        quality_report = analyzer.analyze_dataset(sample_data)
+        assert quality_report["quality_score"] > 0.0
+    
+        # Detect anomalies
+        anomaly_report = detector.detect_anomalies(sample_data)
+        assert "anomaly_score" in anomaly_report
+    
+        # High quality data should have low anomalies
+        if quality_report["quality_score"] > 0.9:
+>           assert anomaly_report["severity"] in ["low", "medium"]
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           KeyError: 'severity'
+
+tests/test_data_intelligence.py:245: KeyError
+___________ TestIntegration.test_categorization_after_quality_check ____________
+
+self = <tests.test_data_intelligence.TestIntegration object at 0x10b10b590>
+sample_data = [{'category': 'Electronics', 'created_at': '2024-01-01T00:00:00', 'description': 'Great product with many features', '...gory': 'Home', 'created_at': '2024-01-03T00:00:00', 'description': 'Best seller in its category', 'price': 39.99, ...}]
+
+    def test_categorization_after_quality_check(self, sample_data):
+        """Test categorization after quality filtering."""
+        analyzer = DataQualityAnalyzer()
+        categorizer = SmartCategorizer()
+    
+        # Check quality
+        quality_report = analyzer.analyze_dataset(sample_data)
+    
+        # Only categorize if quality is good
+        if quality_report["quality_score"] > 0.7:
+>           result = categorizer.categorize(
+                     ^^^^^^^^^^^^^^^^^^^^^^
+                sample_data,
+                n_categories=2,
+                text_field="description"
+            )
+E           AttributeError: 'SmartCategorizer' object has no attribute 'categorize'
+
+tests/test_data_intelligence.py:257: AttributeError
+
+--------- coverage: platform darwin, python 3.11.15-final-0 ----------
+Name                                           Stmts   Miss Branch BrPart  Cover
+--------------------------------------------------------------------------------
+scraper/__init__.py                                5      0      0      0   100%
+scraper/api/__init__.py                            0      0      0      0   100%
+scraper/api/rest_server.py                       226    226     50      0     0%
+scraper/cli/__init__.py                            0      0      0      0   100%
+scraper/cli/main.py                              270    270     42      0     0%
+scraper/cli/smart_commands.py                    212    212     60      0     0%
+scraper/config/__init__.py                         0      0      0      0   100%
+scraper/config/models.py                         207     16     44     10    86%
+scraper/core/__init__.py                           0      0      0      0   100%
+scraper/core/concurrent_engine.py                159    159     40      0     0%
+scraper/core/engine.py                           159    137     64      0    10%
+scraper/core/fetcher_browser.py                  159    135     48      0    12%
+scraper/core/fetcher_static.py                   154    132     56      0    10%
+scraper/core/rate_limiter.py                      71     48     12      0    28%
+scraper/export/__init__.py                         0      0      0      0   100%
+scraper/export/base_exporter.py                   11     11      0      0     0%
+scraper/export/cloud_storage.py                  237    237     42      0     0%
+scraper/export/csv_exporter.py                    31     31     12      0     0%
+scraper/export/database_connectors.py            267    267     86      0     0%
+scraper/export/excel_exporter.py                  23     23      2      0     0%
+scraper/export/export_manager.py                  54     54     16      0     0%
+scraper/export/json_exporter.py                   24     24      2      0     0%
+scraper/export/premium_formats.py                151    151     40      0     0%
+scraper/export/sqlite_exporter.py                 47     47     14      0     0%
+scraper/extractors/__init__.py                     0      0      0      0   100%
+scraper/extractors/base_extractor.py              14      2      2      1    81%
+scraper/extractors/llm_extractor.py              210     59     72     12    73%
+scraper/extractors/selector_extractor.py         132     67     60     10    45%
+scraper/extractors/typesafe_currency.py          383     36    202     31    88%
+scraper/ml/__init__.py                             0      0      0      0   100%
+scraper/ml/data_intelligence.py                  298    101    146     34    65%
+scraper/monitor/__init__.py                        0      0      0      0   100%
+scraper/monitor/live_dashboard.py                126    126     32      0     0%
+scraper/monitoring/__init__.py                     2      2      0      0     0%
+scraper/monitoring/alerts.py                     176    176     48      0     0%
+scraper/observability/__init__.py                  2      2      0      0     0%
+scraper/observability/logging_system.py          148    148     18      0     0%
+scraper/scheduler/__init__.py                      0      0      0      0   100%
+scraper/scheduler/advanced_scheduler.py          192    192     52      0     0%
+scraper/scheduler/workflow_dag.py                258    258    104      0     0%
+scraper/sdk/__init__.py                            2      0      0      0   100%
+scraper/sdk/client.py                            198     96     24      2    49%
+scraper/security/__init__.py                       2      2      0      0     0%
+scraper/security/auth.py                         187    187     34      0     0%
+scraper/storage/__init__.py                        0      0      0      0   100%
+scraper/storage/smart_cache.py                   141    111     20      0    19%
+scraper/strategies/__init__.py                     0      0      0      0   100%
+scraper/strategies/intelligent_extraction.py     235    235    126      0     0%
+scraper/transforms/__init__.py                     0      0      0      0   100%
+scraper/transforms/cleaning.py                   105     42     44      6    52%
+scraper/transforms/deduplication.py               72     30     30      1    54%
+scraper/transforms/type_inference.py              84     28     62     12    62%
+scraper/ui/__init__.py                             0      0      0      0   100%
+--------------------------------------------------------------------------------
+TOTAL                                           5434   4080   1706    119    25%
+Coverage HTML written to dir docs/qa/2026-10-02/artifacts/backend-coverage-before-html
+Coverage JSON written to file docs/qa/2026-10-02/artifacts/backend-coverage-before.json
+
+=========================== short test summary info ============================
+FAILED tests/test_data_intelligence.py::TestDataQualityAnalyzer::test_analyze_incomplete_dataset
+FAILED tests/test_data_intelligence.py::TestDataQualityAnalyzer::test_completeness_calculation
+FAILED tests/test_data_intelligence.py::TestDataQualityAnalyzer::test_completeness_with_missing
+FAILED tests/test_data_intelligence.py::TestDataQualityAnalyzer::test_validity_calculation
+FAILED tests/test_data_intelligence.py::TestAnomalyDetector::test_detect_no_anomalies
+FAILED tests/test_data_intelligence.py::TestAnomalyDetector::test_detect_outliers
+FAILED tests/test_data_intelligence.py::TestSmartCategorizer::test_categorize_products
+FAILED tests/test_data_intelligence.py::TestSmartCategorizer::test_suggest_category_names
+FAILED tests/test_data_intelligence.py::TestSmartCategorizer::test_empty_dataset
+FAILED tests/test_data_intelligence.py::TestIntegration::test_full_quality_pipeline
+FAILED tests/test_data_intelligence.py::TestIntegration::test_categorization_after_quality_check
+ERROR tests/test_smart_cache.py::TestSmartCache::test_cache_initialization - ...
+ERROR tests/test_smart_cache.py::TestSmartCache::test_cache_page - AttributeE...
+ERROR tests/test_smart_cache.py::TestSmartCache::test_should_scrape_new_url
+ERROR tests/test_smart_cache.py::TestSmartCache::test_should_scrape_cached_fresh
+ERROR tests/test_smart_cache.py::TestSmartCache::test_should_scrape_cached_expired
+ERROR tests/test_smart_cache.py::TestSmartCache::test_content_hash_change_detection
+ERROR tests/test_smart_cache.py::TestSmartCache::test_get_cached_content - At...
+ERROR tests/test_smart_cache.py::TestSmartCache::test_clear_expired - Attribu...
+ERROR tests/test_smart_cache.py::TestSmartCache::test_clear_all - AttributeEr...
+ERROR tests/test_smart_cache.py::TestSmartCache::test_get_stats - AttributeEr...
+ERROR tests/test_smart_cache.py::TestSmartCache::test_hit_miss_tracking - Att...
+ERROR tests/test_smart_cache.py::TestIncrementalScraper::test_scrape_incremental_new_urls
+ERROR tests/test_smart_cache.py::TestIncrementalScraper::test_scrape_incremental_cached_urls
+ERROR tests/test_smart_cache.py::TestIncrementalScraper::test_scrape_incremental_mixed
+ERROR tests/test_smart_cache.py::TestIncrementalScraper::test_get_changed_urls
+ERROR tests/test_smart_cache.py::TestCachePerformance::test_large_content_handling
+ERROR tests/test_smart_cache.py::TestCachePerformance::test_many_urls_caching
+ERROR tests/test_smart_cache.py::TestCachePerformance::test_hash_collision_resistance
+================== 11 failed, 140 passed, 18 errors in 6.65s ===================

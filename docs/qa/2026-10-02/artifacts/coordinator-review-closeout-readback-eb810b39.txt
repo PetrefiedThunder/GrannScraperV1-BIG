@@ -1,0 +1,39 @@
+# Independent QA evidence review
+
+PR: opened by orchestrator
+
+CI status: pending at time of writing
+
+## Preliminary conclusion
+
+The highest-impact lifecycle findings are supported by source and isolated tests. API standard execution binds `ScraperEngine` as a local variable only in incremental/concurrent branches, then accesses it unbound in the standard branch (`scraper/api/rest_server.py:241`, `:267`, `:287`). Concurrent idle workers can never all exit when active work reaches zero because the exit condition requires one active worker (`scraper/core/concurrent_engine.py:93`, `:216`). These defects block useful work before export and justify prioritizing execution reliability.
+
+The existing baseline is already red: 140 passed, 11 failed, 18 setup errors, as recorded in `artifacts/backend-baseline-suite-d284977e.txt`. New strict expected failures preserve desired behavior without disguising the pre-existing baseline failures. Do not claim the full suite or CI is green.
+
+## Evidence and severity guardrails
+
+| Topic | Review assessment | Report constraint |
+|---|---|---|
+| Unauthenticated API | High risk when network reachable; `run_server` defaults to all interfaces at `scraper/api/rest_server.py:624`, and job reads/deletes/runs have no mounted auth dependency. | README explicitly calls the project a single-node toolkit and puts RBAC/multi-tenant hardening on the roadmap. Avoid claiming a demonstrated cross-tenant breach or regression from an existing tenant model. |
+| Arbitrary URL fetching | The `/api/v1/analyze` request directly reaches `StaticFetcher.fetch` at `scraper/api/rest_server.py:380-383`; private-target acceptance is a meaningful server boundary defect. | Raw URLs are normal in a local scraping SDK. Report the hosted/API threat boundary and stubbed proof; no real internal host or metadata service was contacted. |
+| Export path containment | `filename_template`, `job_name` and `base_path` flow into filesystem paths (`scraper/export/export_manager.py:54-61`, `:100-107`). | Direct-library temporary-file proof establishes missing containment. Do not claim successful unauthenticated end-to-end arbitrary file overwrite through an API execution path currently blocked by execution defects. |
+| Auth token logging | Rate limiting logs its `key` at `scraper/security/auth.py:317`; `verify_api_key` passes the raw token at `:383-385`. | Latent risk if this currently unmounted dependency is integrated. A code sink is not proof of an actual exposed credential. Never put a real value into the report. |
+| Coverage increase | Coverage includes statements/branches traversed by expected-failure tests. | Improved coverage is additional observation, not a quality or correctness score. Preserve the same denominator and list the baseline failures. |
+| Frontend/UX mocks | Fixture states are appropriate for offline interaction testing. | Separate shipped root-route behavior from mounted static dashboard behavior, and identify any asset routing repair made only in the test harness. |
+
+## Additional useful checks sent to the coordinator
+
+1. Proxy-enabled fetch calls `httpx.AsyncClient.get(..., proxies=...)` at `scraper/core/fetcher_static.py:157-166`. Verify compatibility offline with the installed pinned HTTPX signature or mock transport; the handler catches errors and could silently turn every proxy fetch into `(None, None)`.
+2. The README promises robots.txt enforcement, but `engine.run_job` passes only the domain to `RateLimiter.acquire`, and the rate limiter has no robots checks. Verify the whole repository before adding a finding; do not infer legal noncompliance.
+3. Preserve source-vs-runtime evidence distinctions for auth/SSRF/path controls and avoid double-counting downstream symptoms of the serial execution crash.
+
+## Final review
+
+Pending coordinator handoff after consolidated docs and tests are ready. Final review will verify mandatory docs, finding-ID/test/artifact linkage, counts, added-test expected failures, branch, and QA-only diff scope. No commits, push, PR creation or hosted CI calls are performed by this reviewer.
+
+## Added-test review follow-up
+
+- Backend and security expected-failure contracts must use `raises=AssertionError` where applicable, so unrelated runtime errors remain failures. The backend owner confirmed narrowing the remaining API markers and a deliberate `--runxfail` run reproduced 19 intended assertion failures alongside 24 passing controls.
+- Frontend FE-003 must normalize the captured payload before `test.fail`; otherwise a Python harness error could be accepted as the expected failure. FE-001 must establish a real HTTP 200 dashboard with form/heading before testing its failed initial job loading. The frontend owner confirmed both changes.
+- UX expected-failure annotations follow visible-state preconditions. The body-font-size 200% diagnostic is not full browser zoom or WCAG text-resize compliance. Inline detail-panel focus behavior is a usability finding; missing automatic focus alone is not a blanket WCAG failure.
+- Both browser fixtures make downstream interaction coverage explicit after using the working `/static/index.html` asset path. The root route is checked independently by frontend and backend tests.

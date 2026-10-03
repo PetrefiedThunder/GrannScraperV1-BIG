@@ -1,0 +1,25 @@
+.FFF..                                                                   [100%]
+=================================== FAILURES ===================================
+__________________________ test_saved_jobs_are_listed __________________________
+tests/qa_ux/test_cli_docs.py:40: in test_saved_jobs_are_listed
+    assert result.exit_code == 0, result.output
+E   AssertionError: 
+E   assert 1 == 0
+E    +  where 1 = <Result TypeError("object of type 'PosixPath' has no len()")>.exit_code
+______________________ test_readme_config_path_can_be_run ______________________
+/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/test_cli_docs.py:54: in test_readme_config_path_can_be_run
+    assert runner.await_count == 1, result.output
+E   AssertionError: ✗ Job 'config_my_job_yaml' not found!
+E       Looking for: 
+E     /private/tmp/pytest-of-sellers/pytest-10/test_readme_config_path_can_be0/.grandm
+E     a-scraper/jobs/config_my_job_yaml.yaml
+E     
+E   assert 0 == 1
+E    +  where 0 = <AsyncMock id='4436303696'>.await_count
+_____________ test_readme_job_config_preserves_documented_settings _____________
+tests/qa_ux/test_cli_docs.py:63: in test_readme_job_config_preserves_documented_settings
+    assert job.browser.enabled is True
+E   AssertionError: assert False is True
+E    +  where False = BrowserConfig(enabled=False, headless=True, wait_for_selector=None, wait_timeout=30000, page_load_timeout=60000, user_...ght=1080, javascript_enabled=True, block_images=False, block_css=False, capture_screenshot=False, screenshot_path=None).enabled
+E    +    where BrowserConfig(enabled=False, headless=True, wait_for_selector=None, wait_timeout=30000, page_load_timeout=60000, user_...ght=1080, javascript_enabled=True, block_images=False, block_css=False, capture_screenshot=False, screenshot_path=None) = ScrapeJob(id='job_1791017552.480801', name='Product Scraper', description=None, enabled=True, tags=[], start_url='http...ted_at=datetime.datetime(2026, 10, 3, 1, 52, 32, 481137), updated_at=datetime.datetime(2026, 10, 3, 1, 52, 32, 481137)).browser
+3 failed, 3 passed in 0.74s

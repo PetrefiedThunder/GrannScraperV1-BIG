@@ -1,0 +1,1 @@
+Consolidated 28 unique findings {'High': 11, 'Medium': 16, 'Low': 1}

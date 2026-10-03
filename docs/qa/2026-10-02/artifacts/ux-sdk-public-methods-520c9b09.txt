@@ -1,0 +1,39 @@
+32:class JobStatus(BaseModel):
+44:class GrandmaScrapeClient:
+56:    def __init__(
+90:    def __enter__(self):
+93:    def __exit__(self, exc_type, exc_val, exc_tb):
+96:    def close(self):
+100:    async def aclose(self):
+108:    def auto_scrape(
+152:    def wait_for_job(
+186:    def create_job(self, job: Union[ScrapeJob, Dict[str, Any]]) -> str:
+209:    def list_jobs(self, enabled_only: bool = False) -> List[Dict[str, Any]]:
+227:    def get_job(self, job_id: str) -> Dict[str, Any]:
+242:    def delete_job(self, job_id: str):
+252:    def run_job(
+280:    def get_job_status(self, job_id: str) -> JobStatus:
+295:    def get_results(
+320:    def get_all_results(self, job_id: str) -> List[Dict[str, Any]]:
+350:    def analyze_url(self, url: str, max_pages: int = 1) -> Dict[str, Any]:
+369:    def check_data_quality(self, job_id: str) -> Dict[str, Any]:
+384:    def detect_anomalies(self, job_id: str) -> Dict[str, Any]:
+403:    def create_workflow(
+426:    def list_workflows(self) -> List[Dict[str, Any]]:
+438:    def get_workflow(self, workflow_name: str) -> Dict[str, Any]:
+457:    def get_cache_stats(self) -> Dict[str, Any]:
+469:    def clear_cache(
+499:    def health_check(self) -> Dict[str, str]:
+511:    def get_info(self) -> Dict[str, Any]:
+528:class AsyncGrandmaScrapeClient:
+535:    def __init__(
+555:    async def __aenter__(self):
+558:    async def __aexit__(self, exc_type, exc_val, exc_tb):
+561:    async def close(self):
+565:    async def auto_scrape(
+594:    async def wait_for_job(
+614:    async def create_job(self, job: Union[ScrapeJob, Dict[str, Any]]) -> str:
+626:    async def run_job(
+641:    async def get_job_status(self, job_id: str) -> JobStatus:
+648:    async def get_all_results(self, job_id: str) -> List[Dict[str, Any]]:
+672:    async def analyze_url(self, url: str, max_pages: int = 1) -> Dict[str, Any]:

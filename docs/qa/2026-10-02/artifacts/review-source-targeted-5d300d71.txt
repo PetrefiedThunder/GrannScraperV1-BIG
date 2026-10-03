@@ -1,0 +1,878 @@
+
+FILE scraper/api/rest_server.py
+580:
+581:# ============================================================================
+582:# WEB DASHBOARD
+583:# ============================================================================
+584:
+585:@app.get("/", response_class=HTMLResponse)
+586:async def serve_dashboard():
+587:    """Serve the web dashboard."""
+588:    base_static_path = Path(__file__).parent.parent / "web" / "static"
+589:    index_path = base_static_path / "index.html"
+590:
+591:    # Validate path to prevent directory traversal
+592:    try:
+593:        index_path_resolved = index_path.resolve()
+594:        base_path_resolved = base_static_path.resolve()
+595:
+596:        if not str(index_path_resolved).startswith(str(base_path_resolved)):
+597:            raise HTTPException(status_code=403, detail="Access denied")
+598:
+599:        if index_path_resolved.exists() and index_path_resolved.is_file():
+600:            return FileResponse(index_path_resolved)
+601:    except Exception as e:
+602:        logger.warning(f"Error serving dashboard: {e}")
+603:
+604:    return HTMLResponse(
+605:        content="""
+606:        <html>
+607:            <head><title>GrandmaScrape API</title></head>
+608:            <body style="font-family: sans-serif; text-align: center; padding: 50px;">
+609:                <h1>GrandmaScrape API</h1>
+610:                <p>API is running!</p>
+611:                <p>Dashboard not found. Please check web/static/index.html</p>
+612:                <p><a href="/docs">View API Documentation</a></p>
+613:            </body>
+614:        </html>
+615:        """,
+616:        status_code=200
+617:    )
+618:
+619:
+620:# ============================================================================
+621:# RUN SERVER
+622:# ============================================================================
+623:
+624:def run_server(host: str = "0.0.0.0", port: int = 8000):
+625:    """Run the API server."""
+626:    import uvicorn
+627:
+628:    logger.info(f"Starting GrandmaScrape API server on {host}:{port}")
+629:
+630:    uvicorn.run(
+631:        app,
+632:        host=host,
+633:        port=port,
+634:        log_level="info"
+635:    )
+636:
+637:
+638:if __name__ == "__main__":
+639:    run_server()
+
+FILE scraper/core/concurrent_engine.py
+1:"""
+2:High-performance concurrent scraping engine.
+3:
+4:Intelligently parallelizes scraping with:
+5:- Smart queue management
+6:- Automatic retry with backoff
+7:- Domain-aware concurrency limits
+8:- Progress tracking
+9:- Memory-efficient streaming
+10:"""
+11:
+12:import asyncio
+13:import logging
+14:from collections import defaultdict
+15:from dataclasses import dataclass
+16:from datetime import datetime
+17:from typing import Any, Callable, Dict, List, Optional
+18:from urllib.parse import urlparse
+19:
+20:from scraper.config.models import ScrapeJob, ScrapeResult
+21:
+22:logger = logging.getLogger(__name__)
+23:
+24:
+25:@dataclass
+26:class ScrapeTask:
+27:    """Individual scrape task."""
+28:    url: str
+29:    priority: int = 0
+30:    retry_count: int = 0
+31:    metadata: Dict[str, Any] = None
+32:
+33:
+34:class ConcurrentScraper:
+35:    """
+36:    High-performance concurrent scraper with intelligent queuing.
+37:
+38:    Features:
+39:    - Domain-aware concurrency (don't overwhelm single domain)
+40:    - Priority queue for important pages first
+41:    - Automatic retry with exponential backoff
+42:    - Progress tracking and estimation
+43:    - Memory-efficient streaming results
+44:    """
+45:
+46:    def __init__(self, job: ScrapeJob, max_workers: int = 10):
+47:        self.job = job
+48:        self.max_workers = max_workers
+49:        self.max_workers_per_domain = 2  # Politeness: max 2 concurrent per domain
+50:
+51:        self.task_queue: asyncio.Queue = asyncio.Queue()
+52:        self.result_queue: asyncio.Queue = asyncio.Queue()
+53:
+54:        self.domain_semaphores: Dict[str, asyncio.Semaphore] = defaultdict(
+55:            lambda: asyncio.Semaphore(self.max_workers_per_domain)
+56:        )
+57:
+58:        self.active_workers = 0
+59:        self.completed_tasks = 0
+60:        self.failed_tasks = 0
+61:        self.total_tasks = 0
+62:
+63:        self.start_time: Optional[datetime] = None
+64:        self.stats = {
+65:            'domains_scraped': set(),
+66:            'total_bytes': 0,
+67:            'total_items': 0,
+68:        }
+69:
+70:    async def add_task(self, task: ScrapeTask):
+71:        """Add task to queue."""
+72:        await self.task_queue.put(task)
+73:        self.total_tasks += 1
+74:
+75:    async def add_urls(self, urls: List[str], priority: int = 0):
+76:        """Add multiple URLs to queue."""
+77:        for url in urls:
+78:            await self.add_task(ScrapeTask(url=url, priority=priority))
+79:
+80:    async def worker(self, worker_id: int, scrape_func: Callable):
+81:        """Worker that processes tasks from queue."""
+82:        logger.debug(f"Worker {worker_id} started")
+83:
+84:        while True:
+85:            try:
+86:                # Get task with timeout to allow graceful shutdown
+87:                task = await asyncio.wait_for(
+88:                    self.task_queue.get(),
+89:                    timeout=5.0
+90:                )
+91:            except asyncio.TimeoutError:
+92:                # Check if queue is empty and no workers active
+93:                if self.task_queue.empty() and self.active_workers == 1:
+94:                    break
+95:                continue
+96:
+97:            self.active_workers += 1
+98:
+99:            try:
+100:                # Get domain for rate limiting
+101:                domain = urlparse(task.url).netloc
+102:                self.stats['domains_scraped'].add(domain)
+103:
+104:                # Acquire domain semaphore (rate limit per domain)
+105:                async with self.domain_semaphores[domain]:
+106:                    logger.info(f"Worker {worker_id} scraping: {task.url}")
+107:
+108:                    # Execute scrape
+109:                    result = await scrape_func(task.url)
+110:
+111:                    if result:
+112:                        # Success
+113:                        await self.result_queue.put({
+114:                            'status': 'success',
+115:                            'url': task.url,
+116:                            'data': result,
+117:                            'task': task
+118:                        })
+119:                        self.completed_tasks += 1
+120:
+121:                    else:
+122:                        # Failed but might retry
+123:                        if task.retry_count < self.job.retry.max_retries:
+124:                            # Re-queue with backoff
+125:                            task.retry_count += 1
+126:                            backoff = self.job.retry.backoff_factor ** task.retry_count
+127:                            await asyncio.sleep(backoff)
+128:                            await self.add_task(task)
+129:                            logger.info(f"Retry {task.retry_count} for {task.url}")
+130:                        else:
+131:                            # Max retries exceeded
+132:                            await self.result_queue.put({
+133:                                'status': 'failed',
+134:                                'url': task.url,
+135:                                'error': 'Max retries exceeded',
+136:                                'task': task
+137:                            })
+138:                            self.failed_tasks += 1
+139:
+140:            except Exception as e:
+141:                logger.error(f"Worker {worker_id} error on {task.url}: {e}")
+142:                await self.result_queue.put({
+143:                    'status': 'error',
+144:                    'url': task.url,
+145:                    'error': str(e),
+146:                    'task': task
+147:                })
+148:                self.failed_tasks += 1
+149:
+150:            finally:
+151:                self.active_workers -= 1
+152:                self.task_queue.task_done()
+153:
+154:        logger.debug(f"Worker {worker_id} finished")
+155:
+156:    async def run(self, scrape_func: Callable) -> ScrapeResult:
+157:        """
+158:        Run concurrent scraping.
+159:
+160:        Args:
+161:            scrape_func: Async function that takes URL and returns scraped data
+162:
+163:        Returns:
+164:            ScrapeResult
+165:        """
+166:        self.start_time = datetime.utcnow()
+167:
+168:        result = ScrapeResult(
+169:            job_id=self.job.id,
+170:            status='success',
+171:            start_time=self.start_time,
+172:        )
+173:
+174:        # Start workers
+175:        workers = [
+176:            asyncio.create_task(self.worker(i, scrape_func))
+177:            for i in range(self.max_workers)
+178:        ]
+179:
+180:        # Process results as they come in
+181:        results_processed = 0
+182:        while results_processed < self.total_tasks:
+183:            try:
+184:                # Get result with timeout
+185:                item = await asyncio.wait_for(
+186:                    self.result_queue.get(),
+187:                    timeout=10.0
+188:                )
+189:
+190:                results_processed += 1
+191:
+192:                if item['status'] == 'success':
+193:                    if isinstance(item['data'], list):
+194:                        result.data.extend(item['data'])
+195:                        result.items_scraped += len(item['data'])
+196:                    else:
+197:                        result.data.append(item['data'])
+198:                        result.items_scraped += 1
+199:
+200:                    result.pages_visited += 1
+201:
+202:                else:
+203:                    error_msg = f"{item['url']}: {item.get('error', 'Unknown error')}"
+204:                    result.errors.append(error_msg)
+205:
+206:                # Progress update
+207:                progress = (results_processed / self.total_tasks) * 100
+208:                logger.info(f"Progress: {progress:.1f}% ({results_processed}/{self.total_tasks})")
+209:
+210:            except asyncio.TimeoutError:
+211:                # Check if all tasks are done
+212:                if self.task_queue.empty() and self.active_workers == 0:
+213:                    break
+214:
+215:        # Wait for all workers to finish
+216:        await asyncio.gather(*workers, return_exceptions=True)
+217:
+218:        # Finalize result
+219:        result.end_time = datetime.utcnow()
+220:        result.duration_seconds = (result.end_time - result.start_time).total_seconds()
+221:
+222:        result.metadata = {
+223:            'job_name': self.job.name,
+224:            'job_id': self.job.id,
+225:            'completed_tasks': self.completed_tasks,
+226:            'failed_tasks': self.failed_tasks,
+227:            'total_tasks': self.total_tasks,
+228:            'domains_scraped': len(self.stats['domains_scraped']),
+229:            'average_speed': result.items_scraped / result.duration_seconds if result.duration_seconds > 0 else 0,
+230:        }
+231:
+232:        if result.errors:
+233:            result.status = 'partial' if result.data else 'failed'
+234:
+235:        logger.info(
+236:            f"Concurrent scraping completed: "
+237:            f"{result.items_scraped} items, "
+238:            f"{result.pages_visited} pages, "
+239:            f"{len(result.errors)} errors, "
+240:            f"{result.duration_seconds:.2f}s"
+241:        )
+242:
+243:        return result
+244:
+245:    def get_progress(self) -> Dict[str, Any]:
+246:        """Get current progress statistics."""
+247:        if not self.start_time:
+248:            return {}
+249:
+250:        elapsed = (datetime.utcnow() - self.start_time).total_seconds()
+251:        tasks_done = self.completed_tasks + self.failed_tasks
+252:
+253:        return {
+254:            'total_tasks': self.total_tasks,
+255:            'completed': self.completed_tasks,
+256:            'failed': self.failed_tasks,
+257:            'pending': self.total_tasks - tasks_done,
+258:            'active_workers': self.active_workers,
+259:            'elapsed_seconds': elapsed,
+260:            'tasks_per_second': tasks_done / elapsed if elapsed > 0 else 0,
+261:            'estimated_remaining_seconds': (
+262:                (self.total_tasks - tasks_done) / (tasks_done / elapsed)
+263:                if elapsed > 0 and tasks_done > 0 else None
+264:            ),
+265:        }
+266:
+267:
+268:class StreamingScraper:
+269:    """
+270:    Memory-efficient streaming scraper for large datasets.
+271:
+272:    Processes and exports results as they're scraped, without
+273:    holding everything in memory.
+274:    """
+275:
+276:    def __init__(self, job: ScrapeJob):
+277:        self.job = job
+278:        self.item_count = 0
+279:        self.page_count = 0
+280:
+281:    async def stream_to_file(
+282:        self,
+283:        scrape_func: Callable,
+284:        urls: List[str],
+285:        output_file: str
+286:    ):
+287:        """
+288:        Stream results directly to file without loading all in memory.
+289:
+290:        Perfect for scraping millions of items.
+291:        """
+292:        import aiofiles
+293:        import json
+294:
+295:        async with aiofiles.open(output_file, 'w') as f:
+296:            # Write header
+297:            await f.write('[\n')
+298:
+299:            first_item = True
+300:
+301:            for url in urls:
+302:                try:
+303:                    data = await scrape_func(url)
+304:
+305:                    if data:
+306:                        if isinstance(data, list):
+307:                            items = data
+308:                        else:
+309:                            items = [data]
+310:
+311:                        for item in items:
+312:                            if not first_item:
+313:                                await f.write(',\n')
+314:
+315:                            await f.write(json.dumps(item, indent=2))
+316:                            first_item = False
+317:                            self.item_count += 1
+318:
+319:                            # Log progress
+320:                            if self.item_count % 100 == 0:
+321:                                logger.info(f"Streamed {self.item_count} items...")
+322:
+323:                        self.page_count += 1
+324:
+325:                except Exception as e:
+326:                    logger.error(f"Error streaming {url}: {e}")
+327:
+328:            # Write footer
+329:            await f.write('\n]\n')
+330:
+
+FILE scraper/export/export_manager.py
+1:"""
+2:Export manager - coordinates multiple export formats.
+3:"""
+4:
+5:import logging
+6:from datetime import datetime
+7:from pathlib import Path
+8:from typing import Any
+9:
+10:from scraper.config.models import ExportConfig, ScrapeResult
+11:from scraper.export.csv_exporter import CSVExporter
+12:from scraper.export.excel_exporter import ExcelExporter
+13:from scraper.export.json_exporter import JSONExporter, NDJSONExporter
+14:from scraper.export.sqlite_exporter import SQLiteExporter
+15:
+16:logger = logging.getLogger(__name__)
+17:
+18:
+19:class ExportManager:
+20:    """
+21:    Manages exporting data to multiple formats.
+22:
+23:    Coordinates various exporters and handles file naming.
+24:    """
+25:
+26:    def __init__(self, config: ExportConfig):
+27:        """
+28:        Initialize export manager.
+29:
+30:        Args:
+31:            config: Export configuration
+32:        """
+33:        self.config = config
+34:
+35:    async def export_result(self, result: ScrapeResult) -> dict[str, Path]:
+36:        """
+37:        Export scrape result to configured formats.
+38:
+39:        Args:
+40:            result: ScrapeResult to export
+41:
+42:        Returns:
+43:            Dict mapping format name to exported file path
+44:        """
+45:        exported_files = {}
+46:
+47:        if not result.data:
+48:            logger.warning("No data to export")
+49:            return exported_files
+50:
+51:        # Generate base filename
+52:        timestamp = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S")
+53:        filename_vars = {
+54:            "job_name": result.metadata.get("job_name", "scrape"),
+55:            "timestamp": timestamp,
+56:            "job_id": result.job_id,
+57:        }
+58:        base_filename = self.config.filename_template.format(**filename_vars)
+59:
+60:        # Ensure base directory exists
+61:        self.config.base_path.mkdir(parents=True, exist_ok=True)
+62:
+63:        # Export to each format
+64:        for export_format in self.config.formats:
+65:            try:
+66:                file_path = await self._export_format(
+67:                    export_format,
+68:                    base_filename,
+69:                    result.data,
+70:                    result.metadata,
+71:                )
+72:                if file_path:
+73:                    exported_files[export_format] = file_path
+74:            except Exception as e:
+75:                logger.error(f"Failed to export to {export_format}: {e}")
+76:
+77:        return exported_files
+78:
+79:    async def _export_format(
+80:        self,
+81:        export_format: str,
+82:        base_filename: str,
+83:        data: list[dict[str, Any]],
+84:        metadata: dict[str, Any],
+85:    ) -> Path:
+86:        """
+87:        Export to specific format.
+88:
+89:        Args:
+90:            export_format: Format name (csv, json, excel, etc.)
+91:            base_filename: Base filename (without extension)
+92:            data: Data to export
+93:            metadata: Metadata
+94:
+95:        Returns:
+96:            Path to exported file
+97:        """
+98:        format_lower = export_format.lower()
+99:
+100:        if format_lower == "csv":
+101:            output_path = self.config.base_path / f"{base_filename}.csv"
+102:            exporter = CSVExporter(output_path)
+103:            return await exporter.export(data, metadata)
+104:
+105:        elif format_lower == "json":
+106:            output_path = self.config.base_path / f"{base_filename}.json"
+107:            exporter = JSONExporter(output_path)
+108:            return await exporter.export(data, metadata)
+109:
+110:        elif format_lower == "ndjson":
+111:            output_path = self.config.base_path / f"{base_filename}.ndjson"
+112:            exporter = NDJSONExporter(output_path)
+113:            return await exporter.export(data, metadata)
+114:
+115:        elif format_lower in ("excel", "xlsx"):
+116:            output_path = self.config.base_path / f"{base_filename}.xlsx"
+117:            exporter = ExcelExporter(output_path)
+118:            return await exporter.export(data, metadata)
+119:
+120:        elif format_lower in ("sqlite", "db"):
+121:            output_path = self.config.base_path / f"{base_filename}.db"
+122:            exporter = SQLiteExporter(output_path)
+123:            return await exporter.export(data, metadata)
+124:
+125:        else:
+126:            logger.warning(f"Unknown export format: {export_format}")
+127:            return None
+
+FILE scraper/core/fetcher_static.py
+1:"""
+2:Static HTTP fetcher using httpx and BeautifulSoup.
+3:
+4:Handles all non-JavaScript scraping with async HTTP requests.
+5:"""
+6:
+7:import asyncio
+8:import logging
+9:from typing import Any, Optional
+10:from urllib.parse import urljoin, urlparse
+11:
+12:import httpx
+13:from bs4 import BeautifulSoup
+14:from fake_useragent import UserAgent
+15:
+16:from scraper.config.models import ScrapeJob, UserAgentStrategy
+17:
+18:logger = logging.getLogger(__name__)
+19:
+20:
+21:class StaticFetcher:
+22:    """
+23:    High-performance static HTML fetcher.
+24:
+25:    Uses httpx for async HTTP requests and BeautifulSoup for parsing.
+26:    Handles sessions, cookies, headers, and user agent rotation.
+27:    """
+28:
+29:    def __init__(self, job: ScrapeJob):
+30:        """
+31:        Initialize fetcher with job configuration.
+32:
+33:        Args:
+34:            job: ScrapeJob configuration
+35:        """
+36:        self.job = job
+37:        self.ua = UserAgent()
+38:        self.session: Optional[httpx.AsyncClient] = None
+39:        self._current_proxy_index = 0
+40:        self._user_agent_index = 0
+41:
+42:    async def __aenter__(self) -> "StaticFetcher":
+43:        """Async context manager entry."""
+44:        await self.start()
+45:        return self
+46:
+47:    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+48:        """Async context manager exit."""
+49:        await self.close()
+50:
+51:    async def start(self) -> None:
+52:        """Initialize HTTP session."""
+53:        # Build headers
+54:        headers = {
+55:            "User-Agent": self._get_user_agent(),
+56:            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+57:            "Accept-Language": "en-US,en;q=0.9",
+58:            "Accept-Encoding": "gzip, deflate, br",
+59:            "DNT": "1",
+60:            "Connection": "keep-alive",
+61:            "Upgrade-Insecure-Requests": "1",
+62:        }
+63:        headers.update(self.job.custom_headers)
+64:
+65:        # Configure session
+66:        self.session = httpx.AsyncClient(
+67:            headers=headers,
+68:            cookies=self.job.cookies,
+69:            timeout=httpx.Timeout(self.job.retry.timeout),
+70:            follow_redirects=True,
+71:            limits=httpx.Limits(
+72:                max_keepalive_connections=self.job.rate_limit.max_concurrent_requests,
+73:                max_connections=self.job.rate_limit.max_concurrent_requests * 2,
+74:            ),
+75:        )
+76:
+77:        logger.info("Static fetcher initialized")
+78:
+79:    async def close(self) -> None:
+80:        """Close HTTP session."""
+81:        if self.session:
+82:            await self.session.aclose()
+83:            logger.info("Static fetcher closed")
+84:
+85:    def _get_user_agent(self) -> str:
+86:        """
+87:        Get user agent based on strategy.
+88:
+89:        Returns:
+90:            User agent string
+91:        """
+92:        strategy = self.job.user_agent_strategy
+93:
+94:        if strategy == UserAgentStrategy.FIXED:
+95:            if self.job.user_agent_list:
+96:                return self.job.user_agent_list[0]
+97:            return self.ua.chrome
+98:
+99:        elif strategy == UserAgentStrategy.ROTATING_LIST:
+100:            if not self.job.user_agent_list:
+101:                return self.ua.random
+102:            ua = self.job.user_agent_list[self._user_agent_index]
+103:            self._user_agent_index = (
+104:                self._user_agent_index + 1
+105:            ) % len(self.job.user_agent_list)
+106:            return ua
+107:
+108:        else:  # RANDOM
+109:            return self.ua.random
+110:
+111:    def _get_proxy(self) -> Optional[dict[str, str]]:
+112:        """
+113:        Get next proxy from pool using rotation strategy.
+114:
+115:        Returns:
+116:            Proxy dict for httpx, or None
+117:        """
+118:        if not self.job.proxy.enabled or not self.job.proxy.proxy_list:
+119:            return None
+120:
+121:        strategy = self.job.proxy.rotation_strategy
+122:        proxies = self.job.proxy.proxy_list
+123:
+124:        if strategy == "round_robin":
+125:            proxy = proxies[self._current_proxy_index]
+126:            self._current_proxy_index = (self._current_proxy_index + 1) % len(proxies)
+127:        elif strategy == "random":
+128:            import random
+129:            proxy = random.choice(proxies)
+130:        else:  # least_used - simplified to round_robin for now
+131:            proxy = proxies[self._current_proxy_index]
+132:            self._current_proxy_index = (self._current_proxy_index + 1) % len(proxies)
+133:
+134:        return {"http://": proxy, "https://": proxy}
+135:
+136:    async def fetch(
+137:        self, url: str, retry_count: int = 0
+138:    ) -> tuple[Optional[BeautifulSoup], Optional[str]]:
+139:        """
+140:        Fetch and parse a URL.
+141:
+142:        Args:
+143:            url: URL to fetch
+144:            retry_count: Current retry attempt
+145:
+146:        Returns:
+147:            Tuple of (parsed BeautifulSoup, raw HTML) or (None, None) on failure
+148:        """
+149:        if not self.session:
+150:            raise RuntimeError("Fetcher not started. Use async with StaticFetcher()...")
+151:
+152:        try:
+153:            # Update user agent if rotating
+154:            if self.job.user_agent_strategy == UserAgentStrategy.RANDOM:
+155:                self.session.headers["User-Agent"] = self._get_user_agent()
+156:
+157:            # Get proxy if configured
+158:            proxy = self._get_proxy()
+159:            request_kwargs: dict[str, Any] = {}
+160:            if proxy:
+161:                request_kwargs["proxies"] = proxy
+162:
+163:            logger.debug(f"Fetching {url}")
+164:
+165:            # Make request
+166:            response = await self.session.get(url, **request_kwargs)
+167:            response.raise_for_status()
+168:
+169:            # Parse HTML
+170:            html = response.text
+171:            soup = BeautifulSoup(html, "lxml")
+172:
+173:            logger.info(f"Successfully fetched {url} ({len(html)} bytes)")
+174:            return soup, html
+175:
+176:        except httpx.HTTPStatusError as e:
+177:            status_code = e.response.status_code
+178:            logger.warning(f"HTTP {status_code} for {url}")
+179:
+180:            # Retry on configured status codes
+181:            if (
+182:                status_code in self.job.retry.retry_on_status
+183:                and retry_count < self.job.retry.max_retries
+184:            ):
+185:                backoff = self.job.retry.backoff_factor ** retry_count
+186:                logger.info(f"Retrying in {backoff}s (attempt {retry_count + 1})")
+187:                await asyncio.sleep(backoff)
+188:                return await self.fetch(url, retry_count + 1)
+189:
+190:            return None, None
+191:
+192:        except httpx.RequestError as e:
+193:            logger.error(f"Request error for {url}: {e}")
+194:
+195:            # Retry on network errors
+196:            if retry_count < self.job.retry.max_retries:
+197:                backoff = self.job.retry.backoff_factor ** retry_count
+198:                logger.info(f"Retrying in {backoff}s (attempt {retry_count + 1})")
+199:                await asyncio.sleep(backoff)
+200:                return await self.fetch(url, retry_count + 1)
+201:
+202:            return None, None
+203:
+204:        except Exception as e:
+205:            logger.error(f"Unexpected error fetching {url}: {e}")
+206:            return None, None
+207:
+208:    async def fetch_multiple(
+209:        self, urls: list[str], max_concurrent: Optional[int] = None
+210:    ) -> list[tuple[str, Optional[BeautifulSoup], Optional[str]]]:
+211:        """
+212:        Fetch multiple URLs concurrently with rate limiting.
+213:
+214:        Args:
+215:            urls: List of URLs to fetch
+216:            max_concurrent: Max concurrent requests (overrides job config)
+217:
+218:        Returns:
+219:            List of tuples (url, soup, html)
+220:        """
+221:        if max_concurrent is None:
+222:            max_concurrent = self.job.rate_limit.max_concurrent_requests
+223:
+224:        semaphore = asyncio.Semaphore(max_concurrent)
+225:
+226:        async def fetch_with_semaphore(url: str) -> tuple[str, Optional[BeautifulSoup], Optional[str]]:
+227:            async with semaphore:
+228:                soup, html = await self.fetch(url)
+229:                # Respect rate limiting delay
+230:                delay = self.job.rate_limit.min_delay
+
+FILE scraper/config/models.py
+70:    )
+71:    regex: Optional[str] = Field(
+72:        None, description="Regex pattern to apply after extraction"
+73:    )
+74:    multiple: bool = Field(
+75:        False, description="Extract multiple values (returns list)"
+76:    )
+77:
+78:    @field_validator("selector")
+79:    @classmethod
+80:    def validate_selector(cls, v: Optional[str]) -> Optional[str]:
+81:        """Ensure selector is provided if not using LLM."""
+82:        if v and v.strip():
+83:            return v.strip()
+84:        return None
+85:
+86:
+87:class PaginationConfig(BaseModel):
+88:    """Pagination configuration."""
+89:
+90:    mode: PaginationMode = Field(
+91:        PaginationMode.NONE, description="Pagination strategy"
+92:    )
+93:    next_button_selector: Optional[str] = Field(
+94:        None, description="CSS selector for next button (next_button mode)"
+95:    )
+96:    url_pattern: Optional[str] = Field(
+97:        None, description="URL pattern with {page} placeholder (url_pattern mode)"
+98:    )
+99:    start_page: int = Field(1, description="Starting page number", ge=1)
+100:    max_pages: int = Field(10, description="Maximum pages to scrape", ge=1)
+101:    scroll_times: int = Field(
+102:        5, description="Number of scrolls (infinite_scroll mode)", ge=1
+103:    )
+104:    scroll_pause: float = Field(
+105:        1.0, description="Pause between scrolls in seconds", ge=0.1
+106:    )
+107:
+108:    @model_validator(mode="after")
+109:    def validate_pagination_config(self) -> "PaginationConfig":
+110:        """Ensure required fields are set based on mode."""
+111:        if self.mode == PaginationMode.NEXT_BUTTON and not self.next_button_selector:
+112:            raise ValueError("next_button_selector required for next_button mode")
+113:        if self.mode == PaginationMode.URL_PATTERN and not self.url_pattern:
+114:            raise ValueError("url_pattern required for url_pattern mode")
+115:        return self
+116:
+117:
+118:class BrowserConfig(BaseModel):
+119:    """Browser automation configuration."""
+120:
+121:    enabled: bool = Field(False, description="Use browser automation")
+122:    headless: bool = Field(True, description="Run browser in headless mode")
+123:    wait_for_selector: Optional[str] = Field(
+124:        None, description="Wait for this selector before extraction"
+125:    )
+126:    wait_timeout: int = Field(
+127:        30000, description="Wait timeout in milliseconds", ge=1000
+128:    )
+129:    page_load_timeout: int = Field(
+130:        60000, description="Page load timeout in milliseconds", ge=1000
+131:    )
+132:    user_agent: Optional[str] = Field(
+133:        None, description="Custom user agent for browser"
+134:    )
+135:    viewport_width: int = Field(1920, description="Viewport width", ge=800)
+136:    viewport_height: int = Field(1080, description="Viewport height", ge=600)
+137:    javascript_enabled: bool = Field(True, description="Enable JavaScript")
+138:    block_images: bool = Field(False, description="Block images for faster loading")
+139:    block_css: bool = Field(False, description="Block CSS for faster loading")
+140:    capture_screenshot: bool = Field(
+141:        False, description="Capture screenshot of each page"
+142:    )
+143:    screenshot_path: Optional[Path] = Field(
+144:        None, description="Directory to save screenshots"
+145:    )
+146:
+147:
+148:class ProxyConfig(BaseModel):
+149:    """Proxy configuration."""
+150:
+151:    enabled: bool = Field(False, description="Enable proxy rotation")
+152:    proxy_list: list[str] = Field(
+153:        default_factory=list, description="List of proxy URLs"
+154:    )
+155:    rotation_strategy: Literal["round_robin", "random", "least_used"] = Field(
+156:        "round_robin", description="Proxy rotation strategy"
+157:    )
+158:    test_on_start: bool = Field(
+159:        True, description="Test proxies before using"
+160:    )
+161:
+162:    @field_validator("proxy_list")
+163:    @classmethod
+164:    def validate_proxy_list(cls, v: list[str]) -> list[str]:
+165:        """Ensure proxy URLs are valid."""
+166:        if not v:
+167:            return v
+168:        # Basic validation - could be more sophisticated
+169:        valid_proxies = []
+170:        for proxy in v:
+171:            if proxy.startswith(("http://", "https://", "socks5://")):
+172:                valid_proxies.append(proxy)
+173:        return valid_proxies
+174:
+175:
+176:class RateLimitConfig(BaseModel):
+177:    """Rate limiting configuration."""
+178:
+179:    enabled: bool = Field(True, description="Enable rate limiting")
+180:    min_delay: float = Field(
+181:        1.0, description="Minimum delay between requests in seconds", ge=0.0
+182:    )
+183:    max_delay: float = Field(
+184:        3.0, description="Maximum delay between requests in seconds", ge=0.0
+185:    )
+186:    max_concurrent_requests: int = Field(
+187:        5, description="Maximum concurrent requests", ge=1, le=100
+188:    )
+189:    respect_robots_txt: bool = Field(
+190:        True, description="Respect robots.txt directives"

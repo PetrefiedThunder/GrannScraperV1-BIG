@@ -1,0 +1,14 @@
+TRACKED MODIFIED ['pyproject.toml']
+UNTRACKED COUNT 209
+OUTSIDE QA []
+BRANCH qa/2026-10-02-sweep
+DIFF CHECK 0  
+IGNORED QA ARTIFACT COUNT 153
+IGNORED SAMPLE ['docs/qa/2026-10-02/artifacts/ux-mobile-layout.json', 'docs/qa/2026-10-02/artifacts/coordinator-ruff-baseline.json', 'docs/qa/2026-10-02/artifacts/ux-text-scale-200.json', 'docs/qa/2026-10-02/artifacts/backend-coverage-before.json', 'docs/qa/2026-10-02/artifacts/security-offline-advisories.json', 'docs/qa/2026-10-02/artifacts/ux-keyboard-order.json', 'docs/qa/2026-10-02/artifacts/ux-axe-empty.json', 'docs/qa/2026-10-02/artifacts/ux-details-focus.json', 'docs/qa/2026-10-02/artifacts/ux-axe-jobs-error.json', 'docs/qa/2026-10-02/artifacts/frontend-performance.json', 'docs/qa/2026-10-02/artifacts/frontend-playwright.json', 'docs/qa/2026-10-02/artifacts/coverage-after.json', 'docs/qa/2026-10-02/artifacts/security-dependencies.json', 'docs/qa/2026-10-02/artifacts/frontend-main-flow.json', 'docs/qa/2026-10-02/artifacts/ux-error-semantics.json']
+FINDING COUNT 28 UNIQUE 28
+COUNTS {'High': 11, 'Medium': 16, 'Low': 1}
+backend-coverage-before.json {'covered_lines': 1354, 'num_statements': 5434, 'covered_branches': 429, 'num_branches': 1706, 'percent_covered': 24.971988795518207} FILES 53
+coverage-after.json {'covered_lines': 2409, 'num_statements': 5434, 'covered_branches': 643, 'num_branches': 1706, 'percent_covered': 42.745098039215684} FILES 53
+frontend-playwright.json OUTCOMES {('failed', 'expected', ('failed',)): 9, ('passed', 'expected', ('passed',)): 14}
+ux-playwright-results.json OUTCOMES {('passed', 'expected', ('passed',)): 2, ('failed', 'expected', ('failed',)): 7}
+MANDATORY DOCS [('PLAN.md', True, 6027), ('SESSION-LOG.md', True, 4259), ('FINDINGS.md', True, 25228), ('COVERAGE.md', True, 6802), ('SUMMARY.md', True, 6229)]

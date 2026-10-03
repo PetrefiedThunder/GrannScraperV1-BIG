@@ -1,0 +1,9 @@
+Browser expected9 unexpected0; all report links valid
+{
+  "jobsRequestsBeforeRecovery": 1,
+  "jobsRequestsAfter11Seconds": 1,
+  "infoRequests": 2,
+  "pageStillFailed": true,
+  "recovered": false,
+  "retryAvailable": false
+}

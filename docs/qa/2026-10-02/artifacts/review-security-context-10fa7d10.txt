@@ -1,0 +1,341 @@
+scraper/api/rest_server.py:26:from scraper.export.export_manager import ExportManager
+scraper/api/rest_server.py:294:        export_manager = ExportManager(job.export)
+scraper/api/rest_server.py:295:        await export_manager.export_result(result)
+scraper/web/static/app.js:72:    const exportFormat = document.getElementById('export-format').value;
+scraper/web/static/app.js:102:                export: { format: exportFormat },
+scraper/sdk/client.py:12:    job_id = client.auto_scrape("https://example.com", export_format="csv")
+scraper/sdk/client.py:108:    def auto_scrape(
+scraper/sdk/client.py:112:        export_format: str = "json",
+scraper/sdk/client.py:122:            export_format: Export format (json, csv, excel)
+scraper/sdk/client.py:140:            export={'format': export_format}
+scraper/sdk/client.py:565:    async def auto_scrape(
+scraper/sdk/client.py:569:        export_format: str = "json",
+scraper/sdk/client.py:583:            export={'format': export_format}
+
+1:"""
+2:Rate limiting and politeness engine.
+3:
+4:Token bucket algorithm with domain-specific rate limiting.
+5:"""
+6:
+7:import asyncio
+8:import logging
+9:import time
+10:from collections import defaultdict
+11:from typing import Optional
+12:
+13:from scraper.config.models import RateLimitConfig
+14:
+15:logger = logging.getLogger(__name__)
+16:
+17:
+18:class RateLimiter:
+19:    """
+20:    Token bucket rate limiter with per-domain tracking.
+21:
+22:    Ensures politeness by limiting requests per second per domain.
+23:    """
+24:
+25:    def __init__(self, config: RateLimitConfig):
+26:        """
+27:        Initialize rate limiter.
+28:
+29:        Args:
+30:            config: Rate limit configuration
+31:        """
+32:        self.config = config
+33:        self.domain_buckets: dict[str, dict] = defaultdict(
+34:            lambda: {
+35:                "tokens": config.max_concurrent_requests,
+36:                "last_update": time.time(),
+37:                "max_tokens": config.max_concurrent_requests,
+38:            }
+39:        )
+40:        self.semaphore = asyncio.Semaphore(config.max_concurrent_requests)
+41:
+42:    async def acquire(self, domain: str) -> None:
+43:        """
+44:        Acquire permission to make a request to domain.
+45:
+46:        Args:
+47:            domain: Domain being accessed
+48:        """
+49:        if not self.config.enabled:
+50:            return
+51:
+52:        # Global concurrency limit
+53:        await self.semaphore.acquire()
+54:
+55:        # Domain-specific rate limiting
+56:        if self.config.requests_per_second:
+57:            await self._wait_for_token(domain)
+58:
+59:        # Random delay between min and max
+60:        delay = self.config.min_delay
+61:        if self.config.max_delay > self.config.min_delay:
+62:            import random
+63:            delay = random.uniform(self.config.min_delay, self.config.max_delay)
+64:
+65:        await asyncio.sleep(delay)
+66:
+67:    def release(self, domain: str) -> None:
+68:        """
+69:        Release rate limit for domain.
+70:
+71:        Args:
+72:            domain: Domain being released
+73:        """
+74:        if not self.config.enabled:
+75:            return
+76:
+77:        self.semaphore.release()
+78:
+79:    async def _wait_for_token(self, domain: str) -> None:
+80:        """
+81:        Wait for token bucket to have available tokens.
+82:
+83:        Args:
+84:            domain: Domain to check
+85:        """
+86:        if not self.config.requests_per_second:
+87:            return
+88:
+89:        bucket = self.domain_buckets[domain]
+90:
+91:        while True:
+92:            now = time.time()
+93:            time_passed = now - bucket["last_update"]
+94:
+95:            # Refill tokens based on time passed
+96:            refill_rate = self.config.requests_per_second
+97:            tokens_to_add = time_passed * refill_rate
+98:            bucket["tokens"] = min(
+99:                bucket["max_tokens"],
+100:                bucket["tokens"] + tokens_to_add
+101:            )
+102:            bucket["last_update"] = now
+103:
+104:            # Check if we have a token
+105:            if bucket["tokens"] >= 1.0:
+106:                bucket["tokens"] -= 1.0
+107:                break
+108:
+109:            # Wait a bit before checking again
+110:            wait_time = (1.0 - bucket["tokens"]) / refill_rate
+111:            await asyncio.sleep(wait_time)
+112:
+113:    async def __aenter__(self) -> "RateLimiter":
+114:        """Context manager entry."""
+115:        return self
+116:
+117:    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+118:        """Context manager exit."""
+119:        pass
+120:
+121:
+122:class SessionManager:
+123:    """
+124:    Manages scraping sessions with persistent state.
+125:
+126:    Tracks visited URLs, cookies, and session metadata.
+127:    """
+128:
+129:    def __init__(self):
+130:        """Initialize session manager."""
+131:        self.visited_urls: set[str] = set()
+132:        self.failed_urls: set[str] = set()
+133:        self.cookies: dict[str, str] = {}
+134:        self.metadata: dict[str, any] = {}
+135:
+136:    def mark_visited(self, url: str) -> None:
+137:        """
+138:        Mark URL as visited.
+139:
+140:        Args:
+141:            url: URL that was visited
+142:        """
+143:        self.visited_urls.add(url)
+144:
+145:    def mark_failed(self, url: str) -> None:
+146:        """
+147:        Mark URL as failed.
+148:
+149:        Args:
+150:            url: URL that failed
+151:        """
+152:        self.failed_urls.add(url)
+153:
+154:    def is_visited(self, url: str) -> bool:
+155:        """
+156:        Check if URL has been visited.
+157:
+158:        Args:
+159:            url: URL to check
+160:
+161:        Returns:
+162:            True if visited
+163:        """
+164:        return url in self.visited_urls
+165:
+166:    def is_failed(self, url: str) -> bool:
+167:        """
+168:        Check if URL previously failed.
+169:
+170:        Args:
+171:            url: URL to check
+172:
+173:        Returns:
+174:            True if failed
+175:        """
+176:        return url in self.failed_urls
+177:
+178:    def get_stats(self) -> dict[str, int]:
+179:        """
+180:        Get session statistics.
+181:
+182:        Returns:
+183:            Dict with visited, failed counts
+184:        """
+185:        return {
+186:            "visited": len(self.visited_urls),
+187:            "failed": len(self.failed_urls),
+188:        }
+189:
+190:    def update_cookies(self, new_cookies: dict[str, str]) -> None:
+191:        """
+192:        Update session cookies.
+193:
+194:        Args:
+195:            new_cookies: New cookies to merge
+196:        """
+197:        self.cookies.update(new_cookies)
+198:
+199:    def reset(self) -> None:
+200:        """Reset session state."""
+201:        self.visited_urls.clear()
+202:        self.failed_urls.clear()
+203:        self.cookies.clear()
+204:        self.metadata.clear()
+205:        logger.info("Session reset")
+
+BASELINE END
+scraper/ml/__init__.py                             0      0      0      0   100%
+scraper/ml/data_intelligence.py                  298    101    146     34    65%
+scraper/monitor/__init__.py                        0      0      0      0   100%
+scraper/monitor/live_dashboard.py                126    126     32      0     0%
+scraper/monitoring/__init__.py                     2      2      0      0     0%
+scraper/monitoring/alerts.py                     176    176     48      0     0%
+scraper/observability/__init__.py                  2      2      0      0     0%
+scraper/observability/logging_system.py          148    148     18      0     0%
+scraper/scheduler/__init__.py                      0      0      0      0   100%
+scraper/scheduler/advanced_scheduler.py          192    192     52      0     0%
+scraper/scheduler/workflow_dag.py                258    258    104      0     0%
+scraper/sdk/__init__.py                            2      0      0      0   100%
+scraper/sdk/client.py                            198     96     24      2    49%
+scraper/security/__init__.py                       2      2      0      0     0%
+scraper/security/auth.py                         187    187     34      0     0%
+scraper/storage/__init__.py                        0      0      0      0   100%
+scraper/storage/smart_cache.py                   141    111     20      0    19%
+scraper/strategies/__init__.py                     0      0      0      0   100%
+scraper/strategies/intelligent_extraction.py     235    235    126      0     0%
+scraper/transforms/__init__.py                     0      0      0      0   100%
+scraper/transforms/cleaning.py                   105     42     44      6    52%
+scraper/transforms/deduplication.py               72     30     30      1    54%
+scraper/transforms/type_inference.py              84     28     62     12    62%
+scraper/ui/__init__.py                             0      0      0      0   100%
+--------------------------------------------------------------------------------
+TOTAL                                           5434   4080   1706    119    25%
+Coverage HTML written to dir docs/qa/2026-10-02/artifacts/backend-coverage-before-html
+Coverage JSON written to file docs/qa/2026-10-02/artifacts/backend-coverage-before.json
+
+=========================== short test summary info ============================
+FAILED tests/test_data_intelligence.py::TestDataQualityAnalyzer::test_analyze_incomplete_dataset
+FAILED tests/test_data_intelligence.py::TestDataQualityAnalyzer::test_completeness_calculation
+FAILED tests/test_data_intelligence.py::TestDataQualityAnalyzer::test_completeness_with_missing
+FAILED tests/test_data_intelligence.py::TestDataQualityAnalyzer::test_validity_calculation
+FAILED tests/test_data_intelligence.py::TestAnomalyDetector::test_detect_no_anomalies
+FAILED tests/test_data_intelligence.py::TestAnomalyDetector::test_detect_outliers
+FAILED tests/test_data_intelligence.py::TestSmartCategorizer::test_categorize_products
+FAILED tests/test_data_intelligence.py::TestSmartCategorizer::test_suggest_category_names
+FAILED tests/test_data_intelligence.py::TestSmartCategorizer::test_empty_dataset
+FAILED tests/test_data_intelligence.py::TestIntegration::test_full_quality_pipeline
+FAILED tests/test_data_intelligence.py::TestIntegration::test_categorization_after_quality_check
+ERROR tests/test_smart_cache.py::TestSmartCache::test_cache_initialization - ...
+ERROR tests/test_smart_cache.py::TestSmartCache::test_cache_page - AttributeE...
+ERROR tests/test_smart_cache.py::TestSmartCache::test_should_scrape_new_url
+ERROR tests/test_smart_cache.py::TestSmartCache::test_should_scrape_cached_fresh
+ERROR tests/test_smart_cache.py::TestSmartCache::test_should_scrape_cached_expired
+ERROR tests/test_smart_cache.py::TestSmartCache::test_content_hash_change_detection
+ERROR tests/test_smart_cache.py::TestSmartCache::test_get_cached_content - At...
+ERROR tests/test_smart_cache.py::TestSmartCache::test_clear_expired - Attribu...
+ERROR tests/test_smart_cache.py::TestSmartCache::test_clear_all - AttributeEr...
+ERROR tests/test_smart_cache.py::TestSmartCache::test_get_stats - AttributeEr...
+ERROR tests/test_smart_cache.py::TestSmartCache::test_hit_miss_tracking - Att...
+ERROR tests/test_smart_cache.py::TestIncrementalScraper::test_scrape_incremental_new_urls
+ERROR tests/test_smart_cache.py::TestIncrementalScraper::test_scrape_incremental_cached_urls
+ERROR tests/test_smart_cache.py::TestIncrementalScraper::test_scrape_incremental_mixed
+ERROR tests/test_smart_cache.py::TestIncrementalScraper::test_get_changed_urls
+ERROR tests/test_smart_cache.py::TestCachePerformance::test_large_content_handling
+ERROR tests/test_smart_cache.py::TestCachePerformance::test_many_urls_caching
+ERROR tests/test_smart_cache.py::TestCachePerformance::test_hash_collision_resistance
+================== 11 failed, 140 passed, 18 errors in 6.65s ===================
+
+LOG END
+
+### 2026-10-03T01:48:54Z — identity
+
+Command (argv): `['python3', '-c', 'import subprocess; from pathlib import Path; print(Path.cwd()); subprocess.run(["git","worktree","list"]); subprocess.run(["git","branch","--show-current"]); subprocess.run(["git","remote","get-url","origin"]); print(Path("docs/qa/2026-10-02/PLAN.md").read_text())']`
+
+Exit 0; 0.09s; [output](artifacts/security-identity-907be310.txt).
+
+### 2026-10-03T01:48:58Z — source-map
+
+Command (argv): `['python3', '-c', 'from pathlib import Path; import subprocess; paths=["AGENTS.md","pyproject.toml","scraper/api/rest_server.py","scraper/security/auth.py","scraper/config/models.py","scraper/core/fetcher.py"]; subprocess.run(["rg","--files","-g","AGENTS.md","-g","!node_modules","-g","!.venv"]); [(print("\\nFILE",p),print(Path(p).read_text())) for p in paths if Path(p).is_file()]']`
+
+Exit 0; 0.03s; [output](artifacts/security-source-map-edcfc40b.txt).
+
+### 2026-10-03T01:49:07Z — security-skill
+
+Command (argv): `['python3', '-c', 'from pathlib import Path; print(Path("/Users/sellers/.codex/skills/security-best-practices/SKILL.md").read_text())']`
+
+Exit 0; 0.02s; [output](artifacts/security-security-skill-5e3eb672.txt).
+
+### 2026-10-03T01:49:07Z — boundary-files
+
+Command (argv): `['python3', '-c', 'from pathlib import Path; import subprocess; subprocess.run(["rg","--files","scraper","tests","-g","!*.env*","-g","!credentials*"]); paths=["scraper/core/fetcher_static.py","scraper/core/fetcher_browser.py","scraper/export/export_manager.py"]; [(print("\\nFILE",p),print("\\n".join(f"{n}: {line}" for n,line in enumerate(Path(p).read_text().splitlines(),1)))) for p in paths if Path(p).is_file()]']`
+
+Exit 0; 0.03s; [output](artifacts/security-boundary-files-d33cfc4c.txt).
+
+### 2026-10-03T01:49:14Z — references-and-api
+
+Command (argv): `['python3', '-c', 'from pathlib import Path; d=Path("/Users/sellers/.codex/skills/security-best-practices/references"); print([p.name for p in d.glob("*")]); paths=[("scraper/api/rest_server.py",480,800),("scraper/security/auth.py",1,245),("scraper/core/engine.py",1,330),("tests/conftest.py",1,160),("docs/qa/2026-10-02/run_logged.py",1,180)]; [(print("\\nFILE",p),print("\\n".join(f"{n}: {line}" for n,line in enumerate(Path(p).read_text().splitlines(),1) if lo<=n<=hi))) for p,lo,hi in paths]']`
+
+Exit 0; 0.03s; [output](artifacts/security-references-and-api-36537a20.txt).
+
+### 2026-10-03T01:49:18Z — framework-guidance
+
+Command (argv): `['python3', '-c', 'from pathlib import Path; p=Path("/Users/sellers/.codex/skills/security-best-practices/references/python-fastapi-web-server-security.md"); print(p.read_text())']`
+
+Exit 0; 0.02s; [output](artifacts/security-framework-guidance-a078e64b.txt).
+
+### 2026-10-03T01:49:50Z — auth-sinks-tools
+
+Command (argv): `['python3', '-c', 'from pathlib import Path; import shutil,subprocess; paths=[("scraper/security/auth.py",250,500),("scraper/export/base_exporter.py",1,120),("scraper/export/json_exporter.py",1,180),("scraper/scheduler/workflow_dag.py",1,300)]; [(print("\\nFILE",p),print("\\n".join(f"{n}: {line}" for n,line in enumerate(Path(p).read_text().splitlines(),1) if lo<=n<=hi))) for p,lo,hi in paths]; subprocess.run(["rg","-n","eval\\\\(|exec\\\\(|pickle|yaml\\\\.load|shell=True|Depends\\\\(|Security\\\\(|APIKeyManager|RateLimiter|RequestSigner","scraper","-g","*.py"]); print("TOOLS", {t:shutil.which(t) for t in ["gitleaks","pip-audit","safety","uv"]}); print("VENV_READY",Path("/private/tmp/grann-qa-20261002/venv/bin/python").exists())']`
+
+Exit 0; 0.04s; [output](artifacts/security-auth-sinks-tools-08e74f81.txt).
+
+### 2026-10-03T01:50:52Z — start-boundary-charter
+
+Command (argv): `['python3', '-c', 'from datetime import datetime,timezone; from pathlib import Path; p=Path("docs/qa/2026-10-02/SECURITY-SESSION.md"); p.open("a").write("\\n## Charter SEC-1 — 20-minute isolated boundary session\\n\\nStarted "+datetime.now(timezone.utc).isoformat()+". Trace anonymous API access, nonpublic URL requests and export-directory containment using ASGI transport, fake fetches and temporary markers. No external calls or real credentials. Tool edit planned: tests/qa_security/test_security_boundaries.py.\\n"); print("Charter and pending test edit recorded")']`
+
+
+## Charter SEC-1 — 20-minute isolated boundary session
+
+Started 2026-10-03T01:50:52.619801+00:00. Trace anonymous API access, nonpublic URL requests and export-directory containment using ASGI transport, fake fetches and temporary markers. No external calls or real credentials. Tool edit planned: tests/qa_security/test_security_boundaries.py.
+Exit 0; 0.02s; [output](artifacts/security-start-boundary-charter-797d55f8.txt).
+
+### 2026-10-03T01:50:56Z — isolated-boundary-tests
+
+Command (argv): `['/private/tmp/grann-qa-20261002/venv/bin/python', '-m', 'pytest', 'tests/qa_security', '-q', '--disable-socket', '--allow-unix-socket', '-rx', '--tb=short']`
+
+Exit 0; 1.76s; [output](artifacts/security-isolated-boundary-tests-359daf2e.txt).

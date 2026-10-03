@@ -1,0 +1,1356 @@
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/26.7.0/bin/node",
+      "/private/tmp/grann-qa-20261002/node/node_modules/@playwright/test/cli.js",
+      "test",
+      "--config",
+      "tests/qa_frontend/playwright.config.cjs"
+    ],
+    "configFile": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/playwright.config.cjs",
+    "rootDir": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/docs/qa/2026-10-02/artifacts/frontend-test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend",
+        "testIgnore": [],
+        "testMatch": [
+          "dashboard.spec.cjs"
+        ],
+        "timeout": 20000
+      },
+      {
+        "outputDir": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/docs/qa/2026-10-02/artifacts/frontend-test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "firefox",
+        "name": "firefox",
+        "testDir": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend",
+        "testIgnore": [],
+        "testMatch": [
+          "dashboard.spec.cjs"
+        ],
+        "timeout": 20000
+      },
+      {
+        "outputDir": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/docs/qa/2026-10-02/artifacts/frontend-test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "webkit",
+        "name": "webkit",
+        "testDir": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend",
+        "testIgnore": [],
+        "testMatch": [
+          "dashboard.spec.cjs"
+        ],
+        "timeout": 20000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/docs/qa/2026-10-02/artifacts/frontend-playwright.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.63.0",
+    "workers": 1,
+    "webServer": {
+      "command": "node \"/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/server.cjs\"",
+      "url": "http://127.0.0.1:18765/",
+      "reuseExistingServer": false,
+      "timeout": 10000
+    }
+  },
+  "suites": [
+    {
+      "title": "dashboard.spec.cjs",
+      "file": "dashboard.spec.cjs",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "FE-001 root dashboard loads its script and initial jobs",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 20000,
+              "annotations": [
+                {
+                  "type": "fail",
+                  "description": "FE-001: app.js resolves to /app.js; only /static/app.js exists",
+                  "location": {
+                    "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                    "line": 93,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "failed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 2726,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('#job-list')\nExpected substring: \u001b[32m\"No jobs yet\"\u001b[39m\nReceived string:    \u001b[31m\"\"\u001b[39m\nTimeout: 2500ms\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" locator('#job-list') with timeout 2500ms\u001b[22m\n\u001b[2m  - waiting for locator('#job-list')\u001b[22m\n\u001b[2m    9 × locator resolved to <ul id=\"job-list\" class=\"job-list\"></ul>\u001b[22m\n\u001b[2m      - unexpected value \"\"\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('#job-list')\nExpected substring: \u001b[32m\"No jobs yet\"\u001b[39m\nReceived string:    \u001b[31m\"\"\u001b[39m\nTimeout: 2500ms\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" locator('#job-list') with timeout 2500ms\u001b[22m\n\u001b[2m  - waiting for locator('#job-list')\u001b[22m\n\u001b[2m    9 × locator resolved to <ul id=\"job-list\" class=\"job-list\"></ul>\u001b[22m\n\u001b[2m      - unexpected value \"\"\u001b[22m\n\n    at /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs:94:43",
+                    "location": {
+                      "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                      "column": 43,
+                      "line": 94
+                    },
+                    "snippet": "  92 |   fs.writeFileSync(path.join(artifacts, 'frontend-root-errors.json'), JSON.stringify(state, null, 2));\n  93 |   test.fail(true, 'FE-001: app.js resolves to /app.js; only /static/app.js exists');\n> 94 |   await expect(page.locator('#job-list')).toContainText('No jobs yet');\n     |                                           ^\n  95 | });\n  96 |\n  97 | test('working asset route: empty state then analysis/create/run/list flow', async ({ page }, testInfo) => {"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                        "column": 43,
+                        "line": 94
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('#job-list')\nExpected substring: \u001b[32m\"No jobs yet\"\u001b[39m\nReceived string:    \u001b[31m\"\"\u001b[39m\nTimeout: 2500ms\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" locator('#job-list') with timeout 2500ms\u001b[22m\n\u001b[2m  - waiting for locator('#job-list')\u001b[22m\n\u001b[2m    9 × locator resolved to <ul id=\"job-list\" class=\"job-list\"></ul>\u001b[22m\n\u001b[2m      - unexpected value \"\"\u001b[22m\n\n\n  92 |   fs.writeFileSync(path.join(artifacts, 'frontend-root-errors.json'), JSON.stringify(state, null, 2));\n  93 |   test.fail(true, 'FE-001: app.js resolves to /app.js; only /static/app.js exists');\n> 94 |   await expect(page.locator('#job-list')).toContainText('No jobs yet');\n     |                                           ^\n  95 | });\n  96 |\n  97 | test('working asset route: empty state then analysis/create/run/list flow', async ({ page }, testInfo) => {\n    at /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs:94:43"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T01:53:56.177Z",
+                  "annotations": [
+                    {
+                      "type": "fail",
+                      "description": "FE-001: app.js resolves to /app.js; only /static/app.js exists",
+                      "location": {
+                        "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                        "line": 93,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/docs/qa/2026-10-02/artifacts/frontend-test-results/dashboard-FE-001-root-dash-61232-its-script-and-initial-jobs-chromium/error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                    "column": 43,
+                    "line": 94
+                  }
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "98c9c7983ccfaa711b4b-d4d185c595ca1d748d8e",
+          "file": "dashboard.spec.cjs",
+          "line": 85,
+          "column": 1
+        },
+        {
+          "title": "working asset route: empty state then analysis/create/run/list flow",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 20000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 641,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T01:53:59.013Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "98c9c7983ccfaa711b4b-f4c560bfe1b67d815473",
+          "file": "dashboard.spec.cjs",
+          "line": 97,
+          "column": 1
+        },
+        {
+          "title": "FE-002 selected page limit 1 survives API model validation",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 20000,
+              "annotations": [
+                {
+                  "type": "fail",
+                  "description": "FE-002: max_pages sent at job root is ignored instead of pagination.max_pages",
+                  "location": {
+                    "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                    "line": 119,
+                    "column": 10
+                  }
+                }
+              ],
+              "expectedStatus": "failed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 640,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m1\u001b[39m\nReceived: \u001b[31m10\u001b[39m",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m1\u001b[39m\nReceived: \u001b[31m10\u001b[39m\n    at /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs:120:33",
+                    "location": {
+                      "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                      "column": 33,
+                      "line": 120
+                    },
+                    "snippet": "  118 |     const persisted = modelSettings(state.created);\n  119 |     test.fail(true, 'FE-002: max_pages sent at job root is ignored instead of pagination.max_pages');\n> 120 |     expect(persisted.max_pages).toBe(Number(pages));\n      |                                 ^\n  121 |   });\n  122 | }\n  123 |"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                        "column": 33,
+                        "line": 120
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m1\u001b[39m\nReceived: \u001b[31m10\u001b[39m\n\n  118 |     const persisted = modelSettings(state.created);\n  119 |     test.fail(true, 'FE-002: max_pages sent at job root is ignored instead of pagination.max_pages');\n> 120 |     expect(persisted.max_pages).toBe(Number(pages));\n      |                                 ^\n  121 |   });\n  122 | }\n  123 |\n    at /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs:120:33"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T01:53:59.661Z",
+                  "annotations": [
+                    {
+                      "type": "fail",
+                      "description": "FE-002: max_pages sent at job root is ignored instead of pagination.max_pages",
+                      "location": {
+                        "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                        "line": 119,
+                        "column": 10
+                      }
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/docs/qa/2026-10-02/artifacts/frontend-test-results/dashboard-FE-002-selected--f6415-rvives-API-model-validation-chromium/error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                    "column": 33,
+                    "line": 120
+                  }
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "98c9c7983ccfaa711b4b-3dbf14b7a7309e4cb280",
+          "file": "dashboard.spec.cjs",
+          "line": 113,
+          "column": 3
+        },
+        {
+          "title": "FE-002 selected page limit 2 survives API model validation",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 20000,
+              "annotations": [
+                {
+                  "type": "fail",
+                  "description": "FE-002: max_pages sent at job root is ignored instead of pagination.max_pages",
+                  "location": {
+                    "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                    "line": 119,
+                    "column": 10
+                  }
+                }
+              ],
+              "expectedStatus": "failed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 649,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m2\u001b[39m\nReceived: \u001b[31m10\u001b[39m",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m2\u001b[39m\nReceived: \u001b[31m10\u001b[39m\n    at /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs:120:33",
+                    "location": {
+                      "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                      "column": 33,
+                      "line": 120
+                    },
+                    "snippet": "  118 |     const persisted = modelSettings(state.created);\n  119 |     test.fail(true, 'FE-002: max_pages sent at job root is ignored instead of pagination.max_pages');\n> 120 |     expect(persisted.max_pages).toBe(Number(pages));\n      |                                 ^\n  121 |   });\n  122 | }\n  123 |"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                        "column": 33,
+                        "line": 120
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m2\u001b[39m\nReceived: \u001b[31m10\u001b[39m\n\n  118 |     const persisted = modelSettings(state.created);\n  119 |     test.fail(true, 'FE-002: max_pages sent at job root is ignored instead of pagination.max_pages');\n> 120 |     expect(persisted.max_pages).toBe(Number(pages));\n      |                                 ^\n  121 |   });\n  122 | }\n  123 |\n    at /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs:120:33"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T01:54:00.306Z",
+                  "annotations": [
+                    {
+                      "type": "fail",
+                      "description": "FE-002: max_pages sent at job root is ignored instead of pagination.max_pages",
+                      "location": {
+                        "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                        "line": 119,
+                        "column": 10
+                      }
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/docs/qa/2026-10-02/artifacts/frontend-test-results/dashboard-FE-002-selected--22671-rvives-API-model-validation-chromium/error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                    "column": 33,
+                    "line": 120
+                  }
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "98c9c7983ccfaa711b4b-bd69efa15509f9db90dd",
+          "file": "dashboard.spec.cjs",
+          "line": 113,
+          "column": 3
+        },
+        {
+          "title": "FE-002 selected page limit 1000 survives API model validation",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 20000,
+              "annotations": [
+                {
+                  "type": "fail",
+                  "description": "FE-002: max_pages sent at job root is ignored instead of pagination.max_pages",
+                  "location": {
+                    "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                    "line": 119,
+                    "column": 10
+                  }
+                }
+              ],
+              "expectedStatus": "failed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 625,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m1000\u001b[39m\nReceived: \u001b[31m10\u001b[39m",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m1000\u001b[39m\nReceived: \u001b[31m10\u001b[39m\n    at /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs:120:33",
+                    "location": {
+                      "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                      "column": 33,
+                      "line": 120
+                    },
+                    "snippet": "  118 |     const persisted = modelSettings(state.created);\n  119 |     test.fail(true, 'FE-002: max_pages sent at job root is ignored instead of pagination.max_pages');\n> 120 |     expect(persisted.max_pages).toBe(Number(pages));\n      |                                 ^\n  121 |   });\n  122 | }\n  123 |"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                        "column": 33,
+                        "line": 120
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m1000\u001b[39m\nReceived: \u001b[31m10\u001b[39m\n\n  118 |     const persisted = modelSettings(state.created);\n  119 |     test.fail(true, 'FE-002: max_pages sent at job root is ignored instead of pagination.max_pages');\n> 120 |     expect(persisted.max_pages).toBe(Number(pages));\n      |                                 ^\n  121 |   });\n  122 | }\n  123 |\n    at /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs:120:33"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T01:54:00.959Z",
+                  "annotations": [
+                    {
+                      "type": "fail",
+                      "description": "FE-002: max_pages sent at job root is ignored instead of pagination.max_pages",
+                      "location": {
+                        "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                        "line": 119,
+                        "column": 10
+                      }
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/docs/qa/2026-10-02/artifacts/frontend-test-results/dashboard-FE-002-selected--9edab-rvives-API-model-validation-chromium/error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                    "column": 33,
+                    "line": 120
+                  }
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "98c9c7983ccfaa711b4b-24031f6142f78bc701ac",
+          "file": "dashboard.spec.cjs",
+          "line": 113,
+          "column": 3
+        },
+        {
+          "title": "FE-003 selected json export survives API model validation",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 20000,
+              "annotations": [
+                {
+                  "type": "fail",
+                  "description": "FE-003: export.format is ignored; model expects export.formats",
+                  "location": {
+                    "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                    "line": 131,
+                    "column": 10
+                  }
+                }
+              ],
+              "expectedStatus": "failed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 637,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  - 1\u001b[39m\n\u001b[31m+ Received  + 1\u001b[39m\n\n\u001b[2m  Array [\u001b[22m\n\u001b[32m-   \"json\",\u001b[39m\n\u001b[31m+   \"csv\",\u001b[39m\n\u001b[2m  ]\u001b[22m",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  - 1\u001b[39m\n\u001b[31m+ Received  + 1\u001b[39m\n\n\u001b[2m  Array [\u001b[22m\n\u001b[32m-   \"json\",\u001b[39m\n\u001b[31m+   \"csv\",\u001b[39m\n\u001b[2m  ]\u001b[22m\n    at /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs:132:31",
+                    "location": {
+                      "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                      "column": 31,
+                      "line": 132
+                    },
+                    "snippet": "  130 |     const persisted = modelSettings(state.created);\n  131 |     test.fail(true, 'FE-003: export.format is ignored; model expects export.formats');\n> 132 |     expect(persisted.formats).toEqual([format]);\n      |                               ^\n  133 |   });\n  134 | }\n  135 |"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                        "column": 31,
+                        "line": 132
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  - 1\u001b[39m\n\u001b[31m+ Received  + 1\u001b[39m\n\n\u001b[2m  Array [\u001b[22m\n\u001b[32m-   \"json\",\u001b[39m\n\u001b[31m+   \"csv\",\u001b[39m\n\u001b[2m  ]\u001b[22m\n\n  130 |     const persisted = modelSettings(state.created);\n  131 |     test.fail(true, 'FE-003: export.format is ignored; model expects export.formats');\n> 132 |     expect(persisted.formats).toEqual([format]);\n      |                               ^\n  133 |   });\n  134 | }\n  135 |\n    at /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs:132:31"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T01:54:01.588Z",
+                  "annotations": [
+                    {
+                      "type": "fail",
+                      "description": "FE-003: export.format is ignored; model expects export.formats",
+                      "location": {
+                        "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                        "line": 131,
+                        "column": 10
+                      }
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/docs/qa/2026-10-02/artifacts/frontend-test-results/dashboard-FE-003-selected--3276f-rvives-API-model-validation-chromium/error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                    "column": 31,
+                    "line": 132
+                  }
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "98c9c7983ccfaa711b4b-fbcaafa712a5c1d029bf",
+          "file": "dashboard.spec.cjs",
+          "line": 125,
+          "column": 3
+        },
+        {
+          "title": "FE-003 selected excel export survives API model validation",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 20000,
+              "annotations": [
+                {
+                  "type": "fail",
+                  "description": "FE-003: export.format is ignored; model expects export.formats",
+                  "location": {
+                    "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                    "line": 131,
+                    "column": 10
+                  }
+                }
+              ],
+              "expectedStatus": "failed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 628,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  - 1\u001b[39m\n\u001b[31m+ Received  + 1\u001b[39m\n\n\u001b[2m  Array [\u001b[22m\n\u001b[32m-   \"excel\",\u001b[39m\n\u001b[31m+   \"csv\",\u001b[39m\n\u001b[2m  ]\u001b[22m",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  - 1\u001b[39m\n\u001b[31m+ Received  + 1\u001b[39m\n\n\u001b[2m  Array [\u001b[22m\n\u001b[32m-   \"excel\",\u001b[39m\n\u001b[31m+   \"csv\",\u001b[39m\n\u001b[2m  ]\u001b[22m\n    at /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs:132:31",
+                    "location": {
+                      "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                      "column": 31,
+                      "line": 132
+                    },
+                    "snippet": "  130 |     const persisted = modelSettings(state.created);\n  131 |     test.fail(true, 'FE-003: export.format is ignored; model expects export.formats');\n> 132 |     expect(persisted.formats).toEqual([format]);\n      |                               ^\n  133 |   });\n  134 | }\n  135 |"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                        "column": 31,
+                        "line": 132
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  - 1\u001b[39m\n\u001b[31m+ Received  + 1\u001b[39m\n\n\u001b[2m  Array [\u001b[22m\n\u001b[32m-   \"excel\",\u001b[39m\n\u001b[31m+   \"csv\",\u001b[39m\n\u001b[2m  ]\u001b[22m\n\n  130 |     const persisted = modelSettings(state.created);\n  131 |     test.fail(true, 'FE-003: export.format is ignored; model expects export.formats');\n> 132 |     expect(persisted.formats).toEqual([format]);\n      |                               ^\n  133 |   });\n  134 | }\n  135 |\n    at /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs:132:31"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T01:54:02.229Z",
+                  "annotations": [
+                    {
+                      "type": "fail",
+                      "description": "FE-003: export.format is ignored; model expects export.formats",
+                      "location": {
+                        "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                        "line": 131,
+                        "column": 10
+                      }
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/docs/qa/2026-10-02/artifacts/frontend-test-results/dashboard-FE-003-selected--8365c-rvives-API-model-validation-chromium/error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                    "column": 31,
+                    "line": 132
+                  }
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "98c9c7983ccfaa711b4b-79b0b409902648be6742",
+          "file": "dashboard.spec.cjs",
+          "line": 125,
+          "column": 3
+        },
+        {
+          "title": "FE-004 dashboard API requests use the serving origin",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 20000,
+              "annotations": [
+                {
+                  "type": "fail",
+                  "description": "FE-004: API_BASE is permanently http://localhost:8000/api/v1",
+                  "location": {
+                    "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                    "line": 139,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "failed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 89,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  - 1\u001b[39m\n\u001b[31m+ Received  + 1\u001b[39m\n\n\u001b[2m  Array [\u001b[22m\n\u001b[32m-   \"http://127.0.0.1:18765\",\u001b[39m\n\u001b[31m+   \"http://localhost:8000\",\u001b[39m\n\u001b[2m  ]\u001b[22m",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  - 1\u001b[39m\n\u001b[31m+ Received  + 1\u001b[39m\n\n\u001b[2m  Array [\u001b[22m\n\u001b[32m-   \"http://127.0.0.1:18765\",\u001b[39m\n\u001b[31m+   \"http://localhost:8000\",\u001b[39m\n\u001b[2m  ]\u001b[22m\n    at /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs:140:84",
+                    "location": {
+                      "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                      "column": 84,
+                      "line": 140
+                    },
+                    "snippet": "  138 |   await openWorkingAssetPath(page);\n  139 |   test.fail(true, 'FE-004: API_BASE is permanently http://localhost:8000/api/v1');\n> 140 |   expect([...new Set(state.requests.map(request => new URL(request.url).origin))]).toEqual([new URL(page.url()).origin]);\n      |                                                                                    ^\n  141 | });\n  142 |\n  143 | test('FE-005 job names are rendered as text, not HTML elements', async ({ page }) => {"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                        "column": 84,
+                        "line": 140
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  - 1\u001b[39m\n\u001b[31m+ Received  + 1\u001b[39m\n\n\u001b[2m  Array [\u001b[22m\n\u001b[32m-   \"http://127.0.0.1:18765\",\u001b[39m\n\u001b[31m+   \"http://localhost:8000\",\u001b[39m\n\u001b[2m  ]\u001b[22m\n\n  138 |   await openWorkingAssetPath(page);\n  139 |   test.fail(true, 'FE-004: API_BASE is permanently http://localhost:8000/api/v1');\n> 140 |   expect([...new Set(state.requests.map(request => new URL(request.url).origin))]).toEqual([new URL(page.url()).origin]);\n      |                                                                                    ^\n  141 | });\n  142 |\n  143 | test('FE-005 job names are rendered as text, not HTML elements', async ({ page }) => {\n    at /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs:140:84"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T01:54:02.862Z",
+                  "annotations": [
+                    {
+                      "type": "fail",
+                      "description": "FE-004: API_BASE is permanently http://localhost:8000/api/v1",
+                      "location": {
+                        "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                        "line": 139,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/docs/qa/2026-10-02/artifacts/frontend-test-results/dashboard-FE-004-dashboard-498ad-ests-use-the-serving-origin-chromium/error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                    "column": 84,
+                    "line": 140
+                  }
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "98c9c7983ccfaa711b4b-643ed4979babd20455c7",
+          "file": "dashboard.spec.cjs",
+          "line": 136,
+          "column": 1
+        },
+        {
+          "title": "FE-005 job names are rendered as text, not HTML elements",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 20000,
+              "annotations": [
+                {
+                  "type": "fail",
+                  "description": "FE-005: job.name is interpolated into innerHTML",
+                  "location": {
+                    "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                    "line": 149,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "failed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 2729,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveCount\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('[data-qa-fixture=\"literal\"]')\nExpected: \u001b[32m0\u001b[39m\nReceived: \u001b[31m1\u001b[39m\nTimeout:  2500ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveCount\" locator('[data-qa-fixture=\"literal\"]') with timeout 2500ms\u001b[22m\n\u001b[2m  - waiting for locator('[data-qa-fixture=\"literal\"]')\u001b[22m\n\u001b[2m    9 × locator resolved to 1 element\u001b[22m\n\u001b[2m      - unexpected value \"1\"\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveCount\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('[data-qa-fixture=\"literal\"]')\nExpected: \u001b[32m0\u001b[39m\nReceived: \u001b[31m1\u001b[39m\nTimeout:  2500ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveCount\" locator('[data-qa-fixture=\"literal\"]') with timeout 2500ms\u001b[22m\n\u001b[2m  - waiting for locator('[data-qa-fixture=\"literal\"]')\u001b[22m\n\u001b[2m    9 × locator resolved to 1 element\u001b[22m\n\u001b[2m      - unexpected value \"1\"\u001b[22m\n\n    at /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs:150:61",
+                    "location": {
+                      "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                      "column": 61,
+                      "line": 150
+                    },
+                    "snippet": "  148 |   await page.screenshot({ path: path.join(artifacts, 'frontend-literal-markup.png'), fullPage: true });\n  149 |   test.fail(true, 'FE-005: job.name is interpolated into innerHTML');\n> 150 |   await expect(page.locator('[data-qa-fixture=\"literal\"]')).toHaveCount(0);\n      |                                                             ^\n  151 | });\n  152 |\n  153 | test('FE-005 scraped field names and values remain literal text', async ({ page }) => {"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                        "column": 61,
+                        "line": 150
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveCount\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('[data-qa-fixture=\"literal\"]')\nExpected: \u001b[32m0\u001b[39m\nReceived: \u001b[31m1\u001b[39m\nTimeout:  2500ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveCount\" locator('[data-qa-fixture=\"literal\"]') with timeout 2500ms\u001b[22m\n\u001b[2m  - waiting for locator('[data-qa-fixture=\"literal\"]')\u001b[22m\n\u001b[2m    9 × locator resolved to 1 element\u001b[22m\n\u001b[2m      - unexpected value \"1\"\u001b[22m\n\n\n  148 |   await page.screenshot({ path: path.join(artifacts, 'frontend-literal-markup.png'), fullPage: true });\n  149 |   test.fail(true, 'FE-005: job.name is interpolated into innerHTML');\n> 150 |   await expect(page.locator('[data-qa-fixture=\"literal\"]')).toHaveCount(0);\n      |                                                             ^\n  151 | });\n  152 |\n  153 | test('FE-005 scraped field names and values remain literal text', async ({ page }) => {\n    at /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs:150:61"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T01:54:02.955Z",
+                  "annotations": [
+                    {
+                      "type": "fail",
+                      "description": "FE-005: job.name is interpolated into innerHTML",
+                      "location": {
+                        "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                        "line": 149,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/docs/qa/2026-10-02/artifacts/frontend-test-results/dashboard-FE-005-job-names-41a88-d-as-text-not-HTML-elements-chromium/error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                    "column": 61,
+                    "line": 150
+                  }
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "98c9c7983ccfaa711b4b-7c86aed8c7dd5dd93297",
+          "file": "dashboard.spec.cjs",
+          "line": 143,
+          "column": 1
+        },
+        {
+          "title": "FE-005 scraped field names and values remain literal text",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 20000,
+              "annotations": [
+                {
+                  "type": "fail",
+                  "description": "FE-005: results are interpolated into innerHTML",
+                  "location": {
+                    "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                    "line": 158,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "failed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 2714,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveCount\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('[data-qa-fixture]')\nExpected: \u001b[32m0\u001b[39m\nReceived: \u001b[31m2\u001b[39m\nTimeout:  2500ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveCount\" locator('[data-qa-fixture]') with timeout 2500ms\u001b[22m\n\u001b[2m  - waiting for locator('[data-qa-fixture]')\u001b[22m\n\u001b[2m    9 × locator resolved to 2 elements\u001b[22m\n\u001b[2m      - unexpected value \"2\"\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveCount\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('[data-qa-fixture]')\nExpected: \u001b[32m0\u001b[39m\nReceived: \u001b[31m2\u001b[39m\nTimeout:  2500ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveCount\" locator('[data-qa-fixture]') with timeout 2500ms\u001b[22m\n\u001b[2m  - waiting for locator('[data-qa-fixture]')\u001b[22m\n\u001b[2m    9 × locator resolved to 2 elements\u001b[22m\n\u001b[2m      - unexpected value \"2\"\u001b[22m\n\n    at /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs:159:51",
+                    "location": {
+                      "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                      "column": 51,
+                      "line": 159
+                    },
+                    "snippet": "  157 |   await expect(page.locator('.results-table')).toBeVisible();\n  158 |   test.fail(true, 'FE-005: results are interpolated into innerHTML');\n> 159 |   await expect(page.locator('[data-qa-fixture]')).toHaveCount(0);\n      |                                                   ^\n  160 | });\n  161 |\n  162 | test('results can be opened and closed; null values show a dash', async ({ page }, testInfo) => {"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                        "column": 51,
+                        "line": 159
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveCount\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('[data-qa-fixture]')\nExpected: \u001b[32m0\u001b[39m\nReceived: \u001b[31m2\u001b[39m\nTimeout:  2500ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveCount\" locator('[data-qa-fixture]') with timeout 2500ms\u001b[22m\n\u001b[2m  - waiting for locator('[data-qa-fixture]')\u001b[22m\n\u001b[2m    9 × locator resolved to 2 elements\u001b[22m\n\u001b[2m      - unexpected value \"2\"\u001b[22m\n\n\n  157 |   await expect(page.locator('.results-table')).toBeVisible();\n  158 |   test.fail(true, 'FE-005: results are interpolated into innerHTML');\n> 159 |   await expect(page.locator('[data-qa-fixture]')).toHaveCount(0);\n      |                                                   ^\n  160 | });\n  161 |\n  162 | test('results can be opened and closed; null values show a dash', async ({ page }, testInfo) => {\n    at /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs:159:51"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T01:54:05.688Z",
+                  "annotations": [
+                    {
+                      "type": "fail",
+                      "description": "FE-005: results are interpolated into innerHTML",
+                      "location": {
+                        "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                        "line": 158,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/docs/qa/2026-10-02/artifacts/frontend-test-results/dashboard-FE-005-scraped-f-7bc19--values-remain-literal-text-chromium/error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_frontend/dashboard.spec.cjs",
+                    "column": 51,
+                    "line": 159
+                  }
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "98c9c7983ccfaa711b4b-8b3dccc95c525b428a18",
+          "file": "dashboard.spec.cjs",
+          "line": 153,
+          "column": 1
+        },
+        {
+          "title": "results can be opened and closed; null values show a dash",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 20000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 617,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T01:54:08.408Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "98c9c7983ccfaa711b4b-d05ba3a0423f24514a15",
+          "file": "dashboard.spec.cjs",
+          "line": 162,
+          "column": 1
+        },
+        {
+          "title": "delete requires confirmation; cancelling keeps job; confirming removes it",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 20000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 189,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T01:54:09.030Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "98c9c7983ccfaa711b4b-bbeff809dceb7a2c4cee",
+          "file": "dashboard.spec.cjs",
+          "line": 174,
+          "column": 1
+        },
+        {
+          "title": "analyze error preserves input and lets user retry successfully",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 20000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 201,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T01:54:09.223Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "98c9c7983ccfaa711b4b-92b98da68f47ad0debdc",
+          "file": "dashboard.spec.cjs",
+          "line": 186,
+          "column": 1
+        },
+        {
+          "title": "request in progress disables submit until analysis finishes",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 20000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 203,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T01:54:09.427Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "98c9c7983ccfaa711b4b-5ff09f2d127f6ce7c994",
+          "file": "dashboard.spec.cjs",
+          "line": 199,
+          "column": 1
+        },
+        {
+          "title": "browser validation blocks page limits outside the visible range",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 20000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 430,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T01:54:09.634Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "98c9c7983ccfaa711b4b-3981cd3a0e71a9d663ed",
+          "file": "dashboard.spec.cjs",
+          "line": 211,
+          "column": 1
+        },
+        {
+          "title": "list outage clears spinner and exposes failure",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 20000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 185,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T01:54:10.069Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "98c9c7983ccfaa711b4b-e05beee2c71e3bf9b38a",
+          "file": "dashboard.spec.cjs",
+          "line": 221,
+          "column": 1
+        },
+        {
+          "title": "running details can refresh into an empty completed result",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 20000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 557,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T01:54:10.258Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "98c9c7983ccfaa711b4b-d3747cd3a6f7d67550d9",
+          "file": "dashboard.spec.cjs",
+          "line": 228,
+          "column": 1
+        },
+        {
+          "title": "concurrency checkbox can request sequential run",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 20000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 611,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T01:54:10.820Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "98c9c7983ccfaa711b4b-4964f8fe5dd0a863adaa",
+          "file": "dashboard.spec.cjs",
+          "line": 239,
+          "column": 1
+        },
+        {
+          "title": "local navigation performance and console/network evidence",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 20000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 213,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T01:54:11.436Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "98c9c7983ccfaa711b4b-dd0b74ed12d36114a5b8",
+          "file": "dashboard.spec.cjs",
+          "line": 250,
+          "column": 1
+        },
+        {
+          "title": "working asset route: empty state then analysis/create/run/list flow",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 20000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "firefox",
+              "projectName": "firefox",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1199,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T01:54:11.837Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "98c9c7983ccfaa711b4b-72f6f568eba7ffac2aa5",
+          "file": "dashboard.spec.cjs",
+          "line": 97,
+          "column": 1
+        },
+        {
+          "title": "results can be opened and closed; null values show a dash",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 20000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "firefox",
+              "projectName": "firefox",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1127,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T01:54:13.512Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "98c9c7983ccfaa711b4b-08fa7260ef771920fb15",
+          "file": "dashboard.spec.cjs",
+          "line": 162,
+          "column": 1
+        },
+        {
+          "title": "working asset route: empty state then analysis/create/run/list flow",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 20000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "webkit",
+              "projectName": "webkit",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 901,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T01:54:14.825Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "98c9c7983ccfaa711b4b-c64200c83664da94a100",
+          "file": "dashboard.spec.cjs",
+          "line": 97,
+          "column": 1
+        },
+        {
+          "title": "results can be opened and closed; null values show a dash",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 20000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "webkit",
+              "projectName": "webkit",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 444,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T01:54:15.911Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "98c9c7983ccfaa711b4b-d74366650c8bde5553db",
+          "file": "dashboard.spec.cjs",
+          "line": 162,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-03T01:53:55.833Z",
+    "duration": 20536.797,
+    "expected": 23,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}
