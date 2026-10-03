@@ -321,7 +321,10 @@ async def _execute_job(
 
     except (Exception, asyncio.CancelledError) as exc:
         if result is None:
-            result = ScrapeResult(job_id=job_id, status="failed", start_time=start_time)
+            result = ScrapeResult(
+                job_id=job_id, status="failed", start_time=start_time,
+                items_scraped=0, pages_visited=0, end_time=None, duration_seconds=None,
+            )
         result.status = "failed"
         result.end_time = datetime.utcnow()
         result.duration_seconds = (result.end_time - result.start_time).total_seconds()
