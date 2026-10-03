@@ -8,6 +8,7 @@ from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any, Literal, Optional
+from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -246,7 +247,7 @@ class ScrapeJob(BaseModel):
 
     # Metadata
     id: str = Field(
-        default_factory=lambda: f"job_{datetime.utcnow().timestamp()}",
+        default_factory=lambda: f"job_{uuid4().hex}",
         description="Unique job identifier",
     )
     name: str = Field(..., description="Human-readable job name")

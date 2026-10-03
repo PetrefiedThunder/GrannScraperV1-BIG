@@ -84,7 +84,6 @@ async def test_results_pagination_boundaries(client, job):
     assert last["pagination"]["has_more"] is False
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-004: server-generated IDs contain a dot rejected by detail/delete")
 async def test_server_generated_job_id_round_trips(client, job):
     payload = job.model_dump(mode="json")
     del payload["id"]
