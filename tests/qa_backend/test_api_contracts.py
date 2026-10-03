@@ -140,11 +140,10 @@ async def test_mounted_dashboard_script_is_available(client):
     assert (await client.get("/static/app.js")).status_code == 200
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="FE-002: dashboard max_pages is an ignored top-level field")
 async def test_dashboard_requested_page_limit_is_preserved(client, job):
     payload = job.model_dump(mode="json")
-    payload["pagination"] = {"mode": "none"}
-    payload["max_pages"] = 2
+    # Actual dashboard submission is exercised by dashboard.dom.test.cjs.
+    payload["pagination"] = {"mode": "none", "max_pages": 2}
     assert (await client.post("/api/v1/jobs", json={"job": payload})).status_code == 200
     assert api.jobs_db[job.id].pagination.max_pages == 2
 

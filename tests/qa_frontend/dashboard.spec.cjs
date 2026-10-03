@@ -115,7 +115,6 @@ for (const pages of ['1', '2', '1000']) {
     await submit(page, { pages });
     await expect(page.locator('#job-list .job-item')).toHaveCount(1);
     const persisted = modelSettings(state.created);
-    test.fail(true, 'FE-002: max_pages sent at job root is ignored instead of pagination.max_pages');
     expect(persisted.max_pages).toBe(Number(pages));
   });
 }

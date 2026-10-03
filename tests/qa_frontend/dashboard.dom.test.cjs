@@ -3,6 +3,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { execFileSync } = require('node:child_process');
 const { JSDOM } = require('jsdom');
 
 const staticDirectory = path.resolve(__dirname, '../../scraper/web/static');
@@ -28,7 +29,17 @@ async function dashboard(t, overrides = {}) {
     const endpoint = url.pathname.slice('/api/v1'.length);
     const json = (body, status = 200) => ({ ok: status < 400, json: async () => body });
     if (endpoint === '/info') return json({ statistics: { total_jobs: state.jobs.length, running_jobs: 0, completed_jobs: 0, workflows: 0 } });
+    if (endpoint === '/analyze') return json({
+      item_selector: '.product', fields: { title: { selector: 'h2', type: 'string' } },
+      pagination: { mode: 'next_button', next_button_selector: 'a.next', max_pages: 10 },
+    });
+    if (endpoint === '/jobs' && request.method === 'POST') {
+      state.created = request.body;
+      state.jobs.push({ ...sampleJob, ...state.created.job });
+      return json({ job_id: state.created.job.id });
+    }
     if (endpoint === '/jobs') return json({ jobs: state.jobs });
+    if (endpoint.endsWith('/run')) return json({ status: 'running' });
     if (endpoint.endsWith('/status')) {
       if (state.statusError) return json({ detail: state.statusError }, 503);
       return json({ is_running: false, has_result: true, status: 'success', items_scraped: 1, pages_visited: 1, errors: 0, duration: 0.5, ...state.status });
@@ -136,3 +147,23 @@ test('FE-005 refresh listener preserves job ID and renders successful results', 
   assert.equal(document.querySelectorAll('td')[1].textContent, '-');
   assert.equal(state.requests.filter(request => request.url.pathname === `/api/v1/jobs/${encodeURIComponent(id)}/status`).length, 2);
 });
+
+for (const pages of [1, 2, 1000]) {
+  test(`FE-002 selected page limit ${pages} survives dashboard submission and API validation`, async t => {
+    const { window, document, state } = await dashboard(t);
+    document.querySelector('#url').value = sampleJob.start_url;
+    document.querySelector('#max-pages').value = String(pages);
+    document.querySelector('#auto-scrape-form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+    await new Promise(setImmediate);
+    assert.ok(state.created, 'Dashboard sends a create-job request');
+    const persisted = JSON.parse(execFileSync(process.env.QA_PYTHON || 'python3', ['-m', 'tests.qa_frontend.validate_contract'], {
+      input: JSON.stringify(state.created), encoding: 'utf8', cwd: path.resolve(__dirname, '../..'),
+    }));
+    assert.equal(persisted.max_pages, pages);
+    assert.equal(state.created.job.pagination.mode, 'next_button');
+    assert.equal(state.created.job.pagination.next_button_selector, 'a.next');
+    assert.equal(Object.hasOwn(state.created.job, 'max_pages'), false);
+    assert.equal(document.querySelectorAll('.job-item').length, 1);
+    assert.equal(document.querySelector('#auto-scrape-form button[type="submit"]').disabled, false);
+  });
+}
