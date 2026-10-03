@@ -2,7 +2,7 @@ const { test, expect } = require('@playwright/test');
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
-const artifacts = path.resolve(__dirname, '../../docs/qa/2026-10-02/artifacts');
+const artifacts = process.env.QA_ARTIFACTS_DIR || path.resolve(__dirname, '../../docs/qa/2026-10-02/artifacts');
 const target = 'https://example.invalid/catalog';
 // Response keys mirror rest_server.py:94-143,306-358,365-410,557-578.
 const analysis = {
@@ -90,7 +90,6 @@ test('FE-001 root dashboard loads its script and initial jobs', async ({ page })
   await expect(page.locator('#auto-scrape-form')).toBeVisible();
   await page.screenshot({ path: path.join(artifacts, 'frontend-root-script-404.png'), fullPage: true });
   fs.writeFileSync(path.join(artifacts, 'frontend-root-errors.json'), JSON.stringify(state, null, 2));
-  test.fail(true, 'FE-001: app.js resolves to /app.js; only /static/app.js exists');
   await expect(page.locator('#job-list')).toContainText('No jobs yet');
 });
 

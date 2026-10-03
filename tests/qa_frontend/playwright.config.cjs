@@ -1,6 +1,6 @@
 const { defineConfig } = require('@playwright/test');
 const path = require('node:path');
-const artifacts = path.resolve(__dirname, '../../docs/qa/2026-10-02/artifacts');
+const artifacts = process.env.QA_ARTIFACTS_DIR || path.resolve(__dirname, '../../docs/qa/2026-10-02/artifacts');
 module.exports = defineConfig({
   testDir: __dirname,
   testMatch: 'dashboard.spec.cjs',

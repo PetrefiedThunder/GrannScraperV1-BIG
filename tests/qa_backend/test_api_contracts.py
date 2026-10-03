@@ -124,7 +124,6 @@ async def test_bad_workflow_returns_validation_error(client, nodes):
     assert response.status_code in (400, 422)
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="FE-001: root dashboard app.js path is not served")
 async def test_dashboard_script_is_available(client):
     page = await client.get("/")
     assert page.status_code == 200
