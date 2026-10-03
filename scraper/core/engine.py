@@ -125,6 +125,9 @@ class ScraperEngine:
                             llm_extractor,
                         )
 
+                        if job.max_items:
+                            items = items[:job.max_items - len(result.data)]
+
                         result.data.extend(items)
                         result.items_scraped += len(items)
 

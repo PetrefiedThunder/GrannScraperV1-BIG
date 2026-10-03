@@ -4,7 +4,6 @@ import asyncio
 from unittest.mock import AsyncMock
 
 from bs4 import BeautifulSoup
-import pytest
 
 from scraper.api import rest_server as api
 from scraper.config.models import ScrapeResult
@@ -126,7 +125,6 @@ async def test_engine_extracts_and_counts_fixture_items(job, monkeypatch):
     assert [item["title"] for item in result.data] == ["One", "Two", "Three"]
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-006: max_items is checked only before a page and allows page overshoot")
 async def test_engine_respects_item_limit_within_page(job, monkeypatch):
     monkeypatch.setattr(engine_module, "StaticFetcher", FixtureFetcher)
     job.max_items = 1
