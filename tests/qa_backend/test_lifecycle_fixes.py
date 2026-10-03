@@ -3,6 +3,7 @@
 import asyncio
 from unittest.mock import AsyncMock
 
+from fastapi import BackgroundTasks
 import pytest
 
 from scraper.api import rest_server as api
@@ -85,3 +86,27 @@ async def test_rerun_clears_previous_result_and_can_finish(client, job, monkeypa
     gate.set()
     assert await task == expected
     assert api.results_db[job.id] == expected
+
+
+async def test_deleted_run_cannot_publish_into_recreated_job(job, monkeypatch):
+    api.jobs_db[job.id] = job
+    entered = asyncio.Event()
+
+    async def blocked(_self, _job):
+        entered.set()
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(api.ScraperEngine, "run_job", blocked)
+    await api.run_job(job.id, BackgroundTasks(), False, False)
+    old_task = api.running_jobs[job.id]
+    await asyncio.wait_for(entered.wait(), 1)
+    await api.delete_job(job.id)
+    api.jobs_db[job.id] = job.model_copy(deep=True)
+    await api.run_job(job.id, BackgroundTasks(), False, False)
+    new_task = api.running_jobs[job.id]
+    await asyncio.gather(old_task, return_exceptions=True)
+    status = await api.get_job_status(job.id)
+    assert old_task.cancelled()
+    assert status["is_running"] is True
+    assert status["has_result"] is False
+    assert api.running_jobs[job.id] is new_task

@@ -308,6 +308,8 @@ async def _execute_job(
             result = await engine.run_job(job)
 
         # Store result
+        if jobs_db.get(job_id) is not job or running_jobs.get(job_id) is not asyncio.current_task():
+            return result
         results_db[job_id] = result
 
         # Export
@@ -325,7 +327,7 @@ async def _execute_job(
         cancelled = isinstance(exc, asyncio.CancelledError)
         result.errors.append("Job cancelled" if cancelled else "Job execution failed")
         # A deleted job must not be recreated by its cancelled background task.
-        if job_id in jobs_db:
+        if jobs_db.get(job_id) is job and running_jobs.get(job_id) is asyncio.current_task():
             results_db[job_id] = result
         if cancelled:
             raise
