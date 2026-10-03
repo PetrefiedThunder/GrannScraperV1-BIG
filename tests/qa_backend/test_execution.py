@@ -149,7 +149,6 @@ async def test_engine_converts_transport_failure_to_terminal_result(job, monkeyp
     assert result.end_time is not None
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-009: next-button pagination never follows the discovered link")
 async def test_engine_follows_next_button(job, monkeypatch):
     fetched = []
 

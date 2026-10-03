@@ -251,7 +251,10 @@ async def _execute_job(
             urls = await engine._generate_urls(job)
 
             # Scrape incrementally
+            pages_visited = 0
+
             async def scrape_incremental_url(url: str) -> list[dict[str, Any]]:
+                nonlocal pages_visited
                 page_job = job.model_copy(deep=True)
                 page_job.start_url = url
                 if page_job.pagination.mode == "url_pattern":
@@ -259,6 +262,7 @@ async def _execute_job(
                 page_result = await engine.run_job(page_job)
                 if page_result.status != "success":
                     raise RuntimeError("Incremental page did not complete successfully")
+                pages_visited += page_result.pages_visited
                 return page_result.data
 
             result_data = await incremental_scraper.scrape_incremental(
@@ -273,7 +277,7 @@ async def _execute_job(
                 job_id=job_id,
                 status="success",
                 items_scraped=len(items),
-                pages_visited=result_data['stats']['urls_scraped'],
+                pages_visited=pages_visited,
                 start_time=start_time,
                 end_time=datetime.utcnow(),
                 duration_seconds=None,
@@ -281,7 +285,7 @@ async def _execute_job(
                 metadata=result_data['stats']
             )
 
-        elif concurrent:
+        elif concurrent and job.pagination.mode != "next_button":
             # Concurrent scraping
             concurrent_scraper = ConcurrentScraper(job, max_workers=10)
 
@@ -304,7 +308,7 @@ async def _execute_job(
             result = await concurrent_scraper.run(scrape_single)
 
         else:
-            # Standard scraping
+            # Next links depend on the previous page, even when concurrent is requested.
             engine = ScraperEngine()
             result = await engine.run_job(job)
 
