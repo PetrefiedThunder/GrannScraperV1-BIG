@@ -59,7 +59,6 @@ async def test_concurrent_scraper_finishes_after_completed_work(job, monkeypatch
     assert outcome[0].items_scraped == 1
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-003: incremental API callback passes ScrapeResult instead of item dicts")
 async def test_incremental_api_run_accepts_engine_result(client, job, monkeypatch):
     api.jobs_db[job.id] = job
     expected = ScrapeResult(job_id=job.id, status="success", items_scraped=1, data=[{"title": "one"}])
@@ -72,7 +71,6 @@ async def test_incremental_api_run_accepts_engine_result(client, job, monkeypatc
     assert outcome[0].data == expected.data
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-003: incremental scraping never caches page freshness, so replay re-fetches all URLs")
 async def test_incremental_repeat_uses_cache(job, tmp_path):
     scraper = IncrementalScraper(SmartCache(tmp_path / "repeat-cache"))
     fetch = AsyncMock(return_value=[{"title": "one"}])
@@ -83,7 +81,6 @@ async def test_incremental_repeat_uses_cache(job, tmp_path):
     assert fetch.await_count == 1
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-003: cached items are omitted from incremental results")
 async def test_incremental_cached_items_are_returned(job, tmp_path):
     cache = SmartCache(tmp_path / "prepopulated-cache")
     cache.cache_page(job.start_url, "<p>one</p>")

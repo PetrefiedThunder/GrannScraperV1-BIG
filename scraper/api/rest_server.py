@@ -9,6 +9,8 @@ Expose all scraping capabilities via REST API for:
 """
 
 import asyncio
+import hashlib
+import json
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -238,26 +240,43 @@ async def _execute_job(
         if incremental:
             # Incremental scraping
             cache = SmartCache()
-            incremental_scraper = IncrementalScraper(cache)
+            # Extracted data depends on the complete job configuration, not only its URL.
+            cache_key = hashlib.sha256(
+                json.dumps(job.model_dump(mode="json"), sort_keys=True).encode()
+            ).hexdigest()
+            incremental_scraper = IncrementalScraper(cache, namespace=cache_key)
 
             # Get URLs to scrape
             engine = ScraperEngine()
             urls = await engine._generate_urls(job)
 
             # Scrape incrementally
+            async def scrape_incremental_url(url):
+                page_job = job.model_copy(deep=True)
+                page_job.start_url = url
+                if page_job.pagination.mode == "url_pattern":
+                    page_job.pagination.mode = "none"
+                page_result = await engine.run_job(page_job)
+                if page_result.status != "success":
+                    raise RuntimeError("Incremental page did not complete successfully")
+                return page_result.data
+
             result_data = await incremental_scraper.scrape_incremental(
                 urls,
-                lambda url: engine.run_job(job),
+                scrape_incremental_url,
                 ttl_seconds=3600
             )
 
             # Convert to ScrapeResult
+            items = result_data['new_items'] + result_data['cached_items']
             result = ScrapeResult(
                 job_id=job_id,
                 status="success",
-                items_scraped=len(result_data['new_items']),
+                items_scraped=len(items),
                 pages_visited=result_data['stats']['urls_scraped'],
-                data=result_data['new_items'],
+                start_time=start_time,
+                end_time=datetime.utcnow(),
+                data=items,
                 metadata=result_data['stats']
             )
 
