@@ -22,7 +22,7 @@ from fastapi.responses import FileResponse, StreamingResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from scraper.config.models import ScrapeJob, ScrapeResult
+from scraper.config.models import PaginationMode, ScrapeJob, ScrapeResult
 from scraper.core.engine import ScraperEngine
 from scraper.core.concurrent_engine import ConcurrentScraper
 from scraper.export.export_manager import ExportManager
@@ -258,7 +258,7 @@ async def _execute_job(
                 page_job = job.model_copy(deep=True)
                 page_job.start_url = url
                 if page_job.pagination.mode == "url_pattern":
-                    page_job.pagination.mode = "none"
+                    page_job.pagination.mode = PaginationMode.NONE
                 page_result = await engine.run_job(page_job)
                 if page_result.status != "success":
                     raise RuntimeError("Incremental page did not complete successfully")
