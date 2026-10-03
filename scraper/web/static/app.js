@@ -113,7 +113,7 @@ document.getElementById('auto-scrape-form').addEventListener('submit', async (e)
                 item_selector: analysis.item_selector,
                 fields: analysis.fields || {},
                 pagination: { ...(analysis.pagination || {}), max_pages: maxPages },
-                export: { format: exportFormat },
+                export: { formats: [exportFormat] },
                 browser: { enabled: false },
                 rate_limit: { requests_per_second: 2 },
                 enabled: true,

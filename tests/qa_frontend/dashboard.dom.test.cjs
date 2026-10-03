@@ -167,3 +167,19 @@ for (const pages of [1, 2, 1000]) {
     assert.equal(document.querySelector('#auto-scrape-form button[type="submit"]').disabled, false);
   });
 }
+
+for (const format of ['csv', 'json', 'excel']) {
+  test(`FE-003 selected ${format} export survives dashboard submission and API validation`, async t => {
+    const { window, document, state } = await dashboard(t);
+    document.querySelector('#url').value = sampleJob.start_url;
+    document.querySelector('#export-format').value = format;
+    document.querySelector('#auto-scrape-form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+    await new Promise(setImmediate);
+    assert.ok(state.created, 'Dashboard sends a create-job request');
+    const persisted = JSON.parse(execFileSync(process.env.QA_PYTHON || 'python3', ['-m', 'tests.qa_frontend.validate_contract'], {
+      input: JSON.stringify(state.created), encoding: 'utf8', cwd: path.resolve(__dirname, '../..'),
+    }));
+    assert.deepEqual(persisted.formats, [format]);
+    assert.equal(document.querySelectorAll('.job-item').length, 1);
+  });
+}

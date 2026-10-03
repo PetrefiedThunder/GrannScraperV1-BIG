@@ -145,9 +145,8 @@ async def test_dashboard_requested_page_limit_is_preserved(client, job):
     assert api.jobs_db[job.id].pagination.max_pages == 2
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="FE-003: dashboard export.format is ignored; CSV default wins")
 async def test_dashboard_requested_export_format_is_preserved(client, job):
     payload = job.model_dump(mode="json")
-    payload["export"] = {"format": "json", "base_path": str(job.export.base_path)}
+    payload["export"] = {"formats": ["json"], "base_path": str(job.export.base_path)}
     assert (await client.post("/api/v1/jobs", json={"job": payload})).status_code == 200
     assert api.jobs_db[job.id].export.formats == ["json"]

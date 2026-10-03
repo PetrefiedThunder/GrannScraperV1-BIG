@@ -126,7 +126,6 @@ for (const format of ['json', 'excel']) {
     await submit(page, { format });
     await expect(page.locator('#job-list .job-item')).toHaveCount(1);
     const persisted = modelSettings(state.created);
-    test.fail(true, 'FE-003: export.format is ignored; model expects export.formats');
     expect(persisted.formats).toEqual([format]);
   });
 }
