@@ -94,7 +94,6 @@ async def test_server_generated_job_id_round_trips(client, job):
     assert (await client.delete(f"/api/v1/jobs/{job_id}")).status_code == 200
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-008: results accepts zero/negative limit and negative offset")
 @pytest.mark.parametrize("query", ["limit=0", "limit=-1", "offset=-1"])
 async def test_invalid_results_pagination_is_rejected(client, job, query):
     api.results_db[job.id] = ScrapeResult(

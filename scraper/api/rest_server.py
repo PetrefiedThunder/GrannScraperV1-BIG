@@ -379,8 +379,8 @@ async def get_job_status(job_id: str) -> Dict[str, Any]:
 @app.get("/api/v1/jobs/{job_id}/results")
 async def get_job_results(
     job_id: str,
-    limit: int = Query(100, description="Max items to return"),
-    offset: int = Query(0, description="Offset for pagination")
+    limit: int = Query(100, ge=1, description="Max items to return"),
+    offset: int = Query(0, ge=0, description="Offset for pagination")
 ) -> Dict[str, Any]:
     """Get job results with pagination."""
     if job_id not in results_db:
