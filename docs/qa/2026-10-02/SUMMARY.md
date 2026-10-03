@@ -55,3 +55,5 @@ Evidence and metric definitions: [COVERAGE.md](COVERAGE.md). Separate pass repor
 No production, credentials, `.env`, billing, deployment, migrations or real scraping/provider/database targets were accessed. Real browser-fetcher launches, live proxies, remote exports, LLM/SMS/email calls, long-running resource/concurrency load, actual screen-reader speech, real browser zoom and production performance were excluded. Current CVE verification is incomplete because advisory API network access was outside scope. Remote CI and the draft PR are pending the orchestrator.
 
 Changed scope is QA documentation/artifacts, new isolated tests/configuration, and two dev-only test dependencies (`pytest-socket` and `hypothesis`). No runtime dependency, product source, CI ignore/baseline, deployment or environment file was edited. No commit, push, PR creation, merge or deploy was performed.
+
+Fix pass: see FIXES.md

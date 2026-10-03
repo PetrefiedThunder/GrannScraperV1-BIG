@@ -1,10 +1,25 @@
 // GrandmaScrape Dashboard JavaScript
 
-const API_BASE = 'http://localhost:8000/api/v1';
+const API_BASE = '/api/v1';
 
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
+
+function appendTextElement(parent, tag, text, className) {
+    const element = document.createElement(tag);
+    element.textContent = text;
+    if (className) element.className = className;
+    parent.appendChild(element);
+    return element;
+}
+
+function appendLabeledValue(parent, label, value) {
+    const paragraph = appendTextElement(parent, 'p', '');
+    appendTextElement(paragraph, 'strong', label);
+    paragraph.append(` ${value}`);
+    return paragraph;
+}
 
 function showAlert(message, type = 'info') {
     const container = document.getElementById('alert-container');
@@ -97,9 +112,8 @@ document.getElementById('auto-scrape-form').addEventListener('submit', async (e)
                 start_url: url,
                 item_selector: analysis.item_selector,
                 fields: analysis.fields || {},
-                pagination: analysis.pagination || {},
-                max_pages: maxPages,
-                export: { format: exportFormat },
+                pagination: { ...(analysis.pagination || {}), max_pages: maxPages },
+                export: { formats: [exportFormat] },
                 browser: { enabled: false },
                 rate_limit: { requests_per_second: 2 },
                 enabled: true,
@@ -116,7 +130,7 @@ document.getElementById('auto-scrape-form').addEventListener('submit', async (e)
         // Step 3: Run job
         submitBtn.textContent = 'Starting scrape...';
 
-        await apiCall(`/jobs/${jobId}/run?concurrent=${concurrent}&incremental=false`, {
+        await apiCall(`/jobs/${encodeURIComponent(jobId)}/run?concurrent=${concurrent}&incremental=false`, {
             method: 'POST',
         });
 
@@ -159,20 +173,24 @@ async function loadJobs() {
                 const li = document.createElement('li');
                 li.className = 'job-item';
 
-                li.innerHTML = `
-                    <div class="job-info">
-                        <h3>${job.name}</h3>
-                        <p>
-                            <strong>URL:</strong> ${job.start_url}<br>
-                            <strong>ID:</strong> ${job.id}<br>
-                            <strong>Created:</strong> ${new Date(job.created_at).toLocaleString()}
-                        </p>
-                    </div>
-                    <div class="job-actions">
-                        <button class="btn" onclick="viewJobDetails('${job.id}')">View Details</button>
-                        <button class="btn btn-secondary" onclick="deleteJob('${job.id}')">Delete</button>
-                    </div>
-                `;
+                const info = appendTextElement(li, 'div', '', 'job-info');
+                appendTextElement(info, 'h3', job.name);
+                const metadata = appendTextElement(info, 'p', '');
+                [
+                    ['URL:', job.start_url],
+                    ['ID:', job.id],
+                    ['Created:', new Date(job.created_at).toLocaleString()],
+                ].forEach(([label, value], index) => {
+                    if (index) metadata.appendChild(document.createElement('br'));
+                    appendTextElement(metadata, 'strong', label);
+                    metadata.append(` ${value}`);
+                });
+
+                const actions = appendTextElement(li, 'div', '', 'job-actions');
+                const viewButton = appendTextElement(actions, 'button', 'View Details', 'btn');
+                viewButton.addEventListener('click', () => viewJobDetails(job.id));
+                const deleteButton = appendTextElement(actions, 'button', 'Delete', 'btn btn-secondary');
+                deleteButton.addEventListener('click', () => deleteJob(job.id));
 
                 listElement.appendChild(li);
             });
@@ -193,7 +211,7 @@ async function deleteJob(jobId) {
     }
 
     try {
-        await apiCall(`/jobs/${jobId}`, { method: 'DELETE' });
+        await apiCall(`/jobs/${encodeURIComponent(jobId)}`, { method: 'DELETE' });
         showAlert(`Job ${jobId} deleted`, 'success');
         await loadJobs();
     } catch (error) {
@@ -213,72 +231,71 @@ async function viewJobDetails(jobId) {
     contentDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading...</p></div>';
 
     try {
-        // Get job status
-        const status = await apiCall(`/jobs/${jobId}/status`);
-
-        let html = `
-            <h3>Job: ${jobId}</h3>
-            <p><strong>Running:</strong> ${status.is_running ? 'Yes' : 'No'}</p>
-            <p><strong>Has Results:</strong> ${status.has_result ? 'Yes' : 'No'}</p>
-        `;
+        // Build dynamic content using text nodes, including API errors and job IDs.
+        const encodedJobId = encodeURIComponent(jobId);
+        const status = await apiCall(`/jobs/${encodedJobId}/status`);
+        const content = document.createDocumentFragment();
+        appendTextElement(content, 'h3', `Job: ${jobId}`);
+        appendLabeledValue(content, 'Running:', status.is_running ? 'Yes' : 'No');
+        appendLabeledValue(content, 'Has Results:', status.has_result ? 'Yes' : 'No');
 
         if (status.has_result) {
-            html += `
-                <p><strong>Status:</strong> <span class="status-badge status-${status.status}">${status.status}</span></p>
-                <p><strong>Items Scraped:</strong> ${status.items_scraped}</p>
-                <p><strong>Pages Visited:</strong> ${status.pages_visited}</p>
-                <p><strong>Errors:</strong> ${status.errors}</p>
-                <p><strong>Duration:</strong> ${status.duration?.toFixed(2)}s</p>
-            `;
+            const statusRow = appendLabeledValue(content, 'Status:', '');
+            const badge = appendTextElement(statusRow, 'span', status.status, 'status-badge');
+            if (['running', 'success', 'failed'].includes(status.status)) {
+                badge.classList.add(`status-${status.status}`);
+            }
+            appendLabeledValue(content, 'Items Scraped:', status.items_scraped);
+            appendLabeledValue(content, 'Pages Visited:', status.pages_visited);
+            appendLabeledValue(content, 'Errors:', status.errors);
+            appendLabeledValue(content, 'Duration:', `${status.duration?.toFixed(2)}s`);
 
-            // Get results
             try {
-                const results = await apiCall(`/jobs/${jobId}/results?limit=10`);
-
-                html += '<h3>Results (first 10 items):</h3>';
+                const results = await apiCall(`/jobs/${encodedJobId}/results?limit=10`);
+                appendTextElement(content, 'h3', 'Results (first 10 items):');
 
                 if (results.items.length > 0) {
-                    // Create table
                     const fields = Object.keys(results.items[0]);
-
-                    html += '<table class="results-table"><thead><tr>';
-                    fields.forEach(field => {
-                        html += `<th>${field}</th>`;
-                    });
-                    html += '</tr></thead><tbody>';
-
+                    const table = appendTextElement(content, 'table', '', 'results-table');
+                    const head = appendTextElement(table, 'thead', '');
+                    const headerRow = appendTextElement(head, 'tr', '');
+                    fields.forEach(field => appendTextElement(headerRow, 'th', field));
+                    const body = appendTextElement(table, 'tbody', '');
                     results.items.forEach(item => {
-                        html += '<tr>';
+                        const row = appendTextElement(body, 'tr', '');
                         fields.forEach(field => {
                             const value = item[field];
-                            html += `<td>${value !== null && value !== undefined ? value : '-'}</td>`;
+                            appendTextElement(row, 'td', value !== null && value !== undefined ? value : '-');
                         });
-                        html += '</tr>';
                     });
 
-                    html += '</tbody></table>';
-
                     if (results.pagination.has_more) {
-                        html += `<p style="margin-top: 10px; color: #666;"><em>Showing 10 of ${results.total_items} items</em></p>`;
+                        const preview = appendTextElement(content, 'p', '');
+                        preview.style.marginTop = '10px';
+                        preview.style.color = '#666';
+                        appendTextElement(preview, 'em', `Showing 10 of ${results.total_items} items`);
                     }
                 } else {
-                    html += '<p>No results yet.</p>';
+                    appendTextElement(content, 'p', 'No results yet.');
                 }
-
             } catch (error) {
-                html += `<p style="color: #dc3545;">Failed to load results: ${error.message}</p>`;
+                appendTextElement(content, 'p', `Failed to load results: ${error.message}`).style.color = '#dc3545';
             }
         } else if (status.is_running) {
-            html += '<p><em>Job is still running. Refresh to see updates.</em></p>';
-            html += '<button class="btn" onclick="viewJobDetails(\'' + jobId + '\')">Refresh</button>';
+            const message = appendTextElement(content, 'p', '');
+            appendTextElement(message, 'em', 'Job is still running. Refresh to see updates.');
+            const refresh = appendTextElement(content, 'button', 'Refresh', 'btn');
+            refresh.addEventListener('click', () => viewJobDetails(jobId));
         } else {
-            html += '<p><em>No results available yet.</em></p>';
+            const message = appendTextElement(content, 'p', '');
+            appendTextElement(message, 'em', 'No results available yet.');
         }
 
-        contentDiv.innerHTML = html;
+        contentDiv.replaceChildren(content);
 
     } catch (error) {
-        contentDiv.innerHTML = `<p style="color: #dc3545;">Error loading job details: ${error.message}</p>`;
+        contentDiv.replaceChildren();
+        appendTextElement(contentDiv, 'p', `Error loading job details: ${error.message}`).style.color = '#dc3545';
     }
 
     // Scroll to details
