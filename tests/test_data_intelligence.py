@@ -102,6 +102,32 @@ class TestDataQualityAnalyzer:
 
         assert completeness == 1.0  # All fields present
 
+    @pytest.mark.parametrize("prices", [
+        ["12.00", 12.0],
+        [12.0, "12.00"],
+    ])
+    def test_mixed_price_types_have_order_independent_quality(self, prices):
+        analyzer = DataQualityAnalyzer()
+
+        report = analyzer.analyze_dataset([{"price": price} for price in prices])
+
+        assert report["metrics"]["consistency"] == 75.0
+        assert report["quality_score"] == 95.0
+        assert isinstance(report["issues"], list)
+        assert isinstance(report["recommendations"], list)
+
+    @pytest.mark.parametrize("prices, expected_consistency", [
+        (["12.00", "13.00"], 100.0),
+        (["12.00", "$13.00"], 75.0),
+        ([12.0, 13.0], 100.0),
+    ])
+    def test_consistency_for_uniform_price_types(self, prices, expected_consistency):
+        analyzer = DataQualityAnalyzer()
+
+        report = analyzer.analyze_dataset([{"price": price} for price in prices])
+
+        assert report["metrics"]["consistency"] == expected_consistency
+
     def test_completeness_with_missing(self, incomplete_data):
         """Test completeness with missing values."""
         analyzer = DataQualityAnalyzer()
