@@ -1,0 +1,7 @@
+.xxx..                                                                   [100%]
+- generated xml file: /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/docs/qa/2026-10-02/artifacts/ux-cli-junit.xml -
+=========================== short test summary info ============================
+XFAIL tests/qa_ux/test_cli_docs.py::test_saved_jobs_are_listed - UX-007: list command shadows built-in list and cannot enumerate saved jobs
+XFAIL tests/qa_ux/test_cli_docs.py::test_readme_config_path_can_be_run - UX-008: README uses a config pathname but scraper run only accepts a saved-job name
+XFAIL tests/qa_ux/test_cli_docs.py::test_readme_job_config_preserves_documented_settings - UX-008: README's flat browser/pagination/export keys are silently ignored
+3 passed, 3 xfailed in 0.86s

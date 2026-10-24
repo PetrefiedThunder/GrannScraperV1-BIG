@@ -1,0 +1,3 @@
+# Preserve the requested QA evidence despite repository-wide output patterns.
+!artifacts/
+!artifacts/**

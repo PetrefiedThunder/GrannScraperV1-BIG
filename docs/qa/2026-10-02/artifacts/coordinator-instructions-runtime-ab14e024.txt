@@ -1,0 +1,414 @@
+[Local instruction contents omitted from shareable output. Read succeeded; stale RegEngine path/architecture noted in SESSION-LOG.md. No test evidence omitted.]
+cpython-3.14.5-macos-aarch64-none     /opt/homebrew/bin/python3.14 -> ../Cellar/python@3.14/3.14.5/bin/python3.14
+cpython-3.14.5-macos-aarch64-none     /opt/homebrew/bin/python3 -> ../Cellar/python@3.14/3.14.5/bin/python3
+cpython-3.13.14-macos-aarch64-none    /Users/sellers/.local/share/uv/python/cpython-3.13-macos-aarch64-none/bin/python3.13
+cpython-3.12.13-macos-aarch64-none    /Users/sellers/.local/bin/python3.12 -> /Users/sellers/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/bin/python3.12
+cpython-3.12.13-macos-aarch64-none    /Users/sellers/.local/share/uv/python/cpython-3.12-macos-aarch64-none/bin/python3.12
+cpython-3.12.2-macos-aarch64-none     /usr/local/bin/python3.12 -> ../../../Library/Frameworks/Python.framework/Versions/3.12/bin/python3.12
+cpython-3.12.2-macos-aarch64-none     /usr/local/bin/python3 -> ../../../Library/Frameworks/Python.framework/Versions/3.12/bin/python3
+cpython-3.12.2-macos-aarch64-none     /Library/Frameworks/Python.framework/Versions/3.12/bin/python3.12
+cpython-3.12.2-macos-aarch64-none     /Library/Frameworks/Python.framework/Versions/3.12/bin/python3 -> python3.12
+cpython-3.11.15-macos-aarch64-none    /Users/sellers/.local/share/uv/python/cpython-3.11-macos-aarch64-none/bin/python3.11
+cpython-3.10.20-macos-aarch64-none    /Users/sellers/.local/share/uv/python/cpython-3.10-macos-aarch64-none/bin/python3.10
+cpython-3.9.6-macos-aarch64-none      /usr/bin/python3
+30eb7c4d4cfb412331ad5598c407a234306d039c Merge pull request #5 from PetrefiedThunder/codex/typesafe-pilot-clean
+"""
+Tests for the Python SDK.
+"""
+
+import pytest
+from unittest.mock import Mock, patch
+import httpx
+
+from scraper.sdk import GrandmaScrapeClient, JobStatus
+
+
+@pytest.fixture
+def mock_client():
+    """Create a mock SDK client."""
+    with patch('httpx.Client') as mock:
+        client = GrandmaScrapeClient()
+        yield client
+
+
+def test_client_initialization():
+    """Test SDK client initialization."""
+    client = GrandmaScrapeClient(
+        base_url="http://test:8000",
+        api_key='[REDACTED]',
+        timeout=60.0
+    )
+
+    assert client.base_url == "http://test:8000"
+    assert client.api_key == "test-key"
+    assert client.timeout == 60.0
+
+
+def test_client_context_manager():
+    """Test SDK client as context manager."""
+    with GrandmaScrapeClient() as client:
+        assert client is not None
+
+    # Should be closed after context
+
+
+def test_health_check(mock_client):
+    """Test health check endpoint."""
+    mock_client.client.get = Mock(return_value=Mock(
+        status_code=200,
+        json=lambda: {"status": "healthy", "timestamp": "2024-01-01T00:00:00"}
+    ))
+
+    result = mock_client.health_check()
+
+    assert result["status"] == "healthy"
+    mock_client.client.get.assert_called_once()
+
+
+def test_create_job(mock_client):
+    """Test job creation."""
+    mock_client.client.post = Mock(return_value=Mock(
+        status_code=200,
+        json=lambda: {"job_id": "test-job-123", "status": "created"}
+    ))
+
+    job_data = {
+        "id": "test-job-123",
+        "name": "Test Job",
+        "start_url": "https://example.com",
+        "fields": {},
+    }
+
+    job_id = mock_client.create_job(job_data)
+
+    assert job_id == "test-job-123"
+    mock_client.client.post.assert_called_once()
+
+
+def test_get_job_status(mock_client):
+    """Test getting job status."""
+    mock_client.client.get = Mock(return_value=Mock(
+        status_code=200,
+        json=lambda: {
+            "job_id": "test-job-123",
+            "is_running": False,
+            "has_result": True,
+            "status": "success",
+            "items_scraped": 100,
+            "pages_visited": 10,
+            "errors": 0,
+            "duration": 12.5
+        }
+    ))
+
+    status = mock_client.get_job_status("test-job-123")
+
+    assert isinstance(status, JobStatus)
+    assert status.job_id == "test-job-123"
+    assert status.is_running is False
+    assert status.has_result is True
+    assert status.items_scraped == 100
+
+
+def test_list_jobs(mock_client):
+    """Test listing jobs."""
+    mock_client.client.get = Mock(return_value=Mock(
+        status_code=200,
+        json=lambda: {
+            "total": 2,
+            "jobs": [
+                {"id": "job1", "name": "Job 1", "start_url": "https://example.com"},
+                {"id": "job2", "name": "Job 2", "start_url": "https://test.com"},
+            ]
+        }
+    ))
+
+    jobs = mock_client.list_jobs()
+
+    assert len(jobs) == 2
+    assert jobs[0]["id"] == "job1"
+    assert jobs[1]["id"] == "job2"
+
+
+def test_analyze_url(mock_client):
+    """Test URL analysis."""
+    mock_client.client.post = Mock(return_value=Mock(
+        status_code=200,
+        json=lambda: {
+            "url": "https://example.com",
+            "item_selector": ".product",
+            "fields": {
+                "title": {"selector": ".title", "type": "text"},
+                "price": {"selector": ".price", "type": "number"},
+            },
+            "pagination": {"next_button": ".next"},
+        }
+    ))
+
+    analysis = mock_client.analyze_url("https://example.com")
+
+    assert analysis["url"] == "https://example.com"
+    assert analysis["item_selector"] == ".product"
+    assert "title" in analysis["fields"]
+    assert "price" in analysis["fields"]
+
+
+def test_get_all_results_pagination(mock_client):
+    """Test getting all results with pagination."""
+    # Mock multiple pages
+    call_count = [0]
+
+    def mock_get(url, **kwargs):
+        call_count[0] += 1
+        if call_count[0] == 1:
+            # First page
+            return Mock(
+                status_code=200,
+                json=lambda: {
+                    "items": [{"id": 1}, {"id": 2}],
+                    "pagination": {"has_more": True}
+                }
+            )
+        else:
+            # Second page
+            return Mock(
+                status_code=200,
+                json=lambda: {
+                    "items": [{"id": 3}],
+                    "pagination": {"has_more": False}
+                }
+            )
+
+    mock_client.client.get = mock_get
+
+    results = mock_client.get_all_results("test-job")
+
+    assert len(results) == 3
+    assert results[0]["id"] == 1
+    assert results[1]["id"] == 2
+    assert results[2]["id"] == 3
+
+
+@pytest.mark.asyncio
+async def test_async_client_auto_scrape():
+    """Test async client auto-scrape."""
+    from scraper.sdk import AsyncGrandmaScrapeClient
+
+    with patch('httpx.AsyncClient') as mock:
+        client = AsyncGrandmaScrapeClient()
+
+        # Mock analysis response
+        async def mock_post(*args, **kwargs):
+            if '/analyze' in str(args):
+                return Mock(
+                    status_code=200,
+                    json=lambda: {
+                        "item_selector": ".item",
+                        "fields": {},
+                        "pagination": {}
+                    },
+                    raise_for_status=lambda: None
+                )
+            else:
+                return Mock(
+                    status_code=200,
+"""
+Core scraping engine.
+
+Orchestrates fetchers, extractors, pagination, and data flow.
+"""
+
+import asyncio
+import logging
+from datetime import datetime
+from typing import Any, Optional
+from urllib.parse import urljoin
+
+from bs4 import BeautifulSoup
+
+from scraper.config.models import (
+    FieldType,
+    PaginationMode,
+    ScrapeJob,
+    ScrapeResult,
+)
+from scraper.core.fetcher_browser import BrowserFetcher
+from scraper.core.fetcher_static import StaticFetcher
+from scraper.core.rate_limiter import RateLimiter, SessionManager
+from scraper.extractors.selector_extractor import (
+    MediaExtractor,
+    SelectorExtractor,
+    TableExtractor,
+)
+from scraper.extractors.llm_extractor import LLMExtractor
+
+logger = logging.getLogger(__name__)
+
+
+class ScraperEngine:
+    """
+    Main scraping engine.
+
+    Coordinates:
+    - Fetching (static or browser)
+    - Extraction (selectors, tables, media, LLM)
+    - Pagination (next button, URL pattern, infinite scroll)
+    - Rate limiting & session management
+    - Result aggregation
+    """
+
+    def __init__(self):
+        """Initialize scraper engine."""
+        self.session_manager = SessionManager()
+
+    async def run_job(self, job: ScrapeJob) -> ScrapeResult:
+        """
+        Execute a complete scrape job.
+
+        Args:
+            job: ScrapeJob configuration
+
+        Returns:
+            ScrapeResult with scraped data and metadata
+        """
+        logger.info(f"Starting job: {job.name}")
+        start_time = datetime.utcnow()
+
+        result = ScrapeResult(
+            job_id=job.id,
+            status="success",
+            start_time=start_time,
+        )
+
+        try:
+            # Initialize components
+            rate_limiter = RateLimiter(job.rate_limit)
+            selector_extractor = SelectorExtractor()
+            table_extractor = TableExtractor()
+            media_extractor = MediaExtractor()
+            llm_extractor = LLMExtractor() if self._has_llm_fields(job) else None
+
+            # Choose fetcher based on job config
+            use_browser = job.browser.enabled or self._needs_browser(job)
+
+            if use_browser:
+                logger.info("Using browser fetcher")
+                fetcher = BrowserFetcher(job)
+            else:
+                logger.info("Using static fetcher")
+                fetcher = StaticFetcher(job)
+
+            async with fetcher:
+                # Generate URLs to scrape
+                urls = await self._generate_urls(job)
+
+                logger.info(f"Will scrape {len(urls)} URLs")
+
+                # Scrape each URL
+                for i, url in enumerate(urls):
+                    if job.max_items and len(result.data) >= job.max_items:
+                        logger.info(f"Reached max items limit: {job.max_items}")
+                        break
+
+                    # Rate limiting
+                    from urllib.parse import urlparse
+"""
+Export manager - coordinates multiple export formats.
+"""
+
+import logging
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+from scraper.config.models import ExportConfig, ScrapeResult
+from scraper.export.csv_exporter import CSVExporter
+from scraper.export.excel_exporter import ExcelExporter
+from scraper.export.json_exporter import JSONExporter, NDJSONExporter
+from scraper.export.sqlite_exporter import SQLiteExporter
+
+logger = logging.getLogger(__name__)
+
+
+class ExportManager:
+    """
+    Manages exporting data to multiple formats.
+
+    Coordinates various exporters and handles file naming.
+    """
+
+    def __init__(self, config: ExportConfig):
+        """
+        Initialize export manager.
+
+        Args:
+            config: Export configuration
+        """
+        self.config = config
+
+    async def export_result(self, result: ScrapeResult) -> dict[str, Path]:
+        """
+        Export scrape result to configured formats.
+
+        Args:
+            result: ScrapeResult to export
+
+        Returns:
+            Dict mapping format name to exported file path
+        """
+        exported_files = {}
+
+        if not result.data:
+            logger.warning("No data to export")
+            return exported_files
+
+        # Generate base filename
+        timestamp = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S")
+        filename_vars = {
+            "job_name": result.metadata.get("job_name", "scrape"),
+            "timestamp": timestamp,
+            "job_id": result.job_id,
+        }
+        base_filename = self.config.filename_template.format(**filename_vars)
+
+        # Ensure base directory exists
+        self.config.base_path.mkdir(parents=True, exist_ok=True)
+
+        # Export to each format
+        for export_format in self.config.formats:
+            try:
+                file_path = await self._export_format(
+                    export_format,
+                    base_filename,
+                    result.data,
+                    result.metadata,
+                )
+                if file_path:
+                    exported_files[export_format] = file_path
+            except Exception as e:
+                logger.error(f"Failed to export to {export_format}: {e}")
+
+        return exported_files
+
+    async def _export_format(
+        self,
+        export_format: str,
+        base_filename: str,
+        data: list[dict[str, Any]],
+        metadata: dict[str, Any],
+    ) -> Path:
+        """
+        Export to specific format.
+
+        Args:
+            export_format: Format name (csv, json, excel, etc.)
+            base_filename: Base filename (without extension)
+            data: Data to export
+            metadata: Metadata
+
+        Returns:
+            Path to exported file
+        """
+        format_lower = export_format.lower()
+
+        if format_lower == "csv":

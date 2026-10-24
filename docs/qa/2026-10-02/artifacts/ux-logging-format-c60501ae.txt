@@ -1,0 +1,130 @@
+"""Run QA commands with UTC command/outcome logs and redacted text artifacts.
+
+Usage: python3 docs/qa/2026-10-02/run_logged.py GROUP LABEL -- command args...
+GROUP is coordinator, backend, frontend, ux, security, or review.
+"""
+
+import datetime as dt
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+import time
+import uuid
+
+ROOT = Path(__file__).resolve().parent
+
+
+def redact(value):
+    value = re.sub(r"(?i)(authorization\s*[:=]\s*)([^\n]+)", r"\1[REDACTED]", value)
+    value = re.sub(r"\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]+|sk-[A-Za-z0-9_-]{20,}|AKIA[A-Z0-9]{16})\b", "[REDACTED]", value)
+    value = re.sub(r"(?i)((?:password|api_key|api_secret|access_token|secret_key)\s*[:=]\s*)['\"][^'\"\n]+['\"]", r"\1'[REDACTED]'", value)
+    value = re.sub(r"-----BEGIN [^-]*PRIVATE KEY-----[\s\S]*?-----END [^-]*PRIVATE KEY-----", "[REDACTED]", value)
+    return value
+
+
+def main():
+    group, label, separator, *command = sys.argv[1:]
+    if separator != "--" or not command:
+        raise SystemExit("Expected GROUP LABEL -- command args...")
+    stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    safe_label = re.sub(r"[^A-Za-z0-9_-]", "-", label)
+    artifact = ROOT / "artifacts" / f"{group}-{safe_label}-{uuid.uuid4().hex[:8]}.txt"
+    artifact.parent.mkdir(parents=True, exist_ok=True)
+    log = ROOT / f"{group.upper()}-SESSION.md"
+    env = {key: os.environ[key] for key in ("PATH", "HOME", "TMPDIR", "SHELL", "LANG", "LC_ALL", "SYSTEMROOT") if key in os.environ}
+    env.update({"UV_CACHE_DIR": "/private/tmp/grann-qa-20261002/uv-cache", "PIP_CACHE_DIR": "/private/tmp/grann-qa-20261002/pip-cache", "npm_config_cache": "/private/tmp/grann-qa-20261002/npm-cache", "PW_TEST_CONNECT_WS_ENDPOINT": "ws://127.0.0.1:3950/", "PYTHONDONTWRITEBYTECODE": "1", "PYTHONPATH": str(ROOT.parents[2]), "QA_OFFLINE": "1"})
+    with log.open("a") as handle:
+        handle.write(f"\n### {stamp} — {label}\n\nCommand (argv): `{redact(repr(command))}`\n\n")
+    started = time.monotonic()
+    result = subprocess.run(command, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
+    output = redact(result.stdout)
+    artifact.write_text(output)
+    outcome = f"Exit {result.returncode}; {time.monotonic() - started:.2f}s; [output](artifacts/{artifact.name})."
+    with log.open("a") as handle:
+        handle.write(outcome + "\n")
+    print(output, end="")
+    print(outcome)
+    return result.returncode
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+
+### 2026-10-03T01:48:40Z — identity
+
+Command (argv): `['pwd']`
+
+Exit 0; 0.00s; [output](artifacts/ux-identity-c7286185.txt).
+
+### 2026-10-03T01:48:45Z — branch
+
+Command (argv): `['git', 'branch', '--show-current']`
+
+
+### 2026-10-03T01:48:45Z — worktrees
+
+Command (argv): `['git', 'worktree', 'list']`
+
+
+### 2026-10-03T01:48:45Z — remote
+
+Command (argv): `['git', 'remote', 'get-url', 'origin']`
+
+
+### 2026-10-03T01:48:45Z — plan
+
+Command (argv): `['cat', 'docs/qa/2026-10-02/PLAN.md']`
+
+Exit 0; 0.01s; [output](artifacts/ux-plan-1ee9e802.txt).
+Exit 0; 0.02s; [output](artifacts/ux-remote-7b14c857.txt).
+Exit 0; 0.02s; [output](artifacts/ux-branch-f9181b8d.txt).
+Exit 0; 0.02s; [output](artifacts/ux-worktrees-280e82ab.txt).
+
+### 2026-10-03T01:48:50Z — files
+
+Command (argv): `['rg', '--files', '-g', '!package-lock.json', '-g', '!.env*', '-g', '!*.lock']`
+
+Exit 0; 0.01s; [output](artifacts/ux-files-1ac3a233.txt).
+
+### 2026-10-03T01:48:50Z — instructions
+
+Command (argv): `['find', '.', '-name', 'AGENTS.md', '-not', '-path', './.git/*', '-not', '-path', './.env*']`
+
+Exit 0; 0.01s; [output](artifacts/ux-instructions-422f8ddf.txt).
+
+### 2026-10-03T01:48:50Z — skills
+
+Command (argv): `['cat', '/Users/sellers/.codex/skills/playwright/SKILL.md']`
+
+Exit 0; 0.00s; [output](artifacts/ux-skills-8138425b.txt).
+
+### 2026-10-03T01:48:59Z — source
+
+Command (argv): `['python3', '-c', 'from pathlib import Path; files=["scraper/web/static/index.html","scraper/web/static/app.js","README.md","GETTING_STARTED.md","scraper/sdk/client.py","scraper/cli/main.py","pyproject.toml"]; [(print("FILE "+f),print("\\n".join(f"{i}: {line}" for i,line in enumerate(Path(f).read_text().splitlines(),1)))) for f in files]']`
+
+Exit 0; 0.03s; [output](artifacts/ux-source-b4a01e43.txt).
+
+### 2026-10-03T01:48:59Z — node-readiness
+
+Command (argv): `['python3', '-c', 'import shutil; from pathlib import Path; print("npx", bool(shutil.which("npx"))); print("playwright",Path("/private/tmp/grann-qa-20261002/node/node_modules/@playwright/test/package.json").exists()); print("axe",Path("/private/tmp/grann-qa-20261002/node/node_modules/axe-core/axe.min.js").exists())']`
+
+Exit 0; 0.03s; [output](artifacts/ux-node-readiness-b69fad92.txt).
+
+### 2026-10-03T01:49:04Z — source-details
+
+Command (argv): `['sed', '-n', '208,370p', 'scraper/web/static/app.js']`
+
+Exit 0; 0.00s; [output](artifacts/ux-source-details-3e759518.txt).
+
+### 2026-10-03T01:49:04Z — quickstart
+
+Command (argv): `['rg', '-n', '-C', '5', 'install|quick|Quick|scraper |import |Dashboard|dashboard|GrannScraper|grandma-scraper', 'README.md', 'GETTING_STARTED.md', 'examples/01_quick_start.py']`
+
+Exit 0; 0.01s; [output](artifacts/ux-quickstart-86c15f2d.txt).
+
+### 2026-10-03T01:49:05Z — logging-format
+
+Command (argv): `['cat', 'docs/qa/2026-10-02/run_logged.py', 'docs/qa/2026-10-02/UX-SESSION.md']`
+

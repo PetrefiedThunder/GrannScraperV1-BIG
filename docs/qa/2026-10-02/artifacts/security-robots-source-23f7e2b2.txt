@@ -1,0 +1,155 @@
+1: """
+2: Rate limiting and politeness engine.
+3: 
+4: Token bucket algorithm with domain-specific rate limiting.
+5: """
+6: 
+7: import asyncio
+8: import logging
+9: import time
+10: from collections import defaultdict
+11: from typing import Optional
+12: 
+13: from scraper.config.models import RateLimitConfig
+14: 
+15: logger = logging.getLogger(__name__)
+16: 
+17: 
+18: class RateLimiter:
+19:     """
+20:     Token bucket rate limiter with per-domain tracking.
+21: 
+22:     Ensures politeness by limiting requests per second per domain.
+23:     """
+24: 
+25:     def __init__(self, config: RateLimitConfig):
+26:         """
+27:         Initialize rate limiter.
+28: 
+29:         Args:
+30:             config: Rate limit configuration
+31:         """
+32:         self.config = config
+33:         self.domain_buckets: dict[str, dict] = defaultdict(
+34:             lambda: {
+35:                 "tokens": config.max_concurrent_requests,
+36:                 "last_update": time.time(),
+37:                 "max_tokens": config.max_concurrent_requests,
+38:             }
+39:         )
+40:         self.semaphore = asyncio.Semaphore(config.max_concurrent_requests)
+41: 
+42:     async def acquire(self, domain: str) -> None:
+43:         """
+44:         Acquire permission to make a request to domain.
+45: 
+46:         Args:
+47:             domain: Domain being accessed
+48:         """
+49:         if not self.config.enabled:
+50:             return
+51: 
+52:         # Global concurrency limit
+53:         await self.semaphore.acquire()
+54: 
+55:         # Domain-specific rate limiting
+56:         if self.config.requests_per_second:
+57:             await self._wait_for_token(domain)
+58: 
+59:         # Random delay between min and max
+60:         delay = self.config.min_delay
+61:         if self.config.max_delay > self.config.min_delay:
+62:             import random
+63:             delay = random.uniform(self.config.min_delay, self.config.max_delay)
+64: 
+65:         await asyncio.sleep(delay)
+66: 
+67:     def release(self, domain: str) -> None:
+68:         """
+69:         Release rate limit for domain.
+70: 
+71:         Args:
+72:             domain: Domain being released
+73:         """
+74:         if not self.config.enabled:
+75:             return
+76: 
+77:         self.semaphore.release()
+78: 
+79:     async def _wait_for_token(self, domain: str) -> None:
+80:         """
+81:         Wait for token bucket to have available tokens.
+82: 
+83:         Args:
+84:             domain: Domain to check
+85:         """
+86:         if not self.config.requests_per_second:
+87:             return
+88: 
+89:         bucket = self.domain_buckets[domain]
+90: 
+91:         while True:
+92:             now = time.time()
+93:             time_passed = now - bucket["last_update"]
+94: 
+95:             # Refill tokens based on time passed
+96:             refill_rate = self.config.requests_per_second
+97:             tokens_to_add = time_passed * refill_rate
+98:             bucket["tokens"] = min(
+99:                 bucket["max_tokens"],
+100:                 bucket["tokens"] + tokens_to_add
+101:             )
+102:             bucket["last_update"] = now
+103: 
+104:             # Check if we have a token
+105:             if bucket["tokens"] >= 1.0:
+106:                 bucket["tokens"] -= 1.0
+107:                 break
+108: 
+109:             # Wait a bit before checking again
+110:             wait_time = (1.0 - bucket["tokens"]) / refill_rate
+111:             await asyncio.sleep(wait_time)
+112: 
+113:     async def __aenter__(self) -> "RateLimiter":
+114:         """Context manager entry."""
+115:         return self
+116: 
+117:     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+118:         """Context manager exit."""
+119:         pass
+120: 
+121: 
+122: class SessionManager:
+123:     """
+124:     Manages scraping sessions with persistent state.
+125: 
+126:     Tracks visited URLs, cookies, and session metadata.
+127:     """
+128: 
+129:     def __init__(self):
+130:         """Initialize session manager."""
+131:         self.visited_urls: set[str] = set()
+132:         self.failed_urls: set[str] = set()
+133:         self.cookies: dict[str, str] = {}
+134:         self.metadata: dict[str, any] = {}
+135: 
+136:     def mark_visited(self, url: str) -> None:
+137:         """
+138:         Mark URL as visited.
+139: 
+140:         Args:
+141:             url: URL that was visited
+142:         """
+143:         self.visited_urls.add(url)
+144: 
+145:     def mark_failed(self, url: str) -> None:
+146:         """
+147:         Mark URL as failed.
+148: 
+149:         Args:
+150:             url: URL that failed
+151:         """
+152:         self.failed_urls.add(url)
+153: 
+154:     def is_visited(self, url: str) -> bool:
+155:         """

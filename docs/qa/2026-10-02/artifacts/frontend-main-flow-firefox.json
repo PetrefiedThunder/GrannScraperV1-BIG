@@ -1,0 +1,87 @@
+{
+  "requests": [
+    {
+      "url": "http://localhost:8000/api/v1/info",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "url": "http://localhost:8000/api/v1/jobs",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "url": "http://localhost:8000/api/v1/info",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "url": "http://localhost:8000/api/v1/analyze",
+      "method": "POST",
+      "body": {
+        "url": "https://example.invalid/catalog",
+        "max_pages": 1
+      }
+    },
+    {
+      "url": "http://localhost:8000/api/v1/jobs",
+      "method": "POST",
+      "body": {
+        "job": {
+          "id": "job_1790992453049",
+          "name": "Auto-scraped: https://example.invalid/catalog",
+          "start_url": "https://example.invalid/catalog",
+          "item_selector": ".product",
+          "fields": {
+            "title": {
+              "selector": "h2",
+              "type": "string",
+              "confidence": 1,
+              "auto_detected": true
+            }
+          },
+          "pagination": {
+            "mode": "next_button",
+            "next_button_selector": "a.next",
+            "confidence": 0.9
+          },
+          "max_pages": 2,
+          "export": {
+            "format": "json"
+          },
+          "browser": {
+            "enabled": false
+          },
+          "rate_limit": {
+            "requests_per_second": 2
+          },
+          "enabled": true
+        }
+      }
+    },
+    {
+      "url": "http://localhost:8000/api/v1/jobs/job_1790992453049/run?concurrent=true&incremental=false",
+      "method": "POST",
+      "body": null
+    },
+    {
+      "url": "http://localhost:8000/api/v1/jobs",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "url": "http://localhost:8000/api/v1/info",
+      "method": "GET",
+      "body": null
+    }
+  ],
+  "normalized_settings": {
+    "max_pages": 10,
+    "formats": [
+      "csv"
+    ]
+  },
+  "console_errors": [],
+  "failed_requests": [],
+  "blocked": []
+}

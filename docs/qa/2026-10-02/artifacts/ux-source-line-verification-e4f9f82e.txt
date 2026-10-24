@@ -1,0 +1,158 @@
+scraper/web/static/app.js
+228:                 <p><strong>Items Scraped:</strong> ${status.items_scraped}</p>
+229:                 <p><strong>Pages Visited:</strong> ${status.pages_visited}</p>
+230:                 <p><strong>Errors:</strong> ${status.errors}</p>
+231:                 <p><strong>Duration:</strong> ${status.duration?.toFixed(2)}s</p>
+232:             `;
+233: 
+234:             // Get results
+235:             try {
+236:                 const results = await apiCall(`/jobs/${jobId}/results?limit=10`);
+237: 
+238:                 html += '<h3>Results (first 10 items):</h3>';
+239: 
+240:                 if (results.items.length > 0) {
+241:                     // Create table
+242:                     const fields = Object.keys(results.items[0]);
+243: 
+244:                     html += '<table class="results-table"><thead><tr>';
+245:                     fields.forEach(field => {
+246:                         html += `<th>${field}</th>`;
+247:                     });
+248:                     html += '</tr></thead><tbody>';
+249: 
+250:                     results.items.forEach(item => {
+251:                         html += '<tr>';
+252:                         fields.forEach(field => {
+253:                             const value = item[field];
+254:                             html += `<td>${value !== null && value !== undefined ? value : '-'}</td>`;
+255:                         });
+256:                         html += '</tr>';
+257:                     });
+258: 
+259:                     html += '</tbody></table>';
+260: 
+261:                     if (results.pagination.has_more) {
+262:                         html += `<p style="margin-top: 10px; color: #666;"><em>Showing 10 of ${results.total_items} items</em></p>`;
+263:                     }
+264:                 } else {
+265:                     html += '<p>No results yet.</p>';
+266:                 }
+267: 
+268:             } catch (error) {
+269:                 html += `<p style="color: #dc3545;">Failed to load results: ${error.message}</p>`;
+270:             }
+271:         } else if (status.is_running) {
+272:             html += '<p><em>Job is still running. Refresh to see updates.</em></p>';
+273:             html += '<button class="btn" onclick="viewJobDetails(\'' + jobId + '\')">Refresh</button>';
+274:         } else {
+275:             html += '<p><em>No results available yet.</em></p>';
+276:         }
+277: 
+278:         contentDiv.innerHTML = html;
+279: 
+280:     } catch (error) {
+281:         contentDiv.innerHTML = `<p style="color: #dc3545;">Error loading job details: ${error.message}</p>`;
+282:     }
+283: 
+284:     // Scroll to details
+285:     detailsCard.scrollIntoView({ behavior: 'smooth' });
+286: }
+287: 
+288: function hideJobDetails() {
+289:     document.getElementById('job-details').classList.add('hidden');
+290: }
+291: 
+292: // ============================================================================
+293: // INITIALIZATION
+294: // ============================================================================
+295: 
+296: async function init() {
+297:     // Load initial data
+298:     await loadStats();
+299:     await loadJobs();
+300: 
+301:     // Auto-refresh every 10 seconds
+302:     setInterval(async () => {
+303:         await loadStats();
+304:     }, 10000);
+305: }
+306: 
+307: // Start the app
+308: init().catch(console.error);
+README.md
+164: ### Example 5: Web Dashboard (Layer C)
+165: 
+166: ```bash
+167: # Start API server with dashboard
+168: python -m scraper.api.rest_server
+169: 
+170: # Open browser to http://localhost:8000
+171: # 1. Enter URL in auto-scrape form
+172: # 2. Click "Start Auto-Scrape"
+173: # 3. View real-time progress
+174: # 4. Download results when complete
+175: ```
+176: 
+scraper/config/models.py
+230:         "{job_name}_{timestamp}", description="Filename template"
+231:     )
+232:     include_metadata: bool = Field(
+233:         True, description="Include metadata in exports"
+234:     )
+235:     compression: Optional[Literal["gzip", "zip", "bz2"]] = Field(
+236:         None, description="Compression format"
+237:     )
+238: 
+239: 
+240: class ScrapeJob(BaseModel):
+241:     """
+242:     Complete scraping job configuration.
+243: 
+244:     This is the core model that defines everything about a scrape.
+245:     """
+246: 
+247:     # Metadata
+248:     id: str = Field(
+249:         default_factory=lambda: f"job_{datetime.utcnow().timestamp()}",
+250:         description="Unique job identifier",
+251:     )
+252:     name: str = Field(..., description="Human-readable job name")
+253:     description: Optional[str] = Field(None, description="Job description")
+254:     enabled: bool = Field(True, description="Whether job is enabled")
+255:     tags: list[str] = Field(default_factory=list, description="Job tags")
+256: 
+257:     # Target
+258:     start_url: str = Field(..., description="Starting URL")
+259:     allowed_domains: list[str] = Field(
+260:         default_factory=list, description="Allowed domains for crawling"
+261:     )
+262: 
+263:     # Extraction
+264:     item_selector: Optional[str] = Field(
+265:         None, description="CSS/XPath selector for item containers"
+266:     )
+267:     fields: dict[str, FieldConfig] = Field(
+268:         default_factory=dict, description="Field extraction configs"
+269:     )
+270: 
+271:     # Pagination
+272:     pagination: PaginationConfig = Field(
+273:         default_factory=PaginationConfig, description="Pagination config"
+274:     )
+275: 
+276:     # Browser
+277:     browser: BrowserConfig = Field(
+278:         default_factory=BrowserConfig, description="Browser config"
+279:     )
+280: 
+281:     # Proxy & UA
+282:     proxy: ProxyConfig = Field(
+283:         default_factory=ProxyConfig, description="Proxy config"
+284:     )
+285:     user_agent_strategy: UserAgentStrategy = Field(
+286:         UserAgentStrategy.RANDOM, description="User agent strategy"
+287:     )
+288:     user_agent_list: list[str] = Field(
+289:         default_factory=list, description="Custom user agent list"
+290:     )

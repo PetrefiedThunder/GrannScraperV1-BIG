@@ -1,0 +1,9 @@
+ M pyproject.toml
+?? docs/qa/
+?? tests/qa_backend/
+?? tests/qa_frontend/
+?? tests/qa_security/
+?? tests/qa_ux/
+qa/2026-10-02-sweep
+pyproject.toml
+     375

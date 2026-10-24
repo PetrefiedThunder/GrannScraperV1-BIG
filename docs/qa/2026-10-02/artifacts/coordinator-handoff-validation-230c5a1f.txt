@@ -1,0 +1,5 @@
+Local markdown links checked 299 missing []
+Still ignored QA evidence none
+Finding rows 28 {'High': 11, 'Medium': 16, 'Low': 1}
+QA artifact files 359 bytes 20877332
+Validation passed.

@@ -1,0 +1,4 @@
+Format prefix: b'cc=4,'
+Top keys: ['response', 'vary']
+Response metadata keys: ['body', 'headers', 'status', 'version', 'reason', 'decode_content']
+Body type: bytes

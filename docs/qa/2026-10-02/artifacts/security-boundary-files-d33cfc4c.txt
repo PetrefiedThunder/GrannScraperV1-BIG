@@ -1,0 +1,909 @@
+tests/test_extractors.py
+tests/test_transforms.py
+tests/test_models.py
+tests/test_smart_cache.py
+tests/test_llm_extractor.py
+tests/test_data_intelligence.py
+tests/test_sdk.py
+tests/__init__.py
+tests/conftest.py
+scraper/extractors/llm_extractor.py
+scraper/extractors/base_extractor.py
+scraper/extractors/selector_extractor.py
+scraper/extractors/typesafe_currency.py
+scraper/extractors/__init__.py
+scraper/monitoring/__init__.py
+scraper/monitoring/alerts.py
+scraper/export/premium_formats.py
+scraper/export/csv_exporter.py
+scraper/export/database_connectors.py
+scraper/export/base_exporter.py
+scraper/export/export_manager.py
+scraper/export/__init__.py
+scraper/export/json_exporter.py
+scraper/export/excel_exporter.py
+scraper/export/sqlite_exporter.py
+scraper/export/cloud_storage.py
+scraper/api/rest_server.py
+scraper/api/__init__.py
+scraper/sdk/__init__.py
+scraper/sdk/client.py
+scraper/ml/data_intelligence.py
+scraper/ml/__init__.py
+scraper/transforms/cleaning.py
+scraper/transforms/__init__.py
+scraper/transforms/type_inference.py
+scraper/transforms/deduplication.py
+scraper/storage/smart_cache.py
+scraper/storage/__init__.py
+scraper/observability/__init__.py
+scraper/observability/logging_system.py
+scraper/cli/main.py
+scraper/cli/__init__.py
+scraper/cli/smart_commands.py
+scraper/__init__.py
+scraper/scheduler/advanced_scheduler.py
+scraper/scheduler/__init__.py
+scraper/scheduler/workflow_dag.py
+scraper/strategies/intelligent_extraction.py
+scraper/strategies/__init__.py
+scraper/web/static/app.js
+scraper/web/static/index.html
+scraper/security/__init__.py
+scraper/security/auth.py
+scraper/config/examples/example_ecommerce.yaml
+scraper/config/examples/example_news.yaml
+scraper/config/examples/example_ai_powered.yaml
+scraper/config/examples/example_social_media.yaml
+scraper/config/__init__.py
+scraper/config/models.py
+scraper/core/fetcher_browser.py
+scraper/core/engine.py
+scraper/core/__init__.py
+scraper/core/rate_limiter.py
+scraper/core/fetcher_static.py
+scraper/core/concurrent_engine.py
+scraper/monitor/live_dashboard.py
+scraper/monitor/__init__.py
+scraper/ui/__init__.py
+
+FILE scraper/core/fetcher_static.py
+1: """
+2: Static HTTP fetcher using httpx and BeautifulSoup.
+3: 
+4: Handles all non-JavaScript scraping with async HTTP requests.
+5: """
+6: 
+7: import asyncio
+8: import logging
+9: from typing import Any, Optional
+10: from urllib.parse import urljoin, urlparse
+11: 
+12: import httpx
+13: from bs4 import BeautifulSoup
+14: from fake_useragent import UserAgent
+15: 
+16: from scraper.config.models import ScrapeJob, UserAgentStrategy
+17: 
+18: logger = logging.getLogger(__name__)
+19: 
+20: 
+21: class StaticFetcher:
+22:     """
+23:     High-performance static HTML fetcher.
+24: 
+25:     Uses httpx for async HTTP requests and BeautifulSoup for parsing.
+26:     Handles sessions, cookies, headers, and user agent rotation.
+27:     """
+28: 
+29:     def __init__(self, job: ScrapeJob):
+30:         """
+31:         Initialize fetcher with job configuration.
+32: 
+33:         Args:
+34:             job: ScrapeJob configuration
+35:         """
+36:         self.job = job
+37:         self.ua = UserAgent()
+38:         self.session: Optional[httpx.AsyncClient] = None
+39:         self._current_proxy_index = 0
+40:         self._user_agent_index = 0
+41: 
+42:     async def __aenter__(self) -> "StaticFetcher":
+43:         """Async context manager entry."""
+44:         await self.start()
+45:         return self
+46: 
+47:     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+48:         """Async context manager exit."""
+49:         await self.close()
+50: 
+51:     async def start(self) -> None:
+52:         """Initialize HTTP session."""
+53:         # Build headers
+54:         headers = {
+55:             "User-Agent": self._get_user_agent(),
+56:             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+57:             "Accept-Language": "en-US,en;q=0.9",
+58:             "Accept-Encoding": "gzip, deflate, br",
+59:             "DNT": "1",
+60:             "Connection": "keep-alive",
+61:             "Upgrade-Insecure-Requests": "1",
+62:         }
+63:         headers.update(self.job.custom_headers)
+64: 
+65:         # Configure session
+66:         self.session = httpx.AsyncClient(
+67:             headers=headers,
+68:             cookies=self.job.cookies,
+69:             timeout=httpx.Timeout(self.job.retry.timeout),
+70:             follow_redirects=True,
+71:             limits=httpx.Limits(
+72:                 max_keepalive_connections=self.job.rate_limit.max_concurrent_requests,
+73:                 max_connections=self.job.rate_limit.max_concurrent_requests * 2,
+74:             ),
+75:         )
+76: 
+77:         logger.info("Static fetcher initialized")
+78: 
+79:     async def close(self) -> None:
+80:         """Close HTTP session."""
+81:         if self.session:
+82:             await self.session.aclose()
+83:             logger.info("Static fetcher closed")
+84: 
+85:     def _get_user_agent(self) -> str:
+86:         """
+87:         Get user agent based on strategy.
+88: 
+89:         Returns:
+90:             User agent string
+91:         """
+92:         strategy = self.job.user_agent_strategy
+93: 
+94:         if strategy == UserAgentStrategy.FIXED:
+95:             if self.job.user_agent_list:
+96:                 return self.job.user_agent_list[0]
+97:             return self.ua.chrome
+98: 
+99:         elif strategy == UserAgentStrategy.ROTATING_LIST:
+100:             if not self.job.user_agent_list:
+101:                 return self.ua.random
+102:             ua = self.job.user_agent_list[self._user_agent_index]
+103:             self._user_agent_index = (
+104:                 self._user_agent_index + 1
+105:             ) % len(self.job.user_agent_list)
+106:             return ua
+107: 
+108:         else:  # RANDOM
+109:             return self.ua.random
+110: 
+111:     def _get_proxy(self) -> Optional[dict[str, str]]:
+112:         """
+113:         Get next proxy from pool using rotation strategy.
+114: 
+115:         Returns:
+116:             Proxy dict for httpx, or None
+117:         """
+118:         if not self.job.proxy.enabled or not self.job.proxy.proxy_list:
+119:             return None
+120: 
+121:         strategy = self.job.proxy.rotation_strategy
+122:         proxies = self.job.proxy.proxy_list
+123: 
+124:         if strategy == "round_robin":
+125:             proxy = proxies[self._current_proxy_index]
+126:             self._current_proxy_index = (self._current_proxy_index + 1) % len(proxies)
+127:         elif strategy == "random":
+128:             import random
+129:             proxy = random.choice(proxies)
+130:         else:  # least_used - simplified to round_robin for now
+131:             proxy = proxies[self._current_proxy_index]
+132:             self._current_proxy_index = (self._current_proxy_index + 1) % len(proxies)
+133: 
+134:         return {"http://": proxy, "https://": proxy}
+135: 
+136:     async def fetch(
+137:         self, url: str, retry_count: int = 0
+138:     ) -> tuple[Optional[BeautifulSoup], Optional[str]]:
+139:         """
+140:         Fetch and parse a URL.
+141: 
+142:         Args:
+143:             url: URL to fetch
+144:             retry_count: Current retry attempt
+145: 
+146:         Returns:
+147:             Tuple of (parsed BeautifulSoup, raw HTML) or (None, None) on failure
+148:         """
+149:         if not self.session:
+150:             raise RuntimeError("Fetcher not started. Use async with StaticFetcher()...")
+151: 
+152:         try:
+153:             # Update user agent if rotating
+154:             if self.job.user_agent_strategy == UserAgentStrategy.RANDOM:
+155:                 self.session.headers["User-Agent"] = self._get_user_agent()
+156: 
+157:             # Get proxy if configured
+158:             proxy = self._get_proxy()
+159:             request_kwargs: dict[str, Any] = {}
+160:             if proxy:
+161:                 request_kwargs["proxies"] = proxy
+162: 
+163:             logger.debug(f"Fetching {url}")
+164: 
+165:             # Make request
+166:             response = await self.session.get(url, **request_kwargs)
+167:             response.raise_for_status()
+168: 
+169:             # Parse HTML
+170:             html = response.text
+171:             soup = BeautifulSoup(html, "lxml")
+172: 
+173:             logger.info(f"Successfully fetched {url} ({len(html)} bytes)")
+174:             return soup, html
+175: 
+176:         except httpx.HTTPStatusError as e:
+177:             status_code = e.response.status_code
+178:             logger.warning(f"HTTP {status_code} for {url}")
+179: 
+180:             # Retry on configured status codes
+181:             if (
+182:                 status_code in self.job.retry.retry_on_status
+183:                 and retry_count < self.job.retry.max_retries
+184:             ):
+185:                 backoff = self.job.retry.backoff_factor ** retry_count
+186:                 logger.info(f"Retrying in {backoff}s (attempt {retry_count + 1})")
+187:                 await asyncio.sleep(backoff)
+188:                 return await self.fetch(url, retry_count + 1)
+189: 
+190:             return None, None
+191: 
+192:         except httpx.RequestError as e:
+193:             logger.error(f"Request error for {url}: {e}")
+194: 
+195:             # Retry on network errors
+196:             if retry_count < self.job.retry.max_retries:
+197:                 backoff = self.job.retry.backoff_factor ** retry_count
+198:                 logger.info(f"Retrying in {backoff}s (attempt {retry_count + 1})")
+199:                 await asyncio.sleep(backoff)
+200:                 return await self.fetch(url, retry_count + 1)
+201: 
+202:             return None, None
+203: 
+204:         except Exception as e:
+205:             logger.error(f"Unexpected error fetching {url}: {e}")
+206:             return None, None
+207: 
+208:     async def fetch_multiple(
+209:         self, urls: list[str], max_concurrent: Optional[int] = None
+210:     ) -> list[tuple[str, Optional[BeautifulSoup], Optional[str]]]:
+211:         """
+212:         Fetch multiple URLs concurrently with rate limiting.
+213: 
+214:         Args:
+215:             urls: List of URLs to fetch
+216:             max_concurrent: Max concurrent requests (overrides job config)
+217: 
+218:         Returns:
+219:             List of tuples (url, soup, html)
+220:         """
+221:         if max_concurrent is None:
+222:             max_concurrent = self.job.rate_limit.max_concurrent_requests
+223: 
+224:         semaphore = asyncio.Semaphore(max_concurrent)
+225: 
+226:         async def fetch_with_semaphore(url: str) -> tuple[str, Optional[BeautifulSoup], Optional[str]]:
+227:             async with semaphore:
+228:                 soup, html = await self.fetch(url)
+229:                 # Respect rate limiting delay
+230:                 delay = self.job.rate_limit.min_delay
+231:                 if self.job.rate_limit.max_delay > self.job.rate_limit.min_delay:
+232:                     import random
+233:                     delay = random.uniform(
+234:                         self.job.rate_limit.min_delay,
+235:                         self.job.rate_limit.max_delay
+236:                     )
+237:                 await asyncio.sleep(delay)
+238:                 return url, soup, html
+239: 
+240:         results = await asyncio.gather(
+241:             *[fetch_with_semaphore(url) for url in urls],
+242:             return_exceptions=True
+243:         )
+244: 
+245:         # Filter out exceptions
+246:         valid_results = []
+247:         for result in results:
+248:             if isinstance(result, Exception):
+249:                 logger.error(f"Error in concurrent fetch: {result}")
+250:                 continue
+251:             valid_results.append(result)
+252: 
+253:         return valid_results
+254: 
+255:     def is_same_domain(self, url: str) -> bool:
+256:         """
+257:         Check if URL is in allowed domains.
+258: 
+259:         Args:
+260:             url: URL to check
+261: 
+262:         Returns:
+263:             True if URL is allowed
+264:         """
+265:         if not self.job.allowed_domains:
+266:             return True
+267: 
+268:         domain = urlparse(url).netloc
+269:         return any(
+270:             domain == allowed or domain.endswith(f".{allowed}")
+271:             for allowed in self.job.allowed_domains
+272:         )
+273: 
+274:     def resolve_url(self, url: str, base_url: str) -> str:
+275:         """
+276:         Resolve relative URL to absolute.
+277: 
+278:         Args:
+279:             url: URL to resolve (may be relative)
+280:             base_url: Base URL for resolution
+281: 
+282:         Returns:
+283:             Absolute URL
+284:         """
+285:         return urljoin(base_url, url)
+286: 
+287:     async def check_robots_txt(self, url: str) -> bool:
+288:         """
+289:         Check if URL is allowed by robots.txt.
+290: 
+291:         Args:
+292:             url: URL to check
+293: 
+294:         Returns:
+295:             True if allowed
+296:         """
+297:         if not self.job.rate_limit.respect_robots_txt:
+298:             return True
+299: 
+300:         try:
+301:             parsed = urlparse(url)
+302:             robots_url = f"{parsed.scheme}://{parsed.netloc}/robots.txt"
+303: 
+304:             soup, robots_txt = await self.fetch(robots_url)
+305:             if not robots_txt:
+306:                 # No robots.txt = allowed
+307:                 return True
+308: 
+309:             # Simple robots.txt parsing (could use robotparser for more sophistication)
+310:             user_agent = self.session.headers.get("User-Agent", "*") if self.session else "*"
+311:             disallowed = []
+312:             current_ua = None
+313: 
+314:             for line in robots_txt.split("\n"):
+315:                 line = line.split("#")[0].strip()  # Remove comments
+316:                 if not line:
+317:                     continue
+318: 
+319:                 if line.lower().startswith("user-agent:"):
+320:                     current_ua = line.split(":", 1)[1].strip()
+321:                 elif line.lower().startswith("disallow:"):
+322:                     if current_ua == "*" or user_agent.startswith(current_ua):
+323:                         path = line.split(":", 1)[1].strip()
+324:                         if path:
+325:                             disallowed.append(path)
+326: 
+327:             # Check if current path is disallowed
+328:             current_path = parsed.path or "/"
+329:             for path in disallowed:
+330:                 if current_path.startswith(path):
+331:                     logger.warning(f"URL {url} disallowed by robots.txt")
+332:                     return False
+333: 
+334:             return True
+335: 
+336:         except Exception as e:
+337:             logger.debug(f"Could not fetch robots.txt: {e}")
+338:             # If we can't fetch robots.txt, allow the request
+339:             return True
+
+FILE scraper/core/fetcher_browser.py
+1: """
+2: Browser-based fetcher using Playwright.
+3: 
+4: Handles JavaScript-heavy sites, SPAs, and infinite scroll.
+5: """
+6: 
+7: import asyncio
+8: import logging
+9: from pathlib import Path
+10: from typing import Any, Optional
+11: 
+12: from bs4 import BeautifulSoup
+13: from playwright.async_api import async_playwright, Browser, BrowserContext, Page, Playwright
+14: 
+15: from scraper.config.models import ScrapeJob, PaginationMode
+16: 
+17: logger = logging.getLogger(__name__)
+18: 
+19: 
+20: class BrowserFetcher:
+21:     """
+22:     Playwright-based browser automation for JavaScript-heavy sites.
+23: 
+24:     Supports:
+25:     - Headless/headful browsing
+26:     - Wait for selectors
+27:     - Infinite scroll
+28:     - Screenshot capture
+29:     - Network interception
+30:     """
+31: 
+32:     def __init__(self, job: ScrapeJob):
+33:         """
+34:         Initialize browser fetcher.
+35: 
+36:         Args:
+37:             job: ScrapeJob configuration
+38:         """
+39:         self.job = job
+40:         self.playwright: Optional[Playwright] = None
+41:         self.browser: Optional[Browser] = None
+42:         self.context: Optional[BrowserContext] = None
+43:         self.page: Optional[Page] = None
+44: 
+45:     async def __aenter__(self) -> "BrowserFetcher":
+46:         """Async context manager entry."""
+47:         await self.start()
+48:         return self
+49: 
+50:     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+51:         """Async context manager exit."""
+52:         await self.close()
+53: 
+54:     async def start(self) -> None:
+55:         """Initialize browser and context."""
+56:         self.playwright = await async_playwright().start()
+57: 
+58:         # Launch browser
+59:         browser_config = self.job.browser
+60:         launch_options = {
+61:             "headless": browser_config.headless,
+62:         }
+63: 
+64:         # Add proxy if configured
+65:         if self.job.proxy.enabled and self.job.proxy.proxy_list:
+66:             proxy_url = self.job.proxy.proxy_list[0]  # Use first proxy
+67:             launch_options["proxy"] = {"server": proxy_url}
+68: 
+69:         self.browser = await self.playwright.chromium.launch(**launch_options)
+70: 
+71:         # Create context
+72:         context_options = {
+73:             "viewport": {
+74:                 "width": browser_config.viewport_width,
+75:                 "height": browser_config.viewport_height,
+76:             },
+77:             "user_agent": browser_config.user_agent or None,
+78:             "java_script_enabled": browser_config.javascript_enabled,
+79:         }
+80: 
+81:         self.context = await self.browser.new_context(**context_options)
+82: 
+83:         # Set cookies if provided
+84:         if self.job.cookies:
+85:             cookies = [
+86:                 {"name": name, "value": value, "url": self.job.start_url}
+87:                 for name, value in self.job.cookies.items()
+88:             ]
+89:             await self.context.add_cookies(cookies)
+90: 
+91:         # Create page
+92:         self.page = await self.context.new_page()
+93: 
+94:         # Set up resource blocking if configured
+95:         if browser_config.block_images or browser_config.block_css:
+96:             await self.page.route("**/*", self._handle_route)
+97: 
+98:         logger.info("Browser fetcher initialized")
+99: 
+100:     async def _handle_route(self, route: Any) -> None:
+101:         """
+102:         Handle route interception for resource blocking.
+103: 
+104:         Args:
+105:             route: Playwright route object
+106:         """
+107:         resource_type = route.request.resource_type
+108:         block = False
+109: 
+110:         if self.job.browser.block_images and resource_type == "image":
+111:             block = True
+112:         if self.job.browser.block_css and resource_type == "stylesheet":
+113:             block = True
+114: 
+115:         if block:
+116:             await route.abort()
+117:         else:
+118:             await route.continue_()
+119: 
+120:     async def close(self) -> None:
+121:         """Close browser and cleanup."""
+122:         if self.page:
+123:             await self.page.close()
+124:         if self.context:
+125:             await self.context.close()
+126:         if self.browser:
+127:             await self.browser.close()
+128:         if self.playwright:
+129:             await self.playwright.stop()
+130: 
+131:         logger.info("Browser fetcher closed")
+132: 
+133:     async def fetch(
+134:         self, url: str, wait_for_selector: Optional[str] = None
+135:     ) -> tuple[Optional[BeautifulSoup], Optional[str]]:
+136:         """
+137:         Fetch and parse a URL using browser.
+138: 
+139:         Args:
+140:             url: URL to fetch
+141:             wait_for_selector: Optional selector to wait for (overrides job config)
+142: 
+143:         Returns:
+144:             Tuple of (parsed BeautifulSoup, raw HTML) or (None, None) on failure
+145:         """
+146:         if not self.page:
+147:             raise RuntimeError("Browser not started. Use async with BrowserFetcher()...")
+148: 
+149:         try:
+150:             logger.debug(f"Navigating to {url}")
+151: 
+152:             # Navigate to page
+153:             await self.page.goto(
+154:                 url,
+155:                 timeout=self.job.browser.page_load_timeout,
+156:                 wait_until="domcontentloaded",
+157:             )
+158: 
+159:             # Wait for specific selector if configured
+160:             selector = wait_for_selector or self.job.browser.wait_for_selector
+161:             if selector:
+162:                 logger.debug(f"Waiting for selector: {selector}")
+163:                 await self.page.wait_for_selector(
+164:                     selector,
+165:                     timeout=self.job.browser.wait_timeout,
+166:                 )
+167: 
+168:             # Handle infinite scroll if configured
+169:             if self.job.pagination.mode == PaginationMode.INFINITE_SCROLL:
+170:                 await self._handle_infinite_scroll()
+171: 
+172:             # Get HTML content
+173:             html = await self.page.content()
+174:             soup = BeautifulSoup(html, "lxml")
+175: 
+176:             # Capture screenshot if configured
+177:             if self.job.browser.capture_screenshot:
+178:                 await self._capture_screenshot(url)
+179: 
+180:             logger.info(f"Successfully fetched {url} ({len(html)} bytes)")
+181:             return soup, html
+182: 
+183:         except Exception as e:
+184:             logger.error(f"Browser error fetching {url}: {e}")
+185:             return None, None
+186: 
+187:     async def _handle_infinite_scroll(self) -> None:
+188:         """
+189:         Handle infinite scroll pagination.
+190: 
+191:         Scrolls page multiple times with pauses to trigger lazy loading.
+192:         """
+193:         if not self.page:
+194:             return
+195: 
+196:         scroll_times = self.job.pagination.scroll_times
+197:         scroll_pause = self.job.pagination.scroll_pause
+198: 
+199:         logger.info(f"Handling infinite scroll ({scroll_times} scrolls)")
+200: 
+201:         for i in range(scroll_times):
+202:             # Scroll to bottom
+203:             await self.page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+204: 
+205:             # Wait for content to load
+206:             await asyncio.sleep(scroll_pause)
+207: 
+208:             logger.debug(f"Scroll {i + 1}/{scroll_times}")
+209: 
+210:         # Scroll back to top
+211:         await self.page.evaluate("window.scrollTo(0, 0)")
+212: 
+213:     async def _capture_screenshot(self, url: str) -> None:
+214:         """
+215:         Capture screenshot of current page.
+216: 
+217:         Args:
+218:             url: URL being captured (used for filename)
+219:         """
+220:         if not self.page or not self.job.browser.screenshot_path:
+221:             return
+222: 
+223:         try:
+224:             # Create screenshot directory
+225:             screenshot_dir = Path(self.job.browser.screenshot_path)
+226:             screenshot_dir.mkdir(parents=True, exist_ok=True)
+227: 
+228:             # Generate filename from URL
+229:             from urllib.parse import urlparse
+230:             parsed = urlparse(url)
+231:             filename = f"{parsed.netloc}_{parsed.path.replace('/', '_')}.png"
+232:             filepath = screenshot_dir / filename
+233: 
+234:             # Capture screenshot
+235:             await self.page.screenshot(path=str(filepath), full_page=True)
+236:             logger.info(f"Screenshot saved to {filepath}")
+237: 
+238:         except Exception as e:
+239:             logger.warning(f"Failed to capture screenshot: {e}")
+240: 
+241:     async def wait_for_navigation(self, timeout: Optional[int] = None) -> None:
+242:         """
+243:         Wait for navigation to complete.
+244: 
+245:         Args:
+246:             timeout: Timeout in milliseconds (uses job config if not provided)
+247:         """
+248:         if not self.page:
+249:             return
+250: 
+251:         timeout_ms = timeout or self.job.browser.page_load_timeout
+252:         await self.page.wait_for_load_state("domcontentloaded", timeout=timeout_ms)
+253: 
+254:     async def click_element(self, selector: str) -> bool:
+255:         """
+256:         Click an element by selector.
+257: 
+258:         Args:
+259:             selector: CSS selector
+260: 
+261:         Returns:
+262:             True if click succeeded
+263:         """
+264:         if not self.page:
+265:             return False
+266: 
+267:         try:
+268:             await self.page.click(selector, timeout=self.job.browser.wait_timeout)
+269:             logger.debug(f"Clicked element: {selector}")
+270:             return True
+271:         except Exception as e:
+272:             logger.warning(f"Failed to click {selector}: {e}")
+273:             return False
+274: 
+275:     async def type_text(self, selector: str, text: str) -> bool:
+276:         """
+277:         Type text into an input field.
+278: 
+279:         Args:
+280:             selector: CSS selector for input
+281:             text: Text to type
+282: 
+283:         Returns:
+284:             True if typing succeeded
+285:         """
+286:         if not self.page:
+287:             return False
+288: 
+289:         try:
+290:             await self.page.fill(selector, text, timeout=self.job.browser.wait_timeout)
+291:             logger.debug(f"Typed into {selector}")
+292:             return True
+293:         except Exception as e:
+294:             logger.warning(f"Failed to type into {selector}: {e}")
+295:             return False
+296: 
+297:     async def execute_script(self, script: str) -> Any:
+298:         """
+299:         Execute JavaScript in page context.
+300: 
+301:         Args:
+302:             script: JavaScript code to execute
+303: 
+304:         Returns:
+305:             Script return value
+306:         """
+307:         if not self.page:
+308:             return None
+309: 
+310:         try:
+311:             result = await self.page.evaluate(script)
+312:             return result
+313:         except Exception as e:
+314:             logger.error(f"Script execution failed: {e}")
+315:             return None
+316: 
+317:     async def get_element_property(
+318:         self, selector: str, property_name: str
+319:     ) -> Optional[str]:
+320:         """
+321:         Get property value of an element.
+322: 
+323:         Args:
+324:             selector: CSS selector
+325:             property_name: Property name (e.g., 'textContent', 'href')
+326: 
+327:         Returns:
+328:             Property value or None
+329:         """
+330:         if not self.page:
+331:             return None
+332: 
+333:         try:
+334:             element = await self.page.query_selector(selector)
+335:             if not element:
+336:                 return None
+337: 
+338:             value = await element.get_property(property_name)
+339:             return await value.json_value()
+340:         except Exception as e:
+341:             logger.warning(f"Failed to get property {property_name} from {selector}: {e}")
+342:             return None
+343: 
+344:     async def wait_for_text(
+345:         self, text: str, timeout: Optional[int] = None
+346:     ) -> bool:
+347:         """
+348:         Wait for specific text to appear on page.
+349: 
+350:         Args:
+351:             text: Text to wait for
+352:             timeout: Timeout in milliseconds
+353: 
+354:         Returns:
+355:             True if text appeared
+356:         """
+357:         if not self.page:
+358:             return False
+359: 
+360:         try:
+361:             timeout_ms = timeout or self.job.browser.wait_timeout
+362:             await self.page.wait_for_selector(
+363:                 f"text={text}",
+364:                 timeout=timeout_ms,
+365:             )
+366:             return True
+367:         except Exception as e:
+368:             logger.warning(f"Text '{text}' did not appear: {e}")
+369:             return False
+
+FILE scraper/export/export_manager.py
+1: """
+2: Export manager - coordinates multiple export formats.
+3: """
+4: 
+5: import logging
+6: from datetime import datetime
+7: from pathlib import Path
+8: from typing import Any
+9: 
+10: from scraper.config.models import ExportConfig, ScrapeResult
+11: from scraper.export.csv_exporter import CSVExporter
+12: from scraper.export.excel_exporter import ExcelExporter
+13: from scraper.export.json_exporter import JSONExporter, NDJSONExporter
+14: from scraper.export.sqlite_exporter import SQLiteExporter
+15: 
+16: logger = logging.getLogger(__name__)
+17: 
+18: 
+19: class ExportManager:
+20:     """
+21:     Manages exporting data to multiple formats.
+22: 
+23:     Coordinates various exporters and handles file naming.
+24:     """
+25: 
+26:     def __init__(self, config: ExportConfig):
+27:         """
+28:         Initialize export manager.
+29: 
+30:         Args:
+31:             config: Export configuration
+32:         """
+33:         self.config = config
+34: 
+35:     async def export_result(self, result: ScrapeResult) -> dict[str, Path]:
+36:         """
+37:         Export scrape result to configured formats.
+38: 
+39:         Args:
+40:             result: ScrapeResult to export
+41: 
+42:         Returns:
+43:             Dict mapping format name to exported file path
+44:         """
+45:         exported_files = {}
+46: 
+47:         if not result.data:
+48:             logger.warning("No data to export")
+49:             return exported_files
+50: 
+51:         # Generate base filename
+52:         timestamp = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S")
+53:         filename_vars = {
+54:             "job_name": result.metadata.get("job_name", "scrape"),
+55:             "timestamp": timestamp,
+56:             "job_id": result.job_id,
+57:         }
+58:         base_filename = self.config.filename_template.format(**filename_vars)
+59: 
+60:         # Ensure base directory exists
+61:         self.config.base_path.mkdir(parents=True, exist_ok=True)
+62: 
+63:         # Export to each format
+64:         for export_format in self.config.formats:
+65:             try:
+66:                 file_path = await self._export_format(
+67:                     export_format,
+68:                     base_filename,
+69:                     result.data,
+70:                     result.metadata,
+71:                 )
+72:                 if file_path:
+73:                     exported_files[export_format] = file_path
+74:             except Exception as e:
+75:                 logger.error(f"Failed to export to {export_format}: {e}")
+76: 
+77:         return exported_files
+78: 
+79:     async def _export_format(
+80:         self,
+81:         export_format: str,
+82:         base_filename: str,
+83:         data: list[dict[str, Any]],
+84:         metadata: dict[str, Any],
+85:     ) -> Path:
+86:         """
+87:         Export to specific format.
+88: 
+89:         Args:
+90:             export_format: Format name (csv, json, excel, etc.)
+91:             base_filename: Base filename (without extension)
+92:             data: Data to export
+93:             metadata: Metadata
+94: 
+95:         Returns:
+96:             Path to exported file
+97:         """
+98:         format_lower = export_format.lower()
+99: 
+100:         if format_lower == "csv":
+101:             output_path = self.config.base_path / f"{base_filename}.csv"
+102:             exporter = CSVExporter(output_path)
+103:             return await exporter.export(data, metadata)
+104: 
+105:         elif format_lower == "json":
+106:             output_path = self.config.base_path / f"{base_filename}.json"
+107:             exporter = JSONExporter(output_path)
+108:             return await exporter.export(data, metadata)
+109: 
+110:         elif format_lower == "ndjson":
+111:             output_path = self.config.base_path / f"{base_filename}.ndjson"
+112:             exporter = NDJSONExporter(output_path)
+113:             return await exporter.export(data, metadata)
+114: 
+115:         elif format_lower in ("excel", "xlsx"):
+116:             output_path = self.config.base_path / f"{base_filename}.xlsx"
+117:             exporter = ExcelExporter(output_path)
+118:             return await exporter.export(data, metadata)
+119: 
+120:         elif format_lower in ("sqlite", "db"):
+121:             output_path = self.config.base_path / f"{base_filename}.db"
+122:             exporter = SQLiteExporter(output_path)
+123:             return await exporter.export(data, metadata)
+124: 
+125:         else:
+126:             logger.warning(f"Unknown export format: {export_format}")
+127:             return None

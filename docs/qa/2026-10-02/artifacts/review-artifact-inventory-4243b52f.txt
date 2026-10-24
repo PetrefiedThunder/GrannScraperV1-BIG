@@ -1,0 +1,298 @@
+tests/qa_backend/test_api_contracts.py
+tests/qa_backend/test_execution.py
+tests/qa_backend/conftest.py
+docs/qa/2026-10-02/REVIEW-SESSION.md
+docs/qa/2026-10-02/SESSION-LOG.md
+docs/qa/2026-10-02/BACKEND-SESSION.md
+docs/qa/2026-10-02/run_logged.py
+docs/qa/2026-10-02/COVERAGE.md
+docs/qa/2026-10-02/FINDINGS.md
+docs/qa/2026-10-02/PLAN.md
+docs/qa/2026-10-02/UX-SESSION.md
+docs/qa/2026-10-02/SECURITY-SESSION.md
+docs/qa/2026-10-02/SUMMARY.md
+docs/qa/2026-10-02/FRONTEND-SESSION.md
+docs/qa/2026-10-02/artifacts/ux-test-output/dashboard-UX-002-text-has--47f0b-ntrast-in-completed-results/error-context.md
+docs/qa/2026-10-02/artifacts/ux-test-output/dashboard-UX-006-failed-job-list-load-offers-an-in-app-retry/error-context.md
+docs/qa/2026-10-02/artifacts/ux-test-output/dashboard-UX-001-populated-834e6-ocument-horizontal-overflow/error-context.md
+docs/qa/2026-10-02/artifacts/ux-test-output/dashboard-UX-005-users-can-ce27f-lt-items-beyond-the-preview/error-context.md
+docs/qa/2026-10-02/artifacts/ux-test-output/dashboard-UX-004-opening-d-a34ce-into-visible-detail-context/error-context.md
+docs/qa/2026-10-02/artifacts/ux-test-output/dashboard-UX-003-dynamic-e-99a71-announced-to-screen-readers/error-context.md
+docs/qa/2026-10-02/artifacts/ux-node-readiness-2-d6b00e45.txt
+docs/qa/2026-10-02/artifacts/ux-semantics-jobs-error.txt
+docs/qa/2026-10-02/artifacts/frontend-initial-inspection-25120b45.txt
+docs/qa/2026-10-02/artifacts/frontend-start-charter-ad769a74.txt
+docs/qa/2026-10-02/artifacts/coordinator-install-browser-test-packages-d0c721f3.txt
+docs/qa/2026-10-02/artifacts/security-start-boundary-charter-797d55f8.txt
+docs/qa/2026-10-02/artifacts/ux-remote-7b14c857.txt
+docs/qa/2026-10-02/artifacts/security-security-skill-5e3eb672.txt
+docs/qa/2026-10-02/artifacts/coordinator-install-python-dependencies-880c6f41.txt
+docs/qa/2026-10-02/artifacts/security-boundary-files-d33cfc4c.txt
+docs/qa/2026-10-02/artifacts/backend-inspect-layout-f8f73ae2.txt
+docs/qa/2026-10-02/artifacts/ux-source-b4a01e43.txt
+docs/qa/2026-10-02/artifacts/security-isolated-boundary-tests-359daf2e.txt
+docs/qa/2026-10-02/artifacts/ux-error-feedback.png
+docs/qa/2026-10-02/artifacts/review-instructions-map-6f448d55.txt
+docs/qa/2026-10-02/artifacts/ux-conftest-and-readme-config-b48a74b1.txt
+docs/qa/2026-10-02/artifacts/security-auth-sinks-tools-08e74f81.txt
+docs/qa/2026-10-02/artifacts/ux-plan-1ee9e802.txt
+docs/qa/2026-10-02/artifacts/ux-desktop-empty.png
+docs/qa/2026-10-02/artifacts/ux-semantics-completed.txt
+docs/qa/2026-10-02/artifacts/ux-files-1ac3a233.txt
+docs/qa/2026-10-02/artifacts/ux-instructions-422f8ddf.txt
+docs/qa/2026-10-02/artifacts/ux-jobs-error.png
+docs/qa/2026-10-02/artifacts/backend-inspect-model-engine-tests-5920e9ce.txt
+docs/qa/2026-10-02/artifacts/backend-inspect-engine-cache-936c974d.txt
+docs/qa/2026-10-02/artifacts/ux-mobile-jobs.png
+docs/qa/2026-10-02/artifacts/review-identity-detail-5ed1b669.txt
+docs/qa/2026-10-02/artifacts/frontend-rest-contract-8d584a02.txt
+docs/qa/2026-10-02/artifacts/ux-worktrees-280e82ab.txt
+docs/qa/2026-10-02/artifacts/backend-baseline-suite-d284977e.txt
+docs/qa/2026-10-02/artifacts/ux-desktop-results.png
+docs/qa/2026-10-02/artifacts/coordinator-source-size-coverage-map-796427bc.txt
+docs/qa/2026-10-02/artifacts/review-source-targeted-5d300d71.txt
+docs/qa/2026-10-02/artifacts/ux-cli-and-sdk-contracts-a3f7f75b.txt
+docs/qa/2026-10-02/COORDINATOR-SESSION.md
+docs/qa/2026-10-02/artifacts/ux-node-readiness-b69fad92.txt
+docs/qa/2026-10-02/artifacts/ux-quickstart-86c15f2d.txt
+docs/qa/2026-10-02/artifacts/ux-charter-start-dcf7cc41.txt
+docs/qa/2026-10-02/artifacts/ux-skills-8138425b.txt
+docs/qa/2026-10-02/artifacts/backend-initial-identity-3b7934d3.txt
+docs/qa/2026-10-02/artifacts/coordinator-instructions-runtime-ab14e024.txt
+docs/qa/2026-10-02/artifacts/review-source-risks-752c96a5.txt
+docs/qa/2026-10-02/artifacts/security-references-and-api-36537a20.txt
+docs/qa/2026-10-02/artifacts/ux-semantics-empty.txt
+docs/qa/2026-10-02/artifacts/coordinator-static-type-checks-d3b5c210.txt
+docs/qa/2026-10-02/artifacts/ux-branch-f9181b8d.txt
+docs/qa/2026-10-02/artifacts/ux-sdk-public-methods-520c9b09.txt
+docs/qa/2026-10-02/artifacts/frontend-fixture-design-e70bd261.txt
+docs/qa/2026-10-02/artifacts/ux-details-keyboard-focus.png
+docs/qa/2026-10-02/artifacts/ux-loading.png
+docs/qa/2026-10-02/artifacts/ux-logging-format-c60501ae.txt
+docs/qa/2026-10-02/artifacts/coordinator-build-package-ad390e94.txt
+docs/qa/2026-10-02/artifacts/coordinator-create-python-env-8534d8e6.txt
+docs/qa/2026-10-02/artifacts/frontend-source-and-skill-b2db836c.txt
+docs/qa/2026-10-02/artifacts/security-source-map-edcfc40b.txt
+docs/qa/2026-10-02/artifacts/coordinator-mypy-baseline.txt
+docs/qa/2026-10-02/artifacts/ux-identity-c7286185.txt
+docs/qa/2026-10-02/artifacts/security-identity-907be310.txt
+docs/qa/2026-10-02/artifacts/ux-source-details-3e759518.txt
+docs/qa/2026-10-02/artifacts/coordinator-repository-test-inventory-0cb56957.txt
+docs/qa/2026-10-02/artifacts/backend-baseline-outcome-and-contracts-4b64b369.txt
+docs/qa/2026-10-02/artifacts/review-identity-97deaab4.txt
+docs/qa/2026-10-02/artifacts/ux-time-a104031a.txt
+docs/qa/2026-10-02/artifacts/security-framework-guidance-a078e64b.txt
+
+"""Run QA commands with UTC command/outcome logs and redacted text artifacts.
+
+Usage: python3 docs/qa/2026-10-02/run_logged.py GROUP LABEL -- command args...
+GROUP is coordinator, backend, frontend, ux, security, or review.
+"""
+
+import datetime as dt
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+import time
+import uuid
+
+ROOT = Path(__file__).resolve().parent
+
+
+def redact(value):
+    value = re.sub(r"(?i)(authorization\s*[:=]\s*)([^\n]+)", r"\1[REDACTED]", value)
+    value = re.sub(r"\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]+|sk-[A-Za-z0-9_-]{20,}|AKIA[A-Z0-9]{16})\b", "[REDACTED]", value)
+    value = re.sub(r"(?i)((?:password|api_key|api_secret|access_token|secret_key)\s*[:=]\s*)['\"][^'\"\n]+['\"]", r"\1'[REDACTED]'", value)
+    value = re.sub(r"-----BEGIN [^-]*PRIVATE KEY-----[\s\S]*?-----END [^-]*PRIVATE KEY-----", "[REDACTED]", value)
+    return value
+
+
+def main():
+    group, label, separator, *command = sys.argv[1:]
+    if separator != "--" or not command:
+        raise SystemExit("Expected GROUP LABEL -- command args...")
+    stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    safe_label = re.sub(r"[^A-Za-z0-9_-]", "-", label)
+    artifact = ROOT / "artifacts" / f"{group}-{safe_label}-{uuid.uuid4().hex[:8]}.txt"
+    artifact.parent.mkdir(parents=True, exist_ok=True)
+    log = ROOT / f"{group.upper()}-SESSION.md"
+    env = {key: os.environ[key] for key in ("PATH", "HOME", "TMPDIR", "SHELL", "LANG", "LC_ALL", "SYSTEMROOT") if key in os.environ}
+    env.update({"UV_CACHE_DIR": "/private/tmp/grann-qa-20261002/uv-cache", "PIP_CACHE_DIR": "/private/tmp/grann-qa-20261002/pip-cache", "npm_config_cache": "/private/tmp/grann-qa-20261002/npm-cache", "PW_TEST_CONNECT_WS_ENDPOINT": "ws://127.0.0.1:3950/", "PYTHONDONTWRITEBYTECODE": "1", "PYTHONPATH": str(ROOT.parents[2]), "QA_OFFLINE": "1"})
+    with log.open("a") as handle:
+        handle.write(f"\n### {stamp} — {label}\n\nCommand (argv): `{redact(repr(command))}`\n\n")
+    started = time.monotonic()
+    result = subprocess.run(command, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
+    output = redact(result.stdout)
+    artifact.write_text(output)
+    outcome = f"Exit {result.returncode}; {time.monotonic() - started:.2f}s; [output](artifacts/{artifact.name})."
+    with log.open("a") as handle:
+        handle.write(outcome + "\n")
+    print(output, end="")
+    print(outcome)
+    return result.returncode
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+
+"""Real in-process routes; known defects retain desired assertions as strict xfails."""
+
+import asyncio
+import re
+
+import pytest
+
+from scraper.api import rest_server as api
+from scraper.config.models import ScrapeJob, ScrapeResult
+
+
+async def test_openapi_declares_create_contract(client):
+    response = await client.get("/openapi.json")
+    assert response.status_code == 200
+    schema = response.json()
+    assert schema["paths"]["/api/v1/jobs"]["post"]["requestBody"]
+    assert schema["components"]["schemas"]["JobCreateRequest"]["required"] == ["job"]
+
+
+async def test_create_read_list_delete_and_duplicate(client, job):
+    payload = {"job": job.model_dump(mode="json")}
+    assert (await client.post("/api/v1/jobs", json=payload)).status_code == 200
+    assert (await client.post("/api/v1/jobs", json=payload)).status_code == 400
+    response = await client.get(f"/api/v1/jobs/{job.id}")
+    assert response.status_code == 200
+    assert response.json()["id"] == job.id
+    assert (await client.get("/api/v1/jobs")).json()["total"] == 1
+    assert (await client.get(f"/api/v1/jobs/{job.id}/status")).json() == {
+        "job_id": job.id, "is_running": False, "has_result": False,
+    }
+    assert (await client.delete(f"/api/v1/jobs/{job.id}")).status_code == 200
+    assert (await client.get(f"/api/v1/jobs/{job.id}")).status_code == 404
+
+
+@pytest.mark.parametrize("suffix", ["", "/status", "/results"])
+async def test_missing_job_returns_404(client, suffix):
+    assert (await client.get(f"/api/v1/jobs/absent{suffix}")).status_code == 404
+
+
+@pytest.mark.parametrize("payload", [{}, {"job": {}}, {"job": {"name": "x", "start_url": "file:///tmp/fixture"}}])
+async def test_create_rejects_invalid_input(client, payload):
+    assert (await client.post("/api/v1/jobs", json=payload)).status_code == 422
+
+
+async def test_concurrent_run_requests_start_only_once(client, job, monkeypatch):
+    api.jobs_db[job.id] = job
+    gate = asyncio.Event()
+    starts = []
+
+    async def blocked_execute(*args):
+        starts.append(args[0])
+        await gate.wait()
+
+    monkeypatch.setattr(api, "_execute_job", blocked_execute)
+    responses = await asyncio.gather(*[
+        client.post(f"/api/v1/jobs/{job.id}/run") for _ in range(8)
+    ])
+    await asyncio.sleep(0)
+    assert sorted(response.status_code for response in responses) == [200] + [400] * 7
+    assert starts == [job.id]
+
+
+async def test_delete_cancels_active_task(client, job, monkeypatch):
+    api.jobs_db[job.id] = job
+    gate = asyncio.Event()
+    monkeypatch.setattr(api, "_execute_job", lambda *args: gate.wait())
+    await client.post(f"/api/v1/jobs/{job.id}/run")
+    task = api.running_jobs[job.id]
+    assert (await client.delete(f"/api/v1/jobs/{job.id}")).status_code == 200
+    await asyncio.gather(task, return_exceptions=True)
+    assert task.cancelled()
+    assert job.id not in api.running_jobs
+
+
+async def test_results_pagination_boundaries(client, job):
+    api.results_db[job.id] = ScrapeResult(
+        job_id=job.id, status="success", items_scraped=3, data=[{"n": n} for n in range(3)],
+    )
+    first = (await client.get(f"/api/v1/jobs/{job.id}/results?limit=2&offset=0")).json()
+    last = (await client.get(f"/api/v1/jobs/{job.id}/results?limit=2&offset=2")).json()
+    assert first["items"] == [{"n": 0}, {"n": 1}]
+    assert first["pagination"]["has_more"] is True
+    assert last["items"] == [{"n": 2}]
+    assert last["pagination"]["has_more"] is False
+
+
+@pytest.mark.xfail(strict=True, reason="BE-004: server-generated IDs contain a dot rejected by detail/delete")
+async def test_server_generated_job_id_round_trips(client, job):
+    payload = job.model_dump(mode="json")
+    del payload["id"]
+    created = await client.post("/api/v1/jobs", json={"job": payload})
+    assert created.status_code == 200
+    job_id = created.json()["job_id"]
+    assert (await client.get(f"/api/v1/jobs/{job_id}")).status_code == 200
+    assert (await client.delete(f"/api/v1/jobs/{job_id}")).status_code == 200
+
+
+@pytest.mark.xfail(strict=True, reason="BE-008: results accepts zero/negative limit and negative offset")
+@pytest.mark.parametrize("query", ["limit=0", "limit=-1", "offset=-1"])
+async def test_invalid_results_pagination_is_rejected(client, job, query):
+    api.results_db[job.id] = ScrapeResult(
+        job_id=job.id, status="success", items_scraped=3, data=[{"n": n} for n in range(3)],
+    )
+    assert (await client.get(f"/api/v1/jobs/{job.id}/results?{query}")).status_code == 422
+
+
+async def test_workflow_without_dependencies_round_trips(client):
+    created = await client.post("/api/v1/workflows", json={
+        "name": "independent", "nodes": [{"id": "a", "type": "scrape"}],
+    })
+    assert created.status_code == 200
+    assert (await client.get("/api/v1/workflows")).json()["total"] == 1
+    assert (await client.get("/api/v1/workflows/independent")).status_code == 200
+
+
+@pytest.mark.xfail(strict=True, reason="BE-005: invalid workflow nodes/DAG errors escape as 500")
+@pytest.mark.parametrize("nodes", [
+    [{}],
+    [{"id": "a", "type": "scrape", "depends_on": ["missing"]}],
+    [{"id": "a", "type": "scrape", "depends_on": ["a"]}],
+])
+async def test_bad_workflow_returns_validation_error(client, nodes):
+    response = await client.post("/api/v1/workflows", json={"name": "invalid", "nodes": nodes})
+    assert response.status_code in (400, 422)
+
+
+@pytest.mark.xfail(strict=True, reason="FE-001: root dashboard app.js path is not served")
+async def test_dashboard_script_is_available(client):
+    page = await client.get("/")
+    assert page.status_code == 200
+    scripts = re.findall(r'<script[^>]+src="([^\"]+)"', page.text)
+    assert scripts
+    local_scripts = [path for path in scripts if not path.startswith(("https://", "http://"))]
+    assert local_scripts
+    for path in local_scripts:
+        response = await client.get("/" + path.lstrip("/"))
+        assert response.status_code == 200
+
+
+async def test_mounted_dashboard_script_is_available(client):
+    assert (await client.get("/static/app.js")).status_code == 200
+
+
+@pytest.mark.xfail(strict=True, reason="FE-002: dashboard max_pages is an ignored top-level field")
+async def test_dashboard_requested_page_limit_is_preserved(client, job):
+    payload = job.model_dump(mode="json")
+    payload["pagination"] = {"mode": "none"}
+    payload["max_pages"] = 2
+    assert (await client.post("/api/v1/jobs", json={"job": payload})).status_code == 200
+    assert api.jobs_db[job.id].pagination.max_pages == 2
+
+
+@pytest.mark.xfail(strict=True, reason="FE-003: dashboard export.format is ignored; CSV default wins")
+async def test_dashboard_requested_export_format_is_preserved(client, job):
+    payload = job.model_dump(mode="json")
+    payload["export"] = {"format": "json", "base_path": str(job.export.base_path)}
+    assert (await client.post("/api/v1/jobs", json={"job": payload})).status_code == 200
+    assert api.jobs_db[job.id].export.formats == ["json"]
+

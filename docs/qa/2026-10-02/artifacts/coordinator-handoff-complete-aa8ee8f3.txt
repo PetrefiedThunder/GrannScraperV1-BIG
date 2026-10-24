@@ -1,0 +1,1 @@
+QA handoff ready; correct branch, clean whitespace, nothing staged, no product source changes.

@@ -1,0 +1,1 @@
+All expected failures now permit only assertion failures; runtime errors fail visibly.

@@ -1,0 +1,53 @@
+Artifacts:
+frontend-browser-engines.json
+frontend-browser-run-two-17264eb4.txt
+frontend-coverage-api-shape-8cfd126a.txt
+frontend-cross-browser-suite-2c158729.txt
+frontend-first-browser-run-17947c95.txt
+frontend-fixture-design-e70bd261.txt
+frontend-initial-inspection-25120b45.txt
+frontend-javascript-syntax-b91f6a67.txt
+frontend-list-error.png
+frontend-listener-check-19c179ca.txt
+frontend-literal-markup.png
+frontend-log-test-edits-and-port-5372e944.txt
+frontend-main-flow-chromium.json
+frontend-main-flow-firefox.json
+frontend-main-flow-webkit.json
+frontend-main-flow.json
+frontend-metrics-and-charter-b-fded684e.txt
+frontend-model-and-source-evidence-239014ae.txt
+frontend-performance.json
+frontend-playwright.json
+frontend-rest-contract-8d584a02.txt
+frontend-results-chromium.png
+frontend-results-firefox.png
+frontend-results-webkit.png
+frontend-results.png
+frontend-root-errors.json
+frontend-root-script-404.png
+frontend-source-and-skill-b2db836c.txt
+frontend-start-charter-ad769a74.txt
+frontend-syntax-and-browser-probe-7a4d2cc7.txt
+frontend-test-results
+219: 
+220: class ExportConfig(BaseModel):
+221:     """Export configuration."""
+222: 
+223:     formats: list[str] = Field(
+224:         default_factory=lambda: ["csv"], description="Export formats"
+225:     )
+226:     base_path: Path = Field(
+227:         Path.home() / "scraper_results", description="Base directory for exports"
+228:     )
+229:     filename_template: str = Field(
+230:         "{job_name}_{timestamp}", description="Filename template"
+231:     )
+232:     include_metadata: bool = Field(
+233:         True, description="Include metadata in exports"
+234:     )
+235:     compression: Optional[Literal["gzip", "zip", "bz2"]] = Field(
+236:         None, description="Compression format"
+237:     )
+238: 
+Generated files under tests: 6

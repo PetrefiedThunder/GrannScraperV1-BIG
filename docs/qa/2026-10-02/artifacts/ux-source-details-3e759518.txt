@@ -1,0 +1,101 @@
+async function viewJobDetails(jobId) {
+    const detailsCard = document.getElementById('job-details');
+    const contentDiv = document.getElementById('job-details-content');
+
+    detailsCard.classList.remove('hidden');
+    contentDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading...</p></div>';
+
+    try {
+        // Get job status
+        const status = await apiCall(`/jobs/${jobId}/status`);
+
+        let html = `
+            <h3>Job: ${jobId}</h3>
+            <p><strong>Running:</strong> ${status.is_running ? 'Yes' : 'No'}</p>
+            <p><strong>Has Results:</strong> ${status.has_result ? 'Yes' : 'No'}</p>
+        `;
+
+        if (status.has_result) {
+            html += `
+                <p><strong>Status:</strong> <span class="status-badge status-${status.status}">${status.status}</span></p>
+                <p><strong>Items Scraped:</strong> ${status.items_scraped}</p>
+                <p><strong>Pages Visited:</strong> ${status.pages_visited}</p>
+                <p><strong>Errors:</strong> ${status.errors}</p>
+                <p><strong>Duration:</strong> ${status.duration?.toFixed(2)}s</p>
+            `;
+
+            // Get results
+            try {
+                const results = await apiCall(`/jobs/${jobId}/results?limit=10`);
+
+                html += '<h3>Results (first 10 items):</h3>';
+
+                if (results.items.length > 0) {
+                    // Create table
+                    const fields = Object.keys(results.items[0]);
+
+                    html += '<table class="results-table"><thead><tr>';
+                    fields.forEach(field => {
+                        html += `<th>${field}</th>`;
+                    });
+                    html += '</tr></thead><tbody>';
+
+                    results.items.forEach(item => {
+                        html += '<tr>';
+                        fields.forEach(field => {
+                            const value = item[field];
+                            html += `<td>${value !== null && value !== undefined ? value : '-'}</td>`;
+                        });
+                        html += '</tr>';
+                    });
+
+                    html += '</tbody></table>';
+
+                    if (results.pagination.has_more) {
+                        html += `<p style="margin-top: 10px; color: #666;"><em>Showing 10 of ${results.total_items} items</em></p>`;
+                    }
+                } else {
+                    html += '<p>No results yet.</p>';
+                }
+
+            } catch (error) {
+                html += `<p style="color: #dc3545;">Failed to load results: ${error.message}</p>`;
+            }
+        } else if (status.is_running) {
+            html += '<p><em>Job is still running. Refresh to see updates.</em></p>';
+            html += '<button class="btn" onclick="viewJobDetails(\'' + jobId + '\')">Refresh</button>';
+        } else {
+            html += '<p><em>No results available yet.</em></p>';
+        }
+
+        contentDiv.innerHTML = html;
+
+    } catch (error) {
+        contentDiv.innerHTML = `<p style="color: #dc3545;">Error loading job details: ${error.message}</p>`;
+    }
+
+    // Scroll to details
+    detailsCard.scrollIntoView({ behavior: 'smooth' });
+}
+
+function hideJobDetails() {
+    document.getElementById('job-details').classList.add('hidden');
+}
+
+// ============================================================================
+// INITIALIZATION
+// ============================================================================
+
+async function init() {
+    // Load initial data
+    await loadStats();
+    await loadJobs();
+
+    // Auto-refresh every 10 seconds
+    setInterval(async () => {
+        await loadStats();
+    }, 10000);
+}
+
+// Start the app
+init().catch(console.error);

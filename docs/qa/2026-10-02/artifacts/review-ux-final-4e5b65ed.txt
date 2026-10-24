@@ -1,0 +1,152 @@
+# UX QA pass
+
+PR: opened by orchestrator
+
+CI status: pending at time of writing
+
+Counts: Critical=0 High=0 Medium=8 Low=0
+
+## Scope and execution
+
+Independent UX pass on `qa/2026-10-02-sweep`, initial HEAD `30eb7c4`. Repository identity, worktree, branch and plan were checked before edits. All commands and failed attempts are in [UX-SESSION.md](UX-SESSION.md). No product code was changed.
+
+The actual dashboard HTML and JavaScript were served on loopback port 8766. API responses were intercepted in the browser using fictional jobs and `example.invalid` URLs; every other origin was blocked. The harness reproduces the real `/static/index.html` and `/static/app.js` paths. **This is a downstream UX inspection using `/static/index.html`; the broken application root asset route is separately reported as FE-001.** No screenshot proves the default root route works. All owned browser contexts were closed; the shared browser server was not closed.
+
+The browser connected to the supplied remote endpoint; no browser was launched or installed. UX evidence uses Chromium 153.0.8010.12 at 1440×1000, 375×812 and 320×812 CSS pixels. Cross-browser functional checks belong to the Frontend pass. Axe-core 4.13.0 ran WCAG 2 A/AA, 2.1 A/AA and 2.2 AA tagged rules in empty, completed-results and API-error states. ARIA snapshots and keyboard operation were reviewed alongside screenshots.
+
+The timeboxed exploratory charters targeted accessibility/keyboard (20-minute ceiling), mobile/error/result recovery (15-minute ceiling), and onboarding (10-minute ceiling). Checks completed within those ceilings; they were not full-duration user studies. Risk priority was access to the main scraping flow and retrieval of its results, then reliable error recovery and quickstart accuracy.
+
+## Verification results
+
+| Check | Result | Evidence |
+|---|---|---|
+| Browser regression suite | **2 ordinary passes; 7 expected failures covering UX-001–UX-006; 0 unexpected failures.** Playwright prints `9 passed` because expected failures satisfy the runner. | [runner output](artifacts/ux-browser-regressions-final-a4cd40ab.txt), [machine results](artifacts/ux-playwright-results.json) |
+| CLI/DX suite | **3 passed, 3 strict xfailed**, covering UX-007 and UX-008. No real network calls; home directory replaced with a temporary directory. | [runner output](artifacts/ux-cli-doc-regressions-4b3960d1.txt), [JUnit](artifacts/ux-cli-junit.xml) |
+| CLI negative-control replay | `--runxfail` deliberately reproduced **3 failures, 3 passes**; exit 1 is expected evidence, not a green product suite. | [failure details](artifacts/ux-cli-repro-details-175f6a7c.txt) |
+| Empty state accessibility | One automated rule violation, `color-contrast`, affecting one node. | [axe report](artifacts/ux-axe-empty.json), [ARIA snapshot](artifacts/ux-semantics-empty.txt) |
+| Completed results accessibility | One automated rule violation, `color-contrast`, affecting four nodes. | [axe report](artifacts/ux-axe-completed.json), [ARIA snapshot](artifacts/ux-semantics-completed.txt) |
+| API error accessibility | No automated violations in the selected tags; dynamic announcements and retry still fail manual/interaction review. | [axe report](artifacts/ux-axe-jobs-error.json), [ARIA snapshot](artifacts/ux-semantics-jobs-error.txt) |
+| Keyboard baseline | URL → page count → format → concurrency checkbox → submit. Checkbox works with Space; invalid URL is blocked by native validation. | [focus order](artifacts/ux-keyboard-order.json) |
+| Mobile/reflow | Document width **632px** at both **375px** and **320px** viewports; actions are outside the visible viewport. | [375px metrics](artifacts/ux-mobile-layout.json), [320px metrics](artifacts/ux-mobile-320-layout.json) |
+| Error recovery | After restoring the fixture API and advancing 11 seconds, `/info` was requested again; `/jobs` remained at one request and the error remained. | [recovery metrics](artifacts/ux-error-recovery.json) |
+| 200% inherited body text diagnostic | No document overflow at 1440px in that diagnostic. This uses `body.style.fontSize = '200%'`, **not actual browser zoom**; explicit pixel/rem sizes do not all scale. | [metrics](artifacts/ux-text-scale-200.json), [screenshot](artifacts/ux-text-scale-200.png) |
+
+Automated axe results are **not a WCAG conformance claim**. The completed-results run also has 12 nodes requiring manual color-contrast review, largely involving gradient backgrounds. Reported numeric ratios below come only from deterministic, completed axe checks. The 320 CSS-pixel test checks reflow width relevant to a 1280px viewport at 400% zoom, but does not simulate every browser-zoom behavior. Real browser zoom and actual screen-reader speech were not tested.
+
+## Findings
+
+All browser reproductions use the offline harness in `tests/qa_ux/dashboard.spec.cjs` and the static-path workaround described above. IDs are canonical for this pass; FE-001–FE-005 are owned by the Frontend group, so the first-ten-results finding is counted only here.
+
+| ID | Severity | Group | Title | Exact reproduction | Expected vs actual | Evidence | Suggested fix |
+|---|---|---|---|---|---|---|---|
+| UX-001 | Medium | UX | Job actions overflow mobile and narrow layouts | Run the `UX-001` browser case: serve one fictional saved job, set viewport to 375×812, then 320×812, open `/static/index.html`, inspect Your Jobs. | Expected: job content and controls fit the viewport or wrap accessibly. Actual: document is 632px wide at both widths; View Details and Delete sit to the right of the viewport. | `scraper/web/static/index.html:114–147`; [375px screenshot](artifacts/ux-mobile-jobs.png), [320px screenshot](artifacts/ux-mobile-320-jobs.png), [metrics](artifacts/ux-mobile-layout.json). WCAG 1.4.10 reflow risk. | Allow job rows/actions to wrap or stack at narrow widths; give text flex children `min-width:0` and wrap long URLs. Keep table overflow within a labeled local container. |
+| UX-002 | Medium | UX | Empty message, success badge and table headers fail text contrast | Run baseline empty state and `UX-002`; open details for the completed fictional job and run axe. | Expected: normal-size text contrast ≥4.5:1. Actual: empty message 2.84:1; success badge 3.13:1; three table headers 3.66:1. | `scraper/web/static/app.js:156`; `scraper/web/static/index.html:163–166,179–184`; [empty axe](artifacts/ux-axe-empty.json), [completed axe](artifacts/ux-axe-completed.json), [results screenshot](artifacts/ux-desktop-results.png). WCAG 1.4.3. | Darken the empty-state foreground, success background and header background; verify ratios for every status variant and gradient stop. |
+| UX-003 | Medium | UX | Scrape errors and progress are not announced | Run `UX-003`: enter the fictional catalogue URL, start scraping, return a fixture 503 from `/analyze`, inspect both visible error messages and their ancestors. | Expected: assistive technology receives the progress/error announcement, with actionable feedback available long enough to use. Actual: inserted alerts have no role or `aria-live` ancestor and are removed after five seconds; visual error text is duplicated. | `scraper/web/static/app.js:9–19,38–41,133–136`; `scraper/web/static/index.html:297`; [semantic attributes](artifacts/ux-error-semantics.json), [error screenshot](artifacts/ux-error-feedback.png). WCAG 4.1.3 status-message risk; actual speech untested. | Add a stable polite status region and assertive error announcement, avoid duplicate messages, and leave actionable errors until retry/dismissal. |
+| UX-004 | Medium | UX | Details navigation leaves focus behind or hidden | Run both `UX-004` cases: focus View Details, press Enter, then focus Close and press Enter. | Expected: clear keyboard context when opening details and visible focus restored to the opener when closing. Actual: opening only scrolls visually while focus stays on View Details; closing leaves the focused Close button in the hidden details card. | `scraper/web/static/app.js:284–290`; `scraper/web/static/index.html:353–356`; [open focus](artifacts/ux-details-focus.json), [close focus](artifacts/ux-close-focus.json), [focus screenshot](artifacts/ux-details-keyboard-focus.png). This is a keyboard usability finding, not an automatic claim that every inline disclosure must move focus. | Save the invoking button, focus a labeled details heading when navigating, and restore focus to that button before hiding the card. Keep the semantics consistent with an inline region or implement a complete dialog pattern. |
+| UX-005 | Medium | UX | Dashboard cannot retrieve results beyond the first ten | Run `UX-005`: return a completed job with 25 results and `pagination.has_more=true`; click View Details. | Expected: obtain remaining items or download/export the complete result. Actual: exactly ten rows appear with “Showing 10 of 25 items”; no next, download, export or all-results control exists. | `scraper/web/static/app.js:236–273`; `README.md:173–174` promises download; [results screenshot](artifacts/ux-desktop-results.png), [available actions](artifacts/ux-result-actions.json). | Add a paginated or full-results action and a working export/download path; retain the preview label so partial data is explicit. |
+| UX-006 | Medium | UX | Job-list failure has no in-app recovery | Run `UX-006`: return 503 from `/jobs`, restore the fixture endpoint, advance browser timers 11 seconds. | Expected: explicit Retry/Refresh or an automatic job-list retry. Actual: “Failed to load jobs” remains, `/jobs` is requested only once, the periodic callback requests only `/info`, and no recovery control exists. Browser reload is the available workaround. | `scraper/web/static/app.js:183–187,299–307`; [recovery metrics](artifacts/ux-error-recovery.json), [error screenshot](artifacts/ux-jobs-error.png). | Add Retry next to the failed list, preserve any previous list while refreshing, and use bounded automatic retries if appropriate. |
+| UX-007 | Medium | UX / DX | `scraper list` crashes when saved jobs exist | Run `test_saved_jobs_are_listed`: replace home with a temporary directory, create `.grandma-scraper/jobs/qa-sample.yaml`, invoke `cli list`. | Expected: list the saved job and exit 0. Actual: exit 1 with `TypeError: object of type 'PosixPath' has no len()` because the Click command named `list` shadows the built-in called at line 434. | `scraper/cli/main.py:424–434`; `tests/qa_ux/test_cli_docs.py::test_saved_jobs_are_listed`; [negative-control traceback](artifacts/ux-cli-repro-details-175f6a7c.txt). | Rename the Python command function while retaining CLI name `list`, or explicitly use `builtins.list`; keep the regression test. |
+| UX-008 | Medium | UX / DX | README job configuration and invocation do not match the public contract | Run the two README contract tests: parse the YAML block at README 91–112 into `ScrapeJob`, and invoke `scraper run config/my_job.yaml` against a temporary real config with the engine stubbed. | Expected: browser enabled, next-button pagination at 50 pages, requested exports, and the provided file runs. Actual: flat browser/pagination/export keys are ignored; CLI sanitizes the path to `config_my_job_yaml`, looks under saved jobs, prints not found and exits 0. | `README.md:91–115`; `scraper/cli/main.py:375–393`; both `test_readme_*` cases; [negative-control details](artifacts/ux-cli-repro-details-175f6a7c.txt). Additional static drift: `GETTING_STARTED.md:29,46` uses placeholder `yourorg`, unlike the verified repository remote. | Update quickstart to nested `browser`, `pagination`, `export` schema and the supported saved-job workflow; document environment activation/`poetry run`, real clone URL and API-server prerequisite. If path execution is intended, add it with explicit validation and meaningful error exit codes. |
+
+## Nielsen heuristic review
+
+| Heuristic | Observed behavior and assessment |
+|---|---|
+| Visibility of system status | Button progress labels and loading spinner exist. Global counts refresh, but job-list errors do not recover; live announcements are missing (UX-003, UX-006). Running detail text tells users to Refresh. |
+| Match between system and real world | Website URL, Maximum Pages and Export Format are recognizable. “Has Results”, internal job ID and “Use concurrent scraping (10x faster)” are less useful to beginners; 10× is not established by this QA. This copy is an observation, not a separate counted defect. |
+| User control and freedom | Close and native deletion confirmation exist. Focus after Close is hidden (UX-004). No in-dashboard path retrieves all data (UX-005). |
+| Consistency and standards | Native form controls have labels and work with keyboard. Errors appear in duplicate and quickstart commands disagree with implementation (UX-003, UX-008). |
+| Error prevention | Required URL, native URL validation and page-count min/max exist. FE-002/FE-003 separately cover values not honored by the backend contract. |
+| Recognition rather than recall | Empty state suggests starting a scrape. Stored jobs show names, URLs and dates. README file-path versus saved-name ambiguity requires knowledge outside the quickstart (UX-008). |
+| Flexibility and efficiency | Keyboard traversal is linear and predictable through the form; SDK exposes bulk result retrieval, but the dashboard lacks it (UX-005). CLI saved-job discovery fails (UX-007). |
+| Aesthetic and minimalist design | Desktop form hierarchy is clear. Four large stat cards precede the form on mobile; horizontal job-row overflow prevents a clean narrow layout (UX-001). |
+| Help users recognize, diagnose and recover from errors | Error text is visible, but disappears without announcement and job-list recovery has no control (UX-003, UX-006). README missing-job invocation prints a failure while reporting success to the shell (UX-008). |
+| Help and documentation | README, Getting Started, examples and CLI `--help` exist. Help, cancellation and a valid saved-job invocation pass local checks; the main custom-config quickstart is stale (UX-008). SDK quickstart method names exist, but no real server/scraping call was made. |
+
+## Screenshot index
+
+- [Desktop initial empty state](artifacts/ux-desktop-empty-initial.png), [native-invalid URL state](artifacts/ux-desktop-empty.png), [loading state](artifacts/ux-loading.png).
+- [375px jobs](artifacts/ux-mobile-jobs.png), [320px reflow](artifacts/ux-mobile-320-jobs.png), [completed results](artifacts/ux-desktop-results.png).
+- [Scrape error feedback](artifacts/ux-error-feedback.png), [job-list error](artifacts/ux-jobs-error.png), [details keyboard focus](artifacts/ux-details-keyboard-focus.png).
+- [200% inherited-body-font diagnostic](artifacts/ux-text-scale-200.png).
+
+## Reproduction and remaining limits
+
+Browser tests import `@playwright/test` and `axe-core` through standard Node module resolution; dependencies can be installed locally or supplied through `NODE_PATH`. The sweep used the isolated public-package installation recorded in the coordinator log. Required remote endpoint: `PW_TEST_CONNECT_WS_ENDPOINT`; no `launch()` fallback exists. The exact logged browser invocation is in [UX-SESSION.md](UX-SESSION.md). Run the config at `tests/qa_ux/playwright.config.cjs`; it owns loopback port 8766 for the duration of the run. Python checks use `pytest tests/qa_ux/test_cli_docs.py`; `--runxfail` is only for deliberate defect reproduction and must not be used for a green regression run.
+
+No production system, credentials, billing, cloud/database export, real scraping target, or real third-party API was contacted. No .env or credential file was read. No PR, commit or push was performed. Real screen-reader speech, touch hardware, OS high-contrast settings, actual browser zoom and sustained human usability studies remain untested. Body-font enlargement and ARIA snapshots are explicitly limited proxies. Axe reports include incomplete checks; they must be reviewed before claiming WCAG compliance. UI fixture tests do not prove the backend works; API integration and deployment are outside this pass.
+
+Recommended UX fix order: narrow-layout access (UX-001), announcements/focus/contrast (UX-003, UX-004, UX-002), full-results retrieval and recovery (UX-005, UX-006), saved-job command and documentation accuracy (UX-007, UX-008). Resolve FE-001 first so these flows load at the intended dashboard URL.
+
+
+FINAL FOCUS TESTS
+156  await page.getByRole('button', { name: 'Start Auto-Scrape' }).click();
+157  await expect(page.locator('.alert-error').first()).toBeVisible();
+158  await shot('error-feedback');
+159  save('error-semantics', await page.locator('.alert-error').evaluateAll(elements => elements.map(element => ({ text: element.textContent, role: element.getAttribute('role'), live: element.getAttribute('aria-live'), ancestorLive: Boolean(element.closest('[aria-live], [role="alert"], [role="status"]')) }))));
+160  test.fail(true, 'UX-003: alert container and inserted feedback lack live-region semantics');
+161  await expect(page.locator('[role="alert"], [aria-live="assertive"], [aria-live="polite"]')).not.toHaveCount(0);
+162});
+163
+164test('UX-004: opening details moves keyboard focus into visible detail context', async () => {
+165  await open();
+166  const details = page.getByRole('button', { name: 'View Details' });
+167  await details.focus();
+168  await page.keyboard.press('Enter');
+169  await expect(page.locator('table')).toBeVisible();
+170  const focus = await page.evaluate(() => ({ text: document.activeElement.textContent, insideDetails: Boolean(document.activeElement.closest('#job-details')) }));
+171  save('details-focus', focus);
+172  await shot('details-keyboard-focus');
+173  test.fail(true, 'UX-004: only visual scroll changes; focus remains on original View Details');
+174  expect(focus.insideDetails).toBe(true);
+175});
+176
+177test('UX-005: users can retrieve result items beyond the preview', async () => {
+178  await open();
+179  await page.getByRole('button', { name: 'View Details' }).click();
+180  await expect(page.getByText('Showing 10 of 25 items')).toBeVisible();
+181  expect(await page.locator('tbody tr').count()).toBe(10);
+182  save('result-actions', await page.getByRole('button').allTextContents());
+183  test.fail(true, 'UX-005: no next-page, export, download or full-results action exists');
+184  await expect(page.getByRole('button', { name: /next|download|export|all results/i }).or(page.getByRole('link', { name: /next|download|export|all results/i }))).not.toHaveCount(0);
+185});
+186
+187test('UX-006: failed job-list load offers an in-app retry', async () => {
+188  await page.clock.install();
+189  await open({ errorJobs: true });
+190  await expect(page.getByText('Failed to load jobs', { exact: true })).toBeVisible();
+191  await shot('jobs-error');
+192  await audit('jobs-error');
+193  const before = apiRequests.filter(item => item.endpoint === '/jobs').length;
+194  state.errorJobs = false;
+195  await page.clock.runFor(11000);
+196  const after = apiRequests.filter(item => item.endpoint === '/jobs').length;
+197  save('error-recovery', { jobsRequestsBeforeRecovery: before, jobsRequestsAfter11Seconds: after, infoRequests: apiRequests.filter(item => item.endpoint === '/info').length, pageStillFailed: await page.getByText('Failed to load jobs', { exact: true }).isVisible() });
+198  await expect(page.getByText('Failed to load jobs', { exact: true })).toBeVisible();
+199  test.fail(true, 'UX-006: job list stays failed and has no Retry or Refresh control');
+200  await expect(page.getByRole('button', { name: /retry|refresh/i })).not.toHaveCount(0);
+201});
+202
+203test('evidence: 200 percent text scale and close focus state', async () => {
+204  await open();
+205  await page.evaluate(() => { document.body.style.fontSize = '200%'; });
+206  await shot('text-scale-200');
+207  save('text-scale-200', await page.evaluate(() => ({ viewport: innerWidth, document: document.documentElement.scrollWidth })));
+208  await page.getByRole('button', { name: 'View Details' }).click();
+209  await expect(page.locator('table')).toBeVisible();
+210  await page.getByRole('button', { name: 'Close', exact: true }).focus();
+211  await page.keyboard.press('Enter');
+212  save('close-focus', await page.evaluate(() => ({ tag: document.activeElement.tagName, id: document.activeElement.id, hidden: Boolean(document.activeElement.closest('.hidden')) })));
+213  await expect(page.locator('#job-details')).toBeHidden();
+214});
+215
+216test('UX-004: closing details restores visible keyboard focus', async () => {
+217  await open();
+218  await page.getByRole('button', { name: 'View Details' }).click();
+219  await expect(page.locator('table')).toBeVisible();
+220  await page.getByRole('button', { name: 'Close', exact: true }).focus();
+221  await page.keyboard.press('Enter');
+222  await expect(page.locator('#job-details')).toBeHidden();
+223  test.fail(true, 'UX-004: focus stays on hidden Close button instead of returning to opener');
+224  expect(await page.evaluate(() => Boolean(document.activeElement.closest('.hidden')))).toBe(false);
+225});

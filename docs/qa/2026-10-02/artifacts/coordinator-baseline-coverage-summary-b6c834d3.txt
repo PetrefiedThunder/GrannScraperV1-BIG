@@ -1,0 +1,23 @@
+{
+  "covered_lines": 1354,
+  "num_statements": 5434,
+  "percent_covered": 24.971988795518207,
+  "percent_covered_display": "25",
+  "missing_lines": 4080,
+  "excluded_lines": 16,
+  "percent_statements_covered": 24.917188075082812,
+  "percent_statements_covered_display": "25",
+  "num_branches": 1706,
+  "num_partial_branches": 119,
+  "covered_branches": 429,
+  "missing_branches": 1277,
+  "percent_branches_covered": 25.146541617819462,
+  "percent_branches_covered_display": "25"
+}
+Per-critical-module:
+scraper/api/rest_server.py {'covered_lines': 0, 'num_statements': 226, 'percent_covered': 0.0, 'percent_covered_display': '0', 'missing_lines': 226, 'excluded_lines': 0, 'percent_statements_covered': 0.0, 'percent_statements_covered_display': '0', 'num_branches': 50, 'num_partial_branches': 0, 'covered_branches': 0, 'missing_branches': 50, 'percent_branches_covered': 0.0, 'percent_branches_covered_display': '0'}
+scraper/core/concurrent_engine.py {'covered_lines': 0, 'num_statements': 159, 'percent_covered': 0.0, 'percent_covered_display': '0', 'missing_lines': 159, 'excluded_lines': 0, 'percent_statements_covered': 0.0, 'percent_statements_covered_display': '0', 'num_branches': 40, 'num_partial_branches': 0, 'covered_branches': 0, 'missing_branches': 40, 'percent_branches_covered': 0.0, 'percent_branches_covered_display': '0'}
+scraper/core/engine.py {'covered_lines': 22, 'num_statements': 159, 'percent_covered': 9.865470852017937, 'percent_covered_display': '10', 'missing_lines': 137, 'excluded_lines': 0, 'percent_statements_covered': 13.836477987421384, 'percent_statements_covered_display': '14', 'num_branches': 64, 'num_partial_branches': 0, 'covered_branches': 0, 'missing_branches': 64, 'percent_branches_covered': 0.0, 'percent_branches_covered_display': '0'}
+scraper/extractors/typesafe_currency.py {'covered_lines': 347, 'num_statements': 383, 'percent_covered': 88.2051282051282, 'percent_covered_display': '88', 'missing_lines': 36, 'excluded_lines': 15, 'percent_statements_covered': 90.60052219321149, 'percent_statements_covered_display': '91', 'num_branches': 202, 'num_partial_branches': 31, 'covered_branches': 169, 'missing_branches': 33, 'percent_branches_covered': 83.66336633663366, 'percent_branches_covered_display': '84'}
+scraper/sdk/client.py {'covered_lines': 102, 'num_statements': 198, 'percent_covered': 48.648648648648646, 'percent_covered_display': '49', 'missing_lines': 96, 'excluded_lines': 0, 'percent_statements_covered': 51.515151515151516, 'percent_statements_covered_display': '52', 'num_branches': 24, 'num_partial_branches': 2, 'covered_branches': 6, 'missing_branches': 18, 'percent_branches_covered': 25.0, 'percent_branches_covered_display': '25'}
+scraper/security/auth.py {'covered_lines': 0, 'num_statements': 187, 'percent_covered': 0.0, 'percent_covered_display': '0', 'missing_lines': 187, 'excluded_lines': 1, 'percent_statements_covered': 0.0, 'percent_statements_covered_display': '0', 'num_branches': 34, 'num_partial_branches': 0, 'covered_branches': 0, 'missing_branches': 34, 'percent_branches_covered': 0.0, 'percent_branches_covered_display': '0'}

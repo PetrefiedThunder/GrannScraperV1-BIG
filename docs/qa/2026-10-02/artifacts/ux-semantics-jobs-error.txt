@@ -1,0 +1,28 @@
+- heading "🧓 GrandmaScrape Dashboard" [level=1]
+- paragraph: Enterprise web scraping made grandma-simple
+- heading "1" [level=3]
+- paragraph: Total Jobs
+- heading "0" [level=3]
+- paragraph: Running
+- heading "1" [level=3]
+- paragraph: Completed
+- heading "0" [level=3]
+- paragraph: Workflows
+- text: "Error: Temporary QA fixture outage"
+- heading "🚀 Auto-Scrape (Grandma-Simple!)" [level=2]
+- text: "Website URL:"
+- textbox "Website URL:":
+  - /placeholder: https://example.com
+- text: "Maximum Pages:"
+- spinbutton "Maximum Pages:": "10"
+- text: "Export Format:"
+- combobox "Export Format:":
+  - option "JSON" [selected]
+  - option "CSV"
+  - option "Excel"
+- checkbox "Use concurrent scraping (10x faster)" [checked]
+- text: Use concurrent scraping (10x faster)
+- button "Start Auto-Scrape"
+- heading "📋 Your Jobs" [level=2]
+- list:
+  - listitem: Failed to load jobs

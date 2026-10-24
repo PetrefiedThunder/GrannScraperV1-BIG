@@ -1,0 +1,26 @@
+
+Running 21 tests using 1 worker
+
+  ✘   1 [chromium] › tests/qa_frontend/dashboard.spec.cjs:85:1 › FE-001 root dashboard loads its script and initial jobs (2.7s)
+  ✓   2 [chromium] › tests/qa_frontend/dashboard.spec.cjs:94:1 › working asset route: empty state then analysis/create/run/list flow (654ms)
+  ✘   3 [chromium] › tests/qa_frontend/dashboard.spec.cjs:110:3 › FE-002 selected page limit 1 survives API model validation (664ms)
+  ✘   4 [chromium] › tests/qa_frontend/dashboard.spec.cjs:110:3 › FE-002 selected page limit 2 survives API model validation (660ms)
+  ✘   5 [chromium] › tests/qa_frontend/dashboard.spec.cjs:110:3 › FE-002 selected page limit 1000 survives API model validation (672ms)
+  ✘   6 [chromium] › tests/qa_frontend/dashboard.spec.cjs:122:3 › FE-003 selected json export survives API model validation (652ms)
+  ✘   7 [chromium] › tests/qa_frontend/dashboard.spec.cjs:122:3 › FE-003 selected excel export survives API model validation (660ms)
+  ✘   8 [chromium] › tests/qa_frontend/dashboard.spec.cjs:132:1 › FE-004 dashboard API requests use the serving origin (92ms)
+  ✘   9 [chromium] › tests/qa_frontend/dashboard.spec.cjs:139:1 › FE-005 job names are rendered as text, not HTML elements (2.7s)
+  ✘  10 [chromium] › tests/qa_frontend/dashboard.spec.cjs:149:1 › FE-005 scraped field names and values remain literal text (2.7s)
+  ✓  11 [chromium] › tests/qa_frontend/dashboard.spec.cjs:158:1 › results can be opened and closed; null values show a dash (562ms)
+  ✓  12 [chromium] › tests/qa_frontend/dashboard.spec.cjs:170:1 › delete requires confirmation; cancelling keeps job; confirming removes it (409ms)
+  ✓  13 [chromium] › tests/qa_frontend/dashboard.spec.cjs:182:1 › analyze error preserves input and lets user retry successfully (217ms)
+  ✓  14 [chromium] › tests/qa_frontend/dashboard.spec.cjs:195:1 › request in progress disables submit until analysis finishes (213ms)
+  ✓  15 [chromium] › tests/qa_frontend/dashboard.spec.cjs:207:1 › browser validation blocks page limits outside the visible range (447ms)
+  ✓  16 [chromium] › tests/qa_frontend/dashboard.spec.cjs:217:1 › list outage clears spinner and exposes failure (190ms)
+  ✓  17 [chromium] › tests/qa_frontend/dashboard.spec.cjs:224:1 › local navigation performance and console/network evidence (213ms)
+  ✓  18 [firefox] › tests/qa_frontend/dashboard.spec.cjs:94:1 › working asset route: empty state then analysis/create/run/list flow (1.3s)
+  ✓  19 [firefox] › tests/qa_frontend/dashboard.spec.cjs:158:1 › results can be opened and closed; null values show a dash (379ms)
+  ✓  20 [webkit] › tests/qa_frontend/dashboard.spec.cjs:94:1 › working asset route: empty state then analysis/create/run/list flow (943ms)
+  ✓  21 [webkit] › tests/qa_frontend/dashboard.spec.cjs:158:1 › results can be opened and closed; null values show a dash (461ms)
+
+  21 passed (19.0s)

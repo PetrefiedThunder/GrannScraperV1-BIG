@@ -1,0 +1,342 @@
+?? docs/qa/
+pyproject.toml
+GETTING_STARTED.md:197:**Best for:** Developers, integration, data pipelines
+GETTING_STARTED.md:317:See `examples/workflows/news_aggregation.yaml`
+GETTING_STARTED.md:320:# Run workflow
+GETTING_STARTED.md:321:python -m scraper.scheduler.workflow_dag execute examples/workflows/news_aggregation.yaml
+GETTING_STARTED.md:528:- **examples/workflows/** - YAML workflow configs
+GETTING_STARTED.md:580:python -m scraper.scheduler.workflow_dag execute workflow.yaml
+README.md:5:[![Code Style](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+README.md:6:[![Type Checked](https://img.shields.io/badge/type%20checked-mypy-blue.svg)](http://mypy-lang.org/)
+README.md:67:- ✅ **Examples & configs** to bootstrap common workflows
+README.md:71:- 🔄 Distributed execution, browser pooling, and workflow orchestration
+README.md:207:├── scheduler/     # Cron, workflows, DAGs
+README.md:270:poetry run pytest
+README.md:272:# Run with coverage
+README.md:273:poetry run pytest --cov=scraper --cov-report=html
+README.md:276:poetry run pytest tests/core/
+CONTRIBUTING.md:60:poetry run pytest
+CONTRIBUTING.md:63:poetry run ruff check .
+CONTRIBUTING.md:64:poetry run mypy scraper
+CONTRIBUTING.md:88:- Aim for >80% code coverage
+CONTRIBUTING.md:156:poetry run pytest
+CONTRIBUTING.md:187:poetry run pytest
+CONTRIBUTING.md:189:# Run with coverage
+CONTRIBUTING.md:190:poetry run pytest --cov=scraper --cov-report=html
+CONTRIBUTING.md:193:poetry run pytest tests/test_scraper.py
+CONTRIBUTING.md:196:poetry run pytest -v
+CONTRIBUTING.md:203:poetry run ruff check .
+CONTRIBUTING.md:205:# Type checking with mypy
+CONTRIBUTING.md:206:poetry run mypy scraper
+CONTRIBUTING.md:209:poetry run ruff format .
+CONTRIBUTING.md:223:- 🧪 Test coverage
+"""
+Core data models for GrandmaScrape Platform.
+
+Defines all configuration and runtime models using Pydantic v2.
+"""
+
+from datetime import datetime
+from enum import Enum
+from pathlib import Path
+from typing import Any, Literal, Optional
+
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+
+class PaginationMode(str, Enum):
+    """Pagination strategy modes."""
+
+    NONE = "none"
+    NEXT_BUTTON = "next_button"
+    URL_PATTERN = "url_pattern"
+    INFINITE_SCROLL = "infinite_scroll"
+
+
+class UserAgentStrategy(str, Enum):
+    """User agent rotation strategies."""
+
+    RANDOM = "random"
+    FIXED = "fixed"
+    ROTATING_LIST = "rotating_list"
+
+
+class FieldType(str, Enum):
+    """Data types for extracted fields."""
+
+    STRING = "string"
+    INT = "int"
+    FLOAT = "float"
+    BOOL = "bool"
+    DATE = "date"
+    DATETIME = "datetime"
+    CURRENCY = "currency"
+    URL = "url"
+    EMAIL = "email"
+    PHONE = "phone"
+
+
+class FieldConfig(BaseModel):
+    """Configuration for a single field to extract."""
+
+    selector: Optional[str] = Field(
+        None, description="CSS or XPath selector for the field"
+    )
+    attr: Optional[str] = Field(
+        "text", description="HTML attribute to extract (text, href, src, etc.)"
+    )
+    type: FieldType = Field(
+        FieldType.STRING, description="Data type of the field"
+    )
+    use_llm: bool = Field(
+        False, description="Use LLM for intelligent extraction"
+    )
+    llm_description: Optional[str] = Field(
+        None, description="Natural language description for LLM extraction"
+    )
+    required: bool = Field(
+        False, description="Whether this field is required"
+    )
+    default: Optional[Any] = Field(
+        None, description="Default value if extraction fails"
+    )
+    regex: Optional[str] = Field(
+        None, description="Regex pattern to apply after extraction"
+    )
+    multiple: bool = Field(
+        False, description="Extract multiple values (returns list)"
+    )
+
+    @field_validator("selector")
+    @classmethod
+    def validate_selector(cls, v: Optional[str]) -> Optional[str]:
+        """Ensure selector is provided if not using LLM."""
+        if v and v.strip():
+            return v.strip()
+        return None
+
+
+class PaginationConfig(BaseModel):
+    """Pagination configuration."""
+
+    mode: PaginationMode = Field(
+        PaginationMode.NONE, description="Pagination strategy"
+    )
+    next_button_selector: Optional[str] = Field(
+        None, description="CSS selector for next button (next_button mode)"
+    )
+    url_pattern: Optional[str] = Field(
+        None, description="URL pattern with {page} placeholder (url_pattern mode)"
+    )
+    start_page: int = Field(1, description="Starting page number", ge=1)
+    max_pages: int = Field(10, description="Maximum pages to scrape", ge=1)
+    scroll_times: int = Field(
+        5, description="Number of scrolls (infinite_scroll mode)", ge=1
+    )
+    scroll_pause: float = Field(
+        1.0, description="Pause between scrolls in seconds", ge=0.1
+    )
+
+    @model_validator(mode="after")
+    def validate_pagination_config(self) -> "PaginationConfig":
+        """Ensure required fields are set based on mode."""
+        if self.mode == PaginationMode.NEXT_BUTTON and not self.next_button_selector:
+            raise ValueError("next_button_selector required for next_button mode")
+        if self.mode == PaginationMode.URL_PATTERN and not self.url_pattern:
+            raise ValueError("url_pattern required for url_pattern mode")
+        return self
+
+
+class BrowserConfig(BaseModel):
+    """Browser automation configuration."""
+
+    enabled: bool = Field(False, description="Use browser automation")
+    headless: bool = Field(True, description="Run browser in headless mode")
+    wait_for_selector: Optional[str] = Field(
+        None, description="Wait for this selector before extraction"
+    )
+    wait_timeout: int = Field(
+        30000, description="Wait timeout in milliseconds", ge=1000
+    )
+    page_load_timeout: int = Field(
+        60000, description="Page load timeout in milliseconds", ge=1000
+    )
+    user_agent: Optional[str] = Field(
+        None, description="Custom user agent for browser"
+    )
+    viewport_width: int = Field(1920, description="Viewport width", ge=800)
+    viewport_height: int = Field(1080, description="Viewport height", ge=600)
+    javascript_enabled: bool = Field(True, description="Enable JavaScript")
+    block_images: bool = Field(False, description="Block images for faster loading")
+    block_css: bool = Field(False, description="Block CSS for faster loading")
+    capture_screenshot: bool = Field(
+        False, description="Capture screenshot of each page"
+    )
+    screenshot_path: Optional[Path] = Field(
+        None, description="Directory to save screenshots"
+    )
+
+
+class ProxyConfig(BaseModel):
+    """Proxy configuration."""
+
+"""Bounded TypeSafe candidate selection for currency fields."""
+
+import asyncio
+import logging
+import math
+import os
+import re
+import unicodedata
+from typing import Any, Protocol
+
+import httpx
+
+from scraper.config.models import FieldConfig, FieldType
+
+logger = logging.getLogger(__name__)
+
+_CURRENCY_PATTERN = re.compile(
+    r"(?<![\w.,$€£¥])(?:"
+    r"[$€£¥][ \t\u00a0\u202f]*\d+(?:,\d{3})*(?:\.\d{1,2})?"
+    r"|\d+(?:,\d{3})*(?:\.\d{1,2})?[ \t\u00a0\u202f]*(?:USD|EUR|GBP|JPY)"
+    r")(?!\w|[.,]\d)",
+    re.IGNORECASE,
+)
+_LEFT_CURRENCY_OPERAND_PATTERN = re.compile(
+    r"(?<![\w.,$€£¥])(?:"
+    r"[$€£¥][ \t\u00a0\u202f]*\d+(?:,\d{3})*(?:\.\d{1,2})?"
+    r"(?:[ \t\u00a0\u202f]*(?:USD|EUR|GBP|JPY))?"
+    r"|\d+(?:,\d{3})*(?:\.\d{1,2})?[ \t\u00a0\u202f]*(?:USD|EUR|GBP|JPY))"
+    r"[ \t\u00a0\u202f]*\Z",
+    re.IGNORECASE,
+)
+_DEFAULT_BASE_URL = "https://api.typesafe.ai"
+_DEFAULT_MODEL = "jev-latest"
+_DEFAULT_MIN_CONFIDENCE = 0.8
+_MAX_CHOICES = 255
+_MAX_CURRENCY_DIGITS = 308
+_MAX_LEFT_OPERAND_CHARS = (_MAX_CURRENCY_DIGITS * 2) + 32
+_NO_MATCH = "__none__"
+_CONTEXT_RADIUS = 48
+_MAX_STATE_CHARS = 24_000
+_RETRYABLE_STATUS_CODES = {408, 429}
+_MAX_ATTEMPTS = 3
+_RETRY_BASE_DELAY_SECONDS = 0.25
+_SIGN_CHARACTERS = {"-", "+", "−", "﹣", "－", "＋"}
+_NUMBER_GROUP_SEPARATORS = {".", ",", "'", "’"}
+
+
+def _is_currency_gap(character: str) -> bool:
+    """Treat Unicode whitespace and invisible format controls as boundaries."""
+    return character.isspace() or unicodedata.category(character) == "Cf"
+
+
+def _is_inline_currency_gap(character: str) -> bool:
+    """Return whether a boundary can occur inside one rendered text line."""
+    return character != "\n" and _is_currency_gap(character)
+
+
+def _is_sign_character(character: str) -> bool:
+    """Recognize explicit signs and every Unicode dash-punctuation character."""
+    return character in _SIGN_CHARACTERS or unicodedata.category(character) == "Pd"
+
+
+def _consume_inline_gap_forward(
+    document: str,
+    start: int,
+) -> tuple[int, bool, bool] | None:
+    """Consume inline gaps, allowing one inline-boundary newline but not a block."""
+    cursor = start
+    saw_gap = False
+    saw_format_control = False
+    saw_newline = False
+    while cursor < len(document):
+        character = document[cursor]
+        if character == "\n":
+            if saw_newline:
+                return None
+            saw_newline = True
+        elif _is_inline_currency_gap(character):
+            saw_format_control |= unicodedata.category(character) == "Cf"
+        else:
+            break
+        saw_gap = True
+        cursor += 1
+    if not saw_gap:
+        return None
+    return cursor, saw_format_control, saw_newline
+
+
+def _has_spaced_group_prefix(document: str, start: int) -> bool:
+    """Check only the adjacent inline-spaced token for 1-3 leading digits."""
+    cursor = start - 1
+    if cursor < 0 or not _is_inline_currency_gap(document[cursor]):
+        return False
+    while cursor >= 0 and _is_inline_currency_gap(document[cursor]):
+        cursor -= 1
+
+    digit_count = 0
+    while cursor >= 0 and document[cursor].isdigit():
+        digit_count += 1
+        if digit_count > 3:
+            return False
+        cursor -= 1
+    return digit_count > 0
+
+
+def _has_separated_numeric_prefix(document: str, start: int) -> bool:
+    """Detect a short numeric fragment before spaced grouping punctuation."""
+    cursor = start - 1
+    if cursor < 0 or not _is_inline_currency_gap(document[cursor]):
+        return False
+    while cursor >= 0 and _is_inline_currency_gap(document[cursor]):
+        cursor -= 1
+    if cursor < 0 or document[cursor] not in _NUMBER_GROUP_SEPARATORS:
+        return False
+    cursor -= 1
+    while cursor >= 0 and _is_inline_currency_gap(document[cursor]):
+        cursor -= 1
+    return cursor >= 0 and document[cursor].isdigit()
+
+
+def _has_invisible_numeric_prefix(document: str, start: int) -> bool:
+    """Detect a numeric or currency prefix hidden by Unicode format controls."""
+    cursor = start - 1
+    saw_format_control = False
+    while cursor >= 0 and _is_inline_currency_gap(document[cursor]):
+        saw_format_control |= unicodedata.category(document[cursor]) == "Cf"
+        cursor -= 1
+    return bool(
+        saw_format_control
+        and cursor >= 0
+        and (
+            document[cursor].isdigit()
+            or document[cursor] in _NUMBER_GROUP_SEPARATORS
+            or document[cursor] in "$€£¥"
+        )
+    )
+
+
+def _has_partial_numeric_prefix(document: str, start: int, candidate: str) -> bool:
+    """Reject a code-suffixed tail split from a preceding numeric fragment."""
+    if not candidate or not candidate[0].isdigit():
+        return False
+    if _has_inline_numeric_prefix(document, start):
+        return True
+    if _has_invisible_numeric_prefix(document, start):
+        return True
+
+    leading_digits = re.match(r"\d+", candidate)
+    if leading_digits is None or len(leading_digits.group()) > 3:
+        return False
+    if len(leading_digits.group()) == 3 and _has_spaced_group_prefix(document, start):
+        return True
+    return _has_separated_numeric_prefix(document, start)
+
+
+def _has_left_operand(document: str, sign_index: int) -> bool:
+    """Return whether a sign follows a complete supported currency operand."""
+    operand_end = sign_index
+    while operand_end > 0 and _is_inline_currency_gap(document[operand_end - 1]):
+        operand_end -= 1

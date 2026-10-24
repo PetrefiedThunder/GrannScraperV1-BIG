@@ -1,0 +1,224 @@
+"""Offline API fixtures; all state and file outputs are isolated per test."""
+
+import asyncio
+from pathlib import Path
+
+import httpx
+import pytest
+
+from scraper.api import rest_server as api
+from scraper.config.models import ScrapeJob
+
+
+@pytest.fixture(autouse=True)
+async def isolated_api(monkeypatch, tmp_path):
+    monkeypatch.setattr(api, "jobs_db", {})
+    monkeypatch.setattr(api, "results_db", {})
+    monkeypatch.setattr(api, "workflows_db", {})
+    monkeypatch.setattr(api, "running_jobs", {})
+    monkeypatch.setattr(api, "jobs_lock", asyncio.Lock())
+    # Cache APIs must never access the operator's default home cache.
+    real_cache = api.SmartCache
+    monkeypatch.setattr(api, "SmartCache", lambda: real_cache(tmp_path / "cache"))
+    yield
+    pending = list(api.running_jobs.values())
+    for task in pending:
+        task.cancel()
+    if pending:
+        await asyncio.gather(*pending, return_exceptions=True)
+
+
+@pytest.fixture
+async def client():
+    transport = httpx.ASGITransport(app=api.app, raise_app_exceptions=False)
+    async with httpx.AsyncClient(transport=transport, base_url="http://qa.invalid") as value:
+        yield value
+
+
+@pytest.fixture
+def job(tmp_path: Path):
+    return ScrapeJob(
+        id="qa_job",
+        name="QA fixture",
+        start_url="https://fixture.invalid/page/1",
+        item_selector="article",
+        fields={"title": {"selector": "h2"}},
+        rate_limit={"enabled": False},
+        export={"base_path": tmp_path / "exports", "formats": ["json"]},
+    )
+// Local-only static server matching rest_server.py's / and /static mounts.
+const http = require('node:http');
+const fs = require('node:fs');
+const path = require('node:path');
+const root = path.resolve(__dirname, '../../scraper/web/static');
+const routes = {
+  '/': ['index.html', 'text/html'],
+  '/static/index.html': ['index.html', 'text/html'],
+  '/static/app.js': ['app.js', 'text/javascript'],
+};
+http.createServer((req, res) => {
+  const target = routes[new URL(req.url, 'http://127.0.0.1').pathname];
+  if (!target) {
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ detail: 'Not Found' }));
+  }
+  res.writeHead(200, { 'Content-Type': target[1] });
+  res.end(fs.readFileSync(path.join(root, target[0])));
+}).listen(18765, '127.0.0.1');
+const { defineConfig } = require('@playwright/test');
+const path = require('node:path');
+const artifacts = path.resolve(__dirname, '../../docs/qa/2026-10-02/artifacts');
+module.exports = defineConfig({
+  testDir: __dirname,
+  testMatch: 'dashboard.spec.cjs',
+  fullyParallel: false,
+  workers: 1,
+  retries: 0,
+  timeout: 20000,
+  expect: { timeout: 2500 },
+  reporter: [['list'], ['json', { outputFile: path.join(artifacts, 'frontend-playwright.json') }]],
+  outputDir: path.join(artifacts, 'frontend-test-results'),
+  use: {
+    browserName: 'chromium',
+    baseURL: 'http://127.0.0.1:18765',
+    viewport: { width: 1440, height: 1000 },
+    serviceWorkers: 'block',
+    screenshot: 'off',
+    trace: 'off',
+    connectOptions: { wsEndpoint: process.env.PW_TEST_CONNECT_WS_ENDPOINT || 'ws://127.0.0.1:3950/' },
+  },
+  webServer: {
+    command: `node ${JSON.stringify(path.join(__dirname, 'server.cjs'))}`,
+    url: 'http://127.0.0.1:18765/',
+    reuseExistingServer: false,
+    timeout: 10000,
+  },
+});
+/* Offline UX regression checks. The browser is supplied by the orchestrator;
+ * only the contexts created here are closed. No external request is allowed.
+ */
+const { test, expect, chromium } = require('@playwright/test');
+const http = require('node:http');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const root = path.resolve(__dirname, '../..');
+const artifacts = path.join(root, 'docs/qa/2026-10-02/artifacts');
+const origin = 'http://127.0.0.1:8766';
+let server;
+let browser;
+let context;
+let page;
+let state;
+let externalBlocked;
+const jobs = [{
+  id: 'qa-fictional-001', name: 'Fictional catalogue sample',
+  start_url: 'https://catalogue.example.invalid/products/autumn-collection',
+  created_at: '2026-10-02T12:00:00Z', enabled: true,
+}];
+function save(name, content) {
+  fs.writeFileSync(path.join(artifacts, `ux-${name}.json`), JSON.stringify(content, null, 2));
+}
+async function shot(name) {
+  await page.screenshot({ path: path.join(artifacts, `ux-${name}.png`), fullPage: true });
+}
+async function open(options = {}) {
+  state = { jobs, ...options };
+  await page.goto(`${origin}/static/index.html`);
+  await expect(page.locator('#job-list-loading')).toHaveClass(/hidden/);
+}
+async function audit(name) {
+  await page.addScriptTag({ path: require.resolve('axe-core/axe.min.js') });
+  const result = await page.evaluate(async () => axe.run(document, {
+    runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'] },
+  }));
+  save(`axe-${name}`, result);
+  fs.writeFileSync(path.join(artifacts, `ux-semantics-${name}.txt`), await page.locator('body').ariaSnapshot());
+  return result;
+}
+
+test.beforeAll(async () => {
+  fs.mkdirSync(artifacts, { recursive: true });
+  server = http.createServer((request, response) => {
+    const pathname = new URL(request.url, origin).pathname;
+    const file = pathname === '/' || pathname === '/static/index.html' ? 'index.html'
+      : pathname === '/static/app.js' ? 'app.js' : null;
+    if (!file) { response.writeHead(404); response.end('Not found'); return; }
+    response.setHeader('Content-Type', file.endsWith('.js') ? 'application/javascript' : 'text/html');
+    response.end(fs.readFileSync(path.join(root, 'scraper/web/static', file)));
+  });
+  await new Promise(resolve => server.listen(8766, '127.0.0.1', resolve));
+  browser = await chromium.connect(process.env.PW_TEST_CONNECT_WS_ENDPOINT);
+});
+
+test.beforeEach(async () => {
+  context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  page = await context.newPage();
+  externalBlocked = [];
+  state = { jobs };
+  await context.route('**/*', async route => {
+    const url = new URL(route.request().url());
+    if (url.origin === origin) { await route.continue(); return; }
+    if (url.origin !== 'http://localhost:8000' || !url.pathname.startsWith('/api/v1/')) {
+      externalBlocked.push(url.origin + url.pathname);
+      await route.abort('blockedbyclient'); return;
+    }
+    const endpoint = url.pathname.replace('/api/v1', '');
+    const method = route.request().method();
+    if (state.delayJobs && endpoint === '/jobs') await new Promise(resolve => setTimeout(resolve, 1000));
+    let status = 200;
+    let payload;
+    if (endpoint === '/info') payload = { statistics: { total_jobs: state.jobs.length, running_jobs: 0, completed_jobs: state.jobs.length, workflows: 0 } };
+    else if (endpoint === '/jobs' && method === 'GET') {
+      status = state.errorJobs ? 503 : 200;
+      payload = state.errorJobs ? { detail: 'Temporary QA fixture outage' } : { jobs: state.jobs };
+    } else if (endpoint.endsWith('/status')) payload = {
+      job_id: jobs[0].id, is_running: false, has_result: true, status: 'success',
+      items_scraped: 25, pages_visited: 1, errors: 0, duration: 0.5,
+    };
+    else if (endpoint.endsWith('/results')) payload = {
+      items: Array.from({ length: 10 }, (_, index) => ({ name: `Fictional product ${index + 1}`, price: index + 10, category: 'Sample catalogue' })),
+      total_items: 25, pagination: { has_more: true, limit: 10, offset: 0 },
+    };
+    else if (endpoint === '/analyze') { status = 503; payload = { detail: 'Temporary QA fixture outage' }; }
+    else { status = 404; payload = { detail: 'Unconfigured QA fixture' }; }
+    await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(payload) });
+  });
+});
+
+test.afterEach(async () => {
+  expect(externalBlocked).toEqual([]);
+  await context.close();
+});
+test.afterAll(async () => { await new Promise(resolve => server.close(resolve)); });
+
+test('baseline: named controls, keyboard operation, native invalid URL, empty/loading semantics evidence', async () => {
+  await open({ jobs: [] });
+  await expect(page.getByText('No jobs yet. Start an auto-scrape above!')).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Website URL:' })).toBeVisible();
+  await expect(page.getByRole('spinbutton', { name: 'Maximum Pages:' })).toBeVisible();
+  const focusOrder = [];
+  for (let i = 0; i < 5; i++) {
+    await page.keyboard.press('Tab');
+    focusOrder.push(await page.evaluate(() => ({ id: document.activeElement.id, tag: document.activeElement.tagName, text: document.activeElement.textContent.trim() })));
+  }
+  expect(focusOrder.map(item => item.id)).toEqual(['url', 'max-pages', 'export-format', 'concurrent', '']);
+  await page.getByRole('checkbox').focus();
+  await page.keyboard.press('Space');
+  await expect(page.getByRole('checkbox')).not.toBeChecked();
+  await page.locator('#url').fill('invalid-url');
+  await page.getByRole('button', { name: 'Start Auto-Scrape' }).click();
+  expect(await page.locator('#url').evaluate(element => element.validity.typeMismatch)).toBe(true);
+const { defineConfig } = require('@playwright/test');
+const path = require('node:path');
+
+module.exports = defineConfig({
+  testDir: __dirname,
+  testMatch: '*.spec.cjs',
+  workers: 1,
+  fullyParallel: false,
+  timeout: 30000,
+  expect: { timeout: 1500 },
+  reporter: [['list'], ['json', { outputFile: path.resolve(__dirname, '../../docs/qa/2026-10-02/artifacts/ux-playwright-results.json') }]],
+  outputDir: '../../docs/qa/2026-10-02/artifacts/ux-test-output',
+});

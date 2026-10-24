@@ -1,0 +1,8 @@
+{
+  "jobsRequestsBeforeRecovery": 1,
+  "jobsRequestsAfter11Seconds": 1,
+  "infoRequests": 2,
+  "pageStillFailed": true,
+  "recovered": false,
+  "retryAvailable": false
+}

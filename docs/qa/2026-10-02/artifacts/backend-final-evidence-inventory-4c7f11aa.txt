@@ -1,0 +1,373 @@
+   235	    compression: Optional[Literal["gzip", "zip", "bz2"]] = Field(
+   236	        None, description="Compression format"
+   237	    )
+   238	
+   239	
+   240	class ScrapeJob(BaseModel):
+   241	    """
+   242	    Complete scraping job configuration.
+   243	
+   244	    This is the core model that defines everything about a scrape.
+   245	    """
+   246	
+   247	    # Metadata
+   248	    id: str = Field(
+   249	        default_factory=lambda: f"job_{datetime.utcnow().timestamp()}",
+   250	        description="Unique job identifier",
+   251	    )
+   252	    name: str = Field(..., description="Human-readable job name")
+   253	    description: Optional[str] = Field(None, description="Job description")
+   254	    enabled: bool = Field(True, description="Whether job is enabled")
+   255	    tags: list[str] = Field(default_factory=list, description="Job tags")
+   256	
+   257	    # Target
+   258	    start_url: str = Field(..., description="Starting URL")
+   259	    allowed_domains: list[str] = Field(
+   260	        default_factory=list, description="Allowed domains for crawling"
+   150	            raise RuntimeError("Fetcher not started. Use async with StaticFetcher()...")
+   151	
+   152	        try:
+   153	            # Update user agent if rotating
+   154	            if self.job.user_agent_strategy == UserAgentStrategy.RANDOM:
+   155	                self.session.headers["User-Agent"] = self._get_user_agent()
+   156	
+   157	            # Get proxy if configured
+   158	            proxy = self._get_proxy()
+   159	            request_kwargs: dict[str, Any] = {}
+   160	            if proxy:
+   161	                request_kwargs["proxies"] = proxy
+   162	
+   163	            logger.debug(f"Fetching {url}")
+   164	
+   165	            # Make request
+   166	            response = await self.session.get(url, **request_kwargs)
+   167	            response.raise_for_status()
+   168	
+   169	            # Parse HTML
+   170	            html = response.text
+   171	            soup = BeautifulSoup(html, "lxml")
+   172	
+   173	            logger.info(f"Successfully fetched {url} ({len(html)} bytes)")
+   174	            return soup, html
+   175	
+   176	        except httpx.HTTPStatusError as e:
+   177	            status_code = e.response.status_code
+   178	            logger.warning(f"HTTP {status_code} for {url}")
+   179	
+   180	            # Retry on configured status codes
+   181	            if (
+   182	                status_code in self.job.retry.retry_on_status
+   183	                and retry_count < self.job.retry.max_retries
+   184	            ):
+   185	                backoff = self.job.retry.backoff_factor ** retry_count
+   186	                logger.info(f"Retrying in {backoff}s (attempt {retry_count + 1})")
+   187	                await asyncio.sleep(backoff)
+   188	                return await self.fetch(url, retry_count + 1)
+   189	
+   190	            return None, None
+   191	
+   192	        except httpx.RequestError as e:
+   193	            logger.error(f"Request error for {url}: {e}")
+   194	
+   195	            # Retry on network errors
+   196	            if retry_count < self.job.retry.max_retries:
+   197	                backoff = self.job.retry.backoff_factor ** retry_count
+   198	                logger.info(f"Retrying in {backoff}s (attempt {retry_count + 1})")
+   199	                await asyncio.sleep(backoff)
+   200	                return await self.fetch(url, retry_count + 1)
+   201	
+   202	            return None, None
+   203	
+   204	        except Exception as e:
+   205	            logger.error(f"Unexpected error fetching {url}: {e}")
+   206	            return None, None
+   207	
+   208	    async def fetch_multiple(
+   209	        self, urls: list[str], max_concurrent: Optional[int] = None
+   210	    ) -> list[tuple[str, Optional[BeautifulSoup], Optional[str]]]:
+   211	        """
+   212	        Fetch multiple URLs concurrently with rate limiting.
+   213	
+   125	        for node_id in self.nodes:
+   126	            if node_id not in visited:
+   127	                if has_cycle(node_id):
+   128	                    raise ValueError(f"Workflow contains cycle involving {node_id}")
+   129	
+   130	    def _topological_sort_with_levels(self) -> List[List[str]]:
+   131	        """
+   132	        Topological sort that groups nodes into parallel execution levels.
+   133	
+   134	        Returns list of lists, where each inner list can execute in parallel.
+   135	        """
+   136	        # Calculate in-degree
+   137	        in_degree = {node_id: 0 for node_id in self.nodes}
+   138	        for node in self.nodes.values():
+   139	            for dep in node.depends_on:
+   140	                in_degree[dep] += 1
+   141	
+   142	        # Find nodes with no dependencies
+   143	        queue = deque([
+   144	            node_id for node_id, degree in in_degree.items()
+   145	            if degree == 0
+   146	        ])
+   147	
+   148	        levels = []
+   149	
+   150	        while queue:
+   151	            # All nodes in queue can execute in parallel
+   152	            current_level = list(queue)
+   153	            levels.append(current_level)
+   154	
+   155	            # Process current level
+   156	            next_queue = []
+   157	            for node_id in current_level:
+   158	                queue.popleft()
+   159	
+   160	                # Reduce in-degree for dependent nodes
+   161	                for other_id, other_node in self.nodes.items():
+   162	                    if node_id in other_node.depends_on:
+   163	                        in_degree[other_id] -= 1
+   164	                        if in_degree[other_id] == 0:
+   165	                            next_queue.append(other_id)
+   166	
+   167	            queue.extend(next_queue)
+   168	
+   169	        return levels
+   170	
+   171	    async def execute(
+   172	        self,
+   173	        executor_map: Dict[str, Callable],
+   174	        context: Optional[Dict[str, Any]] = None
+   175	    ) -> Dict[str, Any]:
+   176	        """
+   177	        Execute the workflow.
+   372	            - new_items: Items scraped this run
+   373	            - cached_items: Items from cache
+   374	            - stats: Performance stats
+   375	        """
+   376	        start_time = datetime.utcnow()
+   377	
+   378	        # Filter to only URLs that need scraping
+   379	        urls_to_scrape = self.cache.get_changed_urls(urls, ttl_seconds)
+   380	
+   381	        logger.info(
+   382	            f"Incremental scrape: {len(urls_to_scrape)}/{len(urls)} URLs need updating"
+   383	        )
+   384	
+   385	        # Scrape changed URLs
+   386	        new_items = []
+   387	        for url in urls_to_scrape:
+   388	            items = await scrape_func(url)
+   389	            if items:
+   390	                new_items.extend(items)
+   391	                self.cache.cache_items(items, url)
+   392	
+   393	        # Get cached items for unchanged URLs
+   394	        cached_urls = set(urls) - set(urls_to_scrape)
+   395	        cached_items = []
+   396	
+   397	        # Would load from cache here if we stored extracted items
+   398	        # For now, just track stats
+   399	
+   400	        elapsed = (datetime.utcnow() - start_time).total_seconds()
+   401	
+   402	        stats = {
+   403	            'total_urls': len(urls),
+   404	            'urls_scraped': len(urls_to_scrape),
+   405	            'urls_cached': len(cached_urls),
+   406	            'cache_hit_rate': len(cached_urls) / len(urls) * 100 if urls else 0,
+   407	            'new_items': len(new_items),
+   408	            'time_saved_estimate': len(cached_urls) * 2.0,  # Assume 2s per URL
+   409	            'elapsed_seconds': elapsed,
+   410	        }
+   411	
+   412	        logger.info(
+   413	            f"Incremental scrape complete: {stats['cache_hit_rate']:.1f}% cache hit rate, "
+   414	            f"saved ~{stats['time_saved_estimate']:.0f}s"
+   415	        )
+   416	
+   417	        return {
+   418	            'new_items': new_items,
+   419	            'cached_items': cached_items,
+   420	            'stats': stats,
+   421	        }
+   422	
+   423	
+   424	class DifferentialScraper:
+   425	    """
+   426	    Advanced differential scraping.
+   427	
+   428	    Detects exactly what changed and provides diff information.
+   429	    """
+    77	        job_id=job.id, status="success", items_scraped=3, data=[{"n": n} for n in range(3)],
+    78	    )
+    79	    first = (await client.get(f"/api/v1/jobs/{job.id}/results?limit=2&offset=0")).json()
+    80	    last = (await client.get(f"/api/v1/jobs/{job.id}/results?limit=2&offset=2")).json()
+    81	    assert first["items"] == [{"n": 0}, {"n": 1}]
+    82	    assert first["pagination"]["has_more"] is True
+    83	    assert last["items"] == [{"n": 2}]
+    84	    assert last["pagination"]["has_more"] is False
+    85	
+    86	
+    87	@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-004: server-generated IDs contain a dot rejected by detail/delete")
+    88	async def test_server_generated_job_id_round_trips(client, job):
+    89	    payload = job.model_dump(mode="json")
+    90	    del payload["id"]
+    91	    created = await client.post("/api/v1/jobs", json={"job": payload})
+    92	    assert created.status_code == 200
+    93	    job_id = created.json()["job_id"]
+    94	    assert (await client.get(f"/api/v1/jobs/{job_id}")).status_code == 200
+    95	    assert (await client.delete(f"/api/v1/jobs/{job_id}")).status_code == 200
+    96	
+    97	
+    98	@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-008: results accepts zero/negative limit and negative offset")
+    99	@pytest.mark.parametrize("query", ["limit=0", "limit=-1", "offset=-1"])
+   100	async def test_invalid_results_pagination_is_rejected(client, job, query):
+   101	    api.results_db[job.id] = ScrapeResult(
+   102	        job_id=job.id, status="success", items_scraped=3, data=[{"n": n} for n in range(3)],
+   103	    )
+   104	    assert (await client.get(f"/api/v1/jobs/{job.id}/results?{query}")).status_code == 422
+   105	
+   106	
+   107	async def test_workflow_without_dependencies_round_trips(client):
+   108	    created = await client.post("/api/v1/workflows", json={
+   109	        "name": "independent", "nodes": [{"id": "a", "type": "scrape"}],
+   110	    })
+   111	    assert created.status_code == 200
+   112	    assert (await client.get("/api/v1/workflows")).json()["total"] == 1
+   113	    assert (await client.get("/api/v1/workflows/independent")).status_code == 200
+   114	
+   115	
+   116	@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-005: invalid workflow nodes/DAG errors escape as 500")
+   117	@pytest.mark.parametrize("nodes", [
+   118	    [{}],
+   119	    [{"id": "a", "type": "scrape", "depends_on": ["missing"]}],
+   120	    [{"id": "a", "type": "scrape", "depends_on": ["a"]}],
+   121	])
+   122	async def test_bad_workflow_returns_validation_error(client, nodes):
+   123	    response = await client.post("/api/v1/workflows", json={"name": "invalid", "nodes": nodes})
+   124	    assert response.status_code in (400, 422)
+   125	
+   126	
+   127	@pytest.mark.xfail(strict=True, raises=AssertionError, reason="FE-001: root dashboard app.js path is not served")
+   128	async def test_dashboard_script_is_available(client):
+   129	    page = await client.get("/")
+   130	    assert page.status_code == 200
+   131	    scripts = re.findall(r'<script[^>]+src="([^\"]+)"', page.text)
+   132	    assert scripts
+   133	    local_scripts = [path for path in scripts if not path.startswith(("https://", "http://"))]
+   134	    assert local_scripts
+   135	    for path in local_scripts:
+   136	        response = await client.get("/" + path.lstrip("/"))
+   137	        assert response.status_code == 200
+   138	
+   139	
+   140	async def test_mounted_dashboard_script_is_available(client):
+   141	    assert (await client.get("/static/app.js")).status_code == 200
+   142	
+   143	
+   144	@pytest.mark.xfail(strict=True, raises=AssertionError, reason="FE-002: dashboard max_pages is an ignored top-level field")
+   145	async def test_dashboard_requested_page_limit_is_preserved(client, job):
+   146	    payload = job.model_dump(mode="json")
+   147	    payload["pagination"] = {"mode": "none"}
+   148	    payload["max_pages"] = 2
+   149	    assert (await client.post("/api/v1/jobs", json={"job": payload})).status_code == 200
+   150	    assert api.jobs_db[job.id].pagination.max_pages == 2
+   151	
+   152	
+   153	@pytest.mark.xfail(strict=True, raises=AssertionError, reason="FE-003: dashboard export.format is ignored; CSV default wins")
+   154	async def test_dashboard_requested_export_format_is_preserved(client, job):
+   155	    payload = job.model_dump(mode="json")
+   156	    payload["export"] = {"format": "json", "base_path": str(job.export.base_path)}
+   157	    assert (await client.post("/api/v1/jobs", json={"job": payload})).status_code == 200
+   158	    assert api.jobs_db[job.id].export.formats == ["json"]
+    15	from scraper.core.engine import ScraperEngine
+    16	from scraper.export.export_manager import ExportManager
+    17	
+    18	
+    19	@settings(max_examples=50, derandomize=True, database=None, deadline=None)
+    20	@given(start=st.integers(min_value=1, max_value=100), count=st.integers(min_value=1, max_value=30))
+    21	async def test_url_pattern_generates_exact_contiguous_window(start, count):
+    22	    job = ScrapeJob(
+    23	        name="property fixture", start_url="https://fixture.invalid/items/1",
+    24	        pagination={"mode": "url_pattern", "url_pattern": "https://fixture.invalid/items/{page}",
+    25	                    "start_page": start, "max_pages": count},
+    26	    )
+    27	    urls = await ScraperEngine()._generate_urls(job)
+    28	    assert len(urls) == count
+    29	    assert len(set(urls)) == count
+    30	    assert urls == [f"https://fixture.invalid/items/{index}" for index in range(start, start + count)]
+    31	
+    32	
+    33	@pytest.mark.parametrize(("statuses", "expected_calls", "success"), [
+    34	    ([200], 1, True), ([503, 200], 2, True), ([400], 1, False), ([503, 503], 2, False),
+    35	])
+    36	async def test_static_fetcher_retry_classes(job, monkeypatch, statuses, expected_calls, success):
+    37	    monkeypatch.setattr(fetcher_static, "UserAgent", lambda: SimpleNamespace(random="qa-fixture", chrome="qa-fixture"))
+    38	    monkeypatch.setattr(fetcher_static.asyncio, "sleep", AsyncMock())
+    39	    job.retry.max_retries = 1
+    40	    calls = []
+    41	
+    42	    def response(request):
+    43	        calls.append(request.url)
+    44	        return httpx.Response(statuses[min(len(calls) - 1, len(statuses) - 1)], text="<h1>Fixture</h1>")
+    45	
+    46	    fetcher = fetcher_static.StaticFetcher(job)
+    47	    async with httpx.AsyncClient(transport=httpx.MockTransport(response)) as session:
+    48	        fetcher.session = session
+    49	        soup, html = await fetcher.fetch(job.start_url)
+    50	    assert len(calls) == expected_calls
+    51	    assert (soup is not None) is success
+    52	    assert (html is not None) is success
+    53	
+    54	
+    55	@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-007: proxy-enabled fetch passes unsupported proxies keyword to AsyncClient.get")
+    56	async def test_proxy_enabled_fetch_reaches_configured_transport(job, monkeypatch):
+    57	    monkeypatch.setattr(fetcher_static, "UserAgent", lambda: SimpleNamespace(random="qa-fixture", chrome="qa-fixture"))
+    58	    job.proxy.enabled = True
+    59	    job.proxy.proxy_list = ["http://proxy.fixture.invalid:8080"]
+    60	    calls = []
+    61	
+    62	    def response(request):
+    63	        calls.append(request.url)
+    64	        return httpx.Response(200, text="<h1>Fixture</h1>")
+    65	
+    66	    fetcher = fetcher_static.StaticFetcher(job)
+    67	    async with httpx.AsyncClient(transport=httpx.MockTransport(response)) as session:
+    68	        fetcher.session = session
+    69	        soup, _ = await fetcher.fetch(job.start_url)
+    70	    assert soup is not None, "TypeError from unsupported request-level proxy argument is swallowed"
+    71	    assert len(calls) == 1
+    72	
+    73	
+    74	@pytest.mark.parametrize("format_name", ["json", "ndjson", "csv", "sqlite"])
+    75	async def test_local_export_round_trip(job, format_name):
+    76	    data = [{"title": "Café, one", "quantity": 2}, {"title": 'Line\n"two"', "quantity": 0}]
+    77	    job.export.formats = [format_name]
+    78	    result = ScrapeResult(
+    79	        job_id=job.id, status="success", data=data, items_scraped=2,
+    80	        metadata={"job_name": "qa_fixture"},
+    81	    )
+    82	    exported = await ExportManager(job.export).export_result(result)
+    83	    path = exported[format_name]
+    84	    assert path.is_relative_to(job.export.base_path)
+    85	    if format_name == "json":
+    86	        content = json.loads(path.read_text())
+    87	        assert content["items"] == data
+    88	        assert content["count"] == 2
+    89	    elif format_name == "ndjson":
+    90	        assert [json.loads(line) for line in path.read_text().splitlines()] == data
+    91	    elif format_name == "csv":
+    92	        with path.open(newline="") as handle:
+    93	            rows = list(csv.DictReader(handle))
+    94	        assert rows == [{"title": item["title"], "quantity": str(item["quantity"])} for item in data]
+    95	    else:
+    96	        with sqlite3.connect(path) as connection:
+    97	            rows = connection.execute("SELECT title, quantity FROM scraped_data ORDER BY rowid").fetchall()
+    98	        assert rows == [(item["title"], str(item["quantity"])) for item in data]
+ M pyproject.toml
+?? docs/qa/
+?? tests/qa_backend/
+?? tests/qa_frontend/
+?? tests/qa_security/
+?? tests/qa_ux/

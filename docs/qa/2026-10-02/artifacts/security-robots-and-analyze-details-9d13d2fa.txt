@@ -1,0 +1,249 @@
+
+FILE scraper/core/fetcher_static.py
+245:         # Filter out exceptions
+246:         valid_results = []
+247:         for result in results:
+248:             if isinstance(result, Exception):
+249:                 logger.error(f"Error in concurrent fetch: {result}")
+250:                 continue
+251:             valid_results.append(result)
+252: 
+253:         return valid_results
+254: 
+255:     def is_same_domain(self, url: str) -> bool:
+256:         """
+257:         Check if URL is in allowed domains.
+258: 
+259:         Args:
+260:             url: URL to check
+261: 
+262:         Returns:
+263:             True if URL is allowed
+264:         """
+265:         if not self.job.allowed_domains:
+266:             return True
+267: 
+268:         domain = urlparse(url).netloc
+269:         return any(
+270:             domain == allowed or domain.endswith(f".{allowed}")
+271:             for allowed in self.job.allowed_domains
+272:         )
+273: 
+274:     def resolve_url(self, url: str, base_url: str) -> str:
+275:         """
+276:         Resolve relative URL to absolute.
+277: 
+278:         Args:
+279:             url: URL to resolve (may be relative)
+280:             base_url: Base URL for resolution
+281: 
+282:         Returns:
+283:             Absolute URL
+284:         """
+285:         return urljoin(base_url, url)
+286: 
+287:     async def check_robots_txt(self, url: str) -> bool:
+288:         """
+289:         Check if URL is allowed by robots.txt.
+290: 
+291:         Args:
+292:             url: URL to check
+293: 
+294:         Returns:
+295:             True if allowed
+296:         """
+297:         if not self.job.rate_limit.respect_robots_txt:
+298:             return True
+299: 
+300:         try:
+301:             parsed = urlparse(url)
+302:             robots_url = f"{parsed.scheme}://{parsed.netloc}/robots.txt"
+303: 
+304:             soup, robots_txt = await self.fetch(robots_url)
+305:             if not robots_txt:
+306:                 # No robots.txt = allowed
+307:                 return True
+308: 
+309:             # Simple robots.txt parsing (could use robotparser for more sophistication)
+310:             user_agent = self.session.headers.get("User-Agent", "*") if self.session else "*"
+311:             disallowed = []
+312:             current_ua = None
+313: 
+314:             for line in robots_txt.split("\n"):
+315:                 line = line.split("#")[0].strip()  # Remove comments
+316:                 if not line:
+317:                     continue
+318: 
+319:                 if line.lower().startswith("user-agent:"):
+320:                     current_ua = line.split(":", 1)[1].strip()
+321:                 elif line.lower().startswith("disallow:"):
+322:                     if current_ua == "*" or user_agent.startswith(current_ua):
+323:                         path = line.split(":", 1)[1].strip()
+324:                         if path:
+325:                             disallowed.append(path)
+326: 
+327:             # Check if current path is disallowed
+328:             current_path = parsed.path or "/"
+329:             for path in disallowed:
+330:                 if current_path.startswith(path):
+331:                     logger.warning(f"URL {url} disallowed by robots.txt")
+332:                     return False
+333: 
+334:             return True
+335: 
+336:         except Exception as e:
+337:             logger.debug(f"Could not fetch robots.txt: {e}")
+338:             # If we can't fetch robots.txt, allow the request
+339:             return True
+
+FILE scraper/core/engine.py
+350:         Convert extracted value to proper type.
+351: 
+352:         Args:
+353:             value: Raw extracted value
+354:             field_type: Target field type
+355: 
+356:         Returns:
+357:             Typed value
+358:         """
+359:         if value is None or value == "":
+360:             return None
+361: 
+362:         try:
+363:             if field_type == FieldType.INT:
+364:                 # Handle strings with commas
+365:                 if isinstance(value, str):
+366:                     value = value.replace(",", "")
+367:                 return int(float(value))
+368: 
+369:             elif field_type == FieldType.FLOAT:
+370:                 if isinstance(value, str):
+371:                     value = value.replace(",", "")
+372:                 return float(value)
+373: 
+374:             elif field_type == FieldType.BOOL:
+375:                 if isinstance(value, str):
+376:                     return value.lower() in ("true", "yes", "1", "on")
+377:                 return bool(value)
+378: 
+379:             elif field_type == FieldType.CURRENCY:
+380:                 # Extract numeric value from currency string
+381:                 if isinstance(value, str):
+382:                     import re
+383:                     match = re.search(r"[\d,]+\.?\d*", value)
+384:                     if match:
+385:                         return float(match.group().replace(",", ""))
+386:                 return float(value)
+387: 
+388:             elif field_type == FieldType.DATE:
+389:                 # Parse date
+390:                 from dateutil import parser
+391:                 return parser.parse(value)
+392: 
+393:             elif field_type == FieldType.DATETIME:
+394:                 from dateutil import parser
+395:                 return parser.parse(value)
+396: 
+397:             else:
+398:                 return str(value)
+399: 
+400:         except Exception as e:
+401:             logger.warning(f"Type conversion failed for {value} -> {field_type}: {e}")
+402:             return value
+403: 
+404:     def _has_llm_fields(self, job: ScrapeJob) -> bool:
+405:         """Check if job has any LLM-enabled fields."""
+406:         return any(field.use_llm for field in job.fields.values())
+407: 
+408:     def _needs_browser(self, job: ScrapeJob) -> bool:
+409:         """Determine if job needs browser based on config."""
+410:         # Use browser if:
+411:         # - Explicitly enabled
+412:         # - Infinite scroll pagination
+413:         # - Has wait_for_selector
+414:         return (
+415:             job.browser.enabled
+416:             or job.pagination.mode == PaginationMode.INFINITE_SCROLL
+417:             or bool(job.browser.wait_for_selector)
+418:         )
+
+FILE scraper/config/models.py
+90:     mode: PaginationMode = Field(
+91:         PaginationMode.NONE, description="Pagination strategy"
+92:     )
+93:     next_button_selector: Optional[str] = Field(
+94:         None, description="CSS selector for next button (next_button mode)"
+95:     )
+96:     url_pattern: Optional[str] = Field(
+97:         None, description="URL pattern with {page} placeholder (url_pattern mode)"
+98:     )
+99:     start_page: int = Field(1, description="Starting page number", ge=1)
+100:     max_pages: int = Field(10, description="Maximum pages to scrape", ge=1)
+101:     scroll_times: int = Field(
+102:         5, description="Number of scrolls (infinite_scroll mode)", ge=1
+103:     )
+104:     scroll_pause: float = Field(
+105:         1.0, description="Pause between scrolls in seconds", ge=0.1
+106:     )
+107: 
+108:     @model_validator(mode="after")
+109:     def validate_pagination_config(self) -> "PaginationConfig":
+110:         """Ensure required fields are set based on mode."""
+111:         if self.mode == PaginationMode.NEXT_BUTTON and not self.next_button_selector:
+112:             raise ValueError("next_button_selector required for next_button mode")
+113:         if self.mode == PaginationMode.URL_PATTERN and not self.url_pattern:
+114:             raise ValueError("url_pattern required for url_pattern mode")
+
+FILE scraper/api/rest_server.py
+351:         "errors": result.errors,
+352:         "items": result.data[offset:offset + limit],
+353:         "pagination": {
+354:             "limit": limit,
+355:             "offset": offset,
+356:             "has_more": offset + limit < len(result.data)
+357:         }
+358:     }
+359: 
+360: 
+361: # ============================================================================
+362: # SMART FEATURES ENDPOINTS
+363: # ============================================================================
+364: 
+365: @app.post("/api/v1/analyze")
+366: async def analyze_url(request: AnalyzeRequest) -> Dict[str, Any]:
+367:     """
+368:     Analyze a URL and auto-detect structure.
+369: 
+370:     Returns detected selectors, fields, and pagination.
+371:     """
+372:     from scraper.config.models import ScrapeJob
+373:     from scraper.core.fetcher_static import StaticFetcher
+374:     from scraper.strategies.intelligent_extraction import (
+375:         IntelligentExtractor,
+376:         SmartPaginationDetector
+377:     )
+378: 
+379:     # Fetch page
+380:     temp_job = ScrapeJob(name="analysis", start_url=request.url)
+381: 
+382:     async with StaticFetcher(temp_job) as fetcher:
+383:         soup, html = await fetcher.fetch(request.url)
+384: 
+385:         if not soup:
+386:             raise HTTPException(status_code=400, detail="Failed to fetch URL")
+387: 
+388:     # Auto-detect
+389:     extractor = IntelligentExtractor()
+390:     pagination_detector = SmartPaginationDetector()
+391: 
+392:     item_selector = await extractor.auto_detect_item_container(soup)
+393:     detected_fields = await extractor.auto_detect_fields(
+394:         soup,
+395:         item_selector or "body"
+396:     )
+397:     pagination_config = await pagination_detector.detect_pagination(soup, request.url)
+398: 
+399:     return {
+400:         "url": request.url,
+401:         "item_selector": item_selector,
+402:         "fields": detected_fields,

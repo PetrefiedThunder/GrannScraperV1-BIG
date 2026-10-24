@@ -1,0 +1,4 @@
+coverage reports ['docs/qa/2026-10-02/artifacts/backend-coverage-before.json']
+Python source files 53
+Product Python lines 13544
+Tracked source only inspection; no environment files read

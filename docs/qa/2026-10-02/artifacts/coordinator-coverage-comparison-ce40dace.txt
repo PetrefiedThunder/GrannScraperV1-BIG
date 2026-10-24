@@ -1,0 +1,11 @@
+BEFORE {'covered_lines': 1354, 'num_statements': 5434, 'percent_covered': 24.971988795518207, 'percent_covered_display': '25', 'missing_lines': 4080, 'excluded_lines': 16, 'percent_statements_covered': 24.917188075082812, 'percent_statements_covered_display': '25', 'num_branches': 1706, 'num_partial_branches': 119, 'covered_branches': 429, 'missing_branches': 1277, 'percent_branches_covered': 25.146541617819462, 'percent_branches_covered_display': '25'}
+AFTER {'covered_lines': 2409, 'num_statements': 5434, 'percent_covered': 42.745098039215684, 'percent_covered_display': '43', 'missing_lines': 3025, 'excluded_lines': 16, 'percent_statements_covered': 44.33198380566802, 'percent_statements_covered_display': '44', 'num_branches': 1706, 'num_partial_branches': 205, 'covered_branches': 643, 'missing_branches': 1063, 'percent_branches_covered': 37.690504103165296, 'percent_branches_covered_display': '38'}
+unchanged denominator True True
+scraper/api/rest_server.py: 0.00% -> 78.26%
+scraper/cli/main.py: 0.00% -> 31.09%
+scraper/core/concurrent_engine.py: 0.00% -> 45.23%
+scraper/core/engine.py: 9.87% -> 66.37%
+scraper/core/fetcher_static.py: 10.48% -> 60.48%
+scraper/scheduler/workflow_dag.py: 0.00% -> 37.29%
+scraper/security/auth.py: 0.00% -> 38.01%
+scraper/storage/smart_cache.py: 18.63% -> 65.84%

@@ -1,0 +1,188 @@
+Parsed cache records: 67 Unreadable: 0 Exact installed matches: 23
+Matched results: [
+  {
+    "package": "attrs",
+    "cached_version": "26.1.0",
+    "installed_version": "26.1.0",
+    "exact_version_match": true,
+    "cached_date": "Tue, 08 Sep 2026 13:11:53 GMT",
+    "advisories": []
+  },
+  {
+    "package": "typing-extensions",
+    "cached_version": "4.16.0",
+    "installed_version": "4.16.0",
+    "exact_version_match": true,
+    "cached_date": "Tue, 08 Sep 2026 13:11:53 GMT",
+    "advisories": []
+  },
+  {
+    "package": "mypy-extensions",
+    "cached_version": "1.1.0",
+    "installed_version": "1.1.0",
+    "exact_version_match": true,
+    "cached_date": "Tue, 08 Sep 2026 13:11:53 GMT",
+    "advisories": []
+  },
+  {
+    "package": "dnspython",
+    "cached_version": "2.8.0",
+    "installed_version": "2.8.0",
+    "exact_version_match": true,
+    "cached_date": "Tue, 08 Sep 2026 13:11:53 GMT",
+    "advisories": []
+  },
+  {
+    "package": "PyYAML",
+    "cached_version": "6.0.3",
+    "installed_version": "6.0.3",
+    "exact_version_match": true,
+    "cached_date": "Tue, 08 Sep 2026 13:11:53 GMT",
+    "advisories": []
+  },
+  {
+    "package": "certifi",
+    "cached_version": "2026.7.22",
+    "installed_version": "2026.7.22",
+    "exact_version_match": true,
+    "cached_date": "Tue, 08 Sep 2026 13:11:53 GMT",
+    "advisories": []
+  },
+  {
+    "package": "pydantic_core",
+    "cached_version": "2.46.5",
+    "installed_version": "2.46.5",
+    "exact_version_match": true,
+    "cached_date": "Tue, 08 Sep 2026 13:11:52 GMT",
+    "advisories": []
+  },
+  {
+    "package": "httptools",
+    "cached_version": "0.8.0",
+    "installed_version": "0.8.0",
+    "exact_version_match": true,
+    "cached_date": "Tue, 08 Sep 2026 13:11:53 GMT",
+    "advisories": []
+  },
+  {
+    "package": "httpcore",
+    "cached_version": "1.0.9",
+    "installed_version": "1.0.9",
+    "exact_version_match": true,
+    "cached_date": "Tue, 08 Sep 2026 13:11:52 GMT",
+    "advisories": []
+  },
+  {
+    "package": "Pygments",
+    "cached_version": "2.21.0",
+    "installed_version": "2.21.0",
+    "exact_version_match": true,
+    "cached_date": "Tue, 08 Sep 2026 13:11:53 GMT",
+    "advisories": []
+  },
+  {
+    "package": "requests",
+    "cached_version": "2.34.2",
+    "installed_version": "2.34.2",
+    "exact_version_match": true,
+    "cached_date": "Tue, 08 Sep 2026 13:11:53 GMT",
+    "advisories": []
+  },
+  {
+    "package": "pluggy",
+    "cached_version": "1.6.0",
+    "installed_version": "1.6.0",
+    "exact_version_match": true,
+    "cached_date": "Tue, 08 Sep 2026 13:11:52 GMT",
+    "advisories": []
+  },
+  {
+    "package": "iniconfig",
+    "cached_version": "2.3.0",
+    "installed_version": "2.3.0",
+    "exact_version_match": true,
+    "cached_date": "Tue, 08 Sep 2026 13:11:53 GMT",
+    "advisories": []
+  },
+  {
+    "package": "cffi",
+    "cached_version": "2.1.1",
+    "installed_version": "2.1.1",
+    "exact_version_match": true,
+    "cached_date": "Tue, 08 Sep 2026 13:11:53 GMT",
+    "advisories": []
+  },
+  {
+    "package": "click",
+    "cached_version": "8.5.0",
+    "installed_version": "8.5.0",
+    "exact_version_match": true,
+    "cached_date": "Tue, 08 Sep 2026 13:11:53 GMT",
+    "advisories": []
+  },
+  {
+    "package": "typing-inspection",
+    "cached_version": "0.4.4",
+    "installed_version": "0.4.4",
+    "exact_version_match": true,
+    "cached_date": "Tue, 08 Sep 2026 13:11:53 GMT",
+    "advisories": []
+  },
+  {
+    "package": "pydantic",
+    "cached_version": "2.13.5",
+    "installed_version": "2.13.5",
+    "exact_version_match": true,
+    "cached_date": "Tue, 08 Sep 2026 13:11:52 GMT",
+    "advisories": []
+  },
+  {
+    "package": "pydantic-settings",
+    "cached_version": "2.15.0",
+    "installed_version": "2.15.0",
+    "exact_version_match": true,
+    "cached_date": "Tue, 08 Sep 2026 13:11:52 GMT",
+    "advisories": []
+  },
+  {
+    "package": "pycparser",
+    "cached_version": "3.0",
+    "installed_version": "3.0",
+    "exact_version_match": true,
+    "cached_date": "Tue, 08 Sep 2026 13:11:54 GMT",
+    "advisories": []
+  },
+  {
+    "package": "annotated-types",
+    "cached_version": "0.8.0",
+    "installed_version": "0.8.0",
+    "exact_version_match": true,
+    "cached_date": "Tue, 08 Sep 2026 13:11:53 GMT",
+    "advisories": []
+  },
+  {
+    "package": "anyio",
+    "cached_version": "4.15.1",
+    "installed_version": "4.15.1",
+    "exact_version_match": true,
+    "cached_date": "Tue, 08 Sep 2026 13:11:53 GMT",
+    "advisories": []
+  },
+  {
+    "package": "h11",
+    "cached_version": "0.16.0",
+    "installed_version": "0.16.0",
+    "exact_version_match": true,
+    "cached_date": "Tue, 08 Sep 2026 13:11:53 GMT",
+    "advisories": []
+  },
+  {
+    "package": "websockets",
+    "cached_version": "17.1",
+    "installed_version": "17.1",
+    "exact_version_match": true,
+    "cached_date": "Tue, 08 Sep 2026 13:11:54 GMT",
+    "advisories": []
+  }
+]
+Artifact: docs/qa/2026-10-02/artifacts/security-offline-advisories.json

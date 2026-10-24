@@ -1,0 +1,16 @@
+docs/qa/2026-10-02/artifacts/frontend-list-error.png
+docs/qa/2026-10-02/artifacts/frontend-literal-markup.png
+docs/qa/2026-10-02/artifacts/frontend-results-chromium.png
+docs/qa/2026-10-02/artifacts/frontend-results-firefox.png
+docs/qa/2026-10-02/artifacts/frontend-results.png
+docs/qa/2026-10-02/artifacts/frontend-root-script-404.png
+docs/qa/2026-10-02/artifacts/ux-desktop-empty.png
+docs/qa/2026-10-02/artifacts/ux-desktop-results.png
+docs/qa/2026-10-02/artifacts/ux-details-keyboard-focus.png
+docs/qa/2026-10-02/artifacts/ux-error-feedback.png
+docs/qa/2026-10-02/artifacts/ux-jobs-error.png
+docs/qa/2026-10-02/artifacts/ux-loading.png
+docs/qa/2026-10-02/artifacts/ux-mobile-jobs.png
+docs/qa/2026-10-02/artifacts/ux-text-scale-200.png
+Artifact count 231
+Artifact bytes 13397616

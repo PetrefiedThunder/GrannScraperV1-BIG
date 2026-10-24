@@ -1,0 +1,748 @@
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/26.7.0/bin/node",
+      "/private/tmp/grann-qa-20261002/node/node_modules/@playwright/test/cli.js",
+      "test",
+      "--config",
+      "tests/qa_ux/playwright.config.cjs"
+    ],
+    "configFile": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/playwright.config.cjs",
+    "rootDir": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/docs/qa/2026-10-02/artifacts/ux-test-output",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux",
+        "testIgnore": [],
+        "testMatch": [
+          "*.spec.cjs"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/docs/qa/2026-10-02/artifacts/ux-playwright-results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.63.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "dashboard.spec.cjs",
+      "file": "dashboard.spec.cjs",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "baseline: named controls, keyboard operation, native invalid URL, empty/loading semantics evidence",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1591,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T01:57:31.683Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "98c9c7983ccfaa711b4b-9307dc8a20e31695319c",
+          "file": "dashboard.spec.cjs",
+          "line": 102,
+          "column": 1
+        },
+        {
+          "title": "UX-001: populated mobile page reflows without document horizontal overflow",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "fail",
+                  "description": "UX-001: job text and horizontal action row overflow the mobile viewport",
+                  "location": {
+                    "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                    "line": 139,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "failed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 372,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeLessThanOrEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: <= \u001b[32m375\u001b[39m\nReceived:    \u001b[31m632\u001b[39m",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeLessThanOrEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: <= \u001b[32m375\u001b[39m\nReceived:    \u001b[31m632\u001b[39m\n    at /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs:140:31",
+                    "location": {
+                      "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                      "column": 31,
+                      "line": 140
+                    },
+                    "snippet": "  138 |   save('mobile-320-layout', await page.evaluate(() => ({ viewport: innerWidth, document: document.documentElement.scrollWidth })));\n  139 |   test.fail(true, 'UX-001: job text and horizontal action row overflow the mobile viewport');\n> 140 |   expect(dimensions.document).toBeLessThanOrEqual(dimensions.viewport);\n      |                               ^\n  141 | });\n  142 |\n  143 | test('UX-002: text has WCAG AA contrast in completed results', async () => {"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                        "column": 31,
+                        "line": 140
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeLessThanOrEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: <= \u001b[32m375\u001b[39m\nReceived:    \u001b[31m632\u001b[39m\n\n  138 |   save('mobile-320-layout', await page.evaluate(() => ({ viewport: innerWidth, document: document.documentElement.scrollWidth })));\n  139 |   test.fail(true, 'UX-001: job text and horizontal action row overflow the mobile viewport');\n> 140 |   expect(dimensions.document).toBeLessThanOrEqual(dimensions.viewport);\n      |                               ^\n  141 | });\n  142 |\n  143 | test('UX-002: text has WCAG AA contrast in completed results', async () => {\n    at /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs:140:31"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T01:57:33.391Z",
+                  "annotations": [
+                    {
+                      "type": "fail",
+                      "description": "UX-001: job text and horizontal action row overflow the mobile viewport",
+                      "location": {
+                        "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                        "line": 139,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/docs/qa/2026-10-02/artifacts/ux-test-output/dashboard-UX-001-populated-834e6-ocument-horizontal-overflow/error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                    "column": 31,
+                    "line": 140
+                  }
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "98c9c7983ccfaa711b4b-d2b3e3ad3fe2d8d560f2",
+          "file": "dashboard.spec.cjs",
+          "line": 130,
+          "column": 1
+        },
+        {
+          "title": "UX-002: text has WCAG AA contrast in completed results",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "fail",
+                  "description": "UX-002: visible normal-size text does not meet 4.5:1 contrast",
+                  "location": {
+                    "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                    "line": 149,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "failed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 506,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  -   1\u001b[39m\n\u001b[31m+ Received  + 171\u001b[39m\n\n\u001b[32m- Array []\u001b[39m\n\u001b[31m+ Array [\u001b[39m\n\u001b[31m+   Object {\u001b[39m\n\u001b[31m+     \"description\": \"Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds\",\u001b[39m\n\u001b[31m+     \"help\": \"Elements must meet minimum color contrast ratio thresholds\",\u001b[39m\n\u001b[31m+     \"helpUrl\": \"https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=axeAPI\",\u001b[39m\n\u001b[31m+     \"id\": \"color-contrast\",\u001b[39m\n\u001b[31m+     \"impact\": \"serious\",\u001b[39m\n\u001b[31m+     \"nodes\": Array [\u001b[39m\n\u001b[31m+       Object {\u001b[39m\n\u001b[31m+         \"all\": Array [],\u001b[39m\n\u001b[31m+         \"any\": Array [\u001b[39m\n\u001b[31m+           Object {\u001b[39m\n\u001b[31m+             \"data\": Object {\u001b[39m\n\u001b[31m+               \"bgColor\": \"#28a745\",\u001b[39m\n\u001b[31m+               \"colorParse\": undefined,\u001b[39m\n\u001b[31m+               \"contrastRatio\": 3.13,\u001b[39m\n\u001b[31m+               \"expectedContrastRatio\": \"4.5:1\",\u001b[39m\n\u001b[31m+               \"fgColor\": \"#ffffff\",\u001b[39m\n\u001b[31m+               \"fontSize\": \"10.2pt (13.6px)\",\u001b[39m\n\u001b[31m+               \"fontWeight\": \"normal\",\u001b[39m\n\u001b[31m+               \"messageKey\": null,\u001b[39m\n\u001b[31m+               \"shadowColor\": undefined,\u001b[39m\n\u001b[31m+             },\u001b[39m\n\u001b[31m+             \"id\": \"color-contrast\",\u001b[39m\n\u001b[31m+             \"impact\": \"serious\",\u001b[39m\n\u001b[31m+             \"message\": \"Element has insufficient color contrast of 3.13 (foreground color: #ffffff, background color: #28a745, font size: 10.2pt (13.6px), font weight: normal). Expected contrast ratio of 4.5:1\",\u001b[39m\n\u001b[31m+             \"relatedNodes\": Array [\u001b[39m\n\u001b[31m+               Object {\u001b[39m\n\u001b[31m+                 \"html\": \"<span class=\\\"status-badge status-success\\\">success</span>\",\u001b[39m\n\u001b[31m+                 \"target\": Array [\u001b[39m\n\u001b[31m+                   \"span\",\u001b[39m\n\u001b[31m+                 ],\u001b[39m\n\u001b[31m+               },\u001b[39m\n\u001b[31m+             ],\u001b[39m\n\u001b[31m+           },\u001b[39m\n\u001b[31m+         ],\u001b[39m\n\u001b[31m+         \"failureSummary\": \"Fix any of the following:\u001b[39m\n\u001b[31m+   Element has insufficient color contrast of 3.13 (foreground color: #ffffff, background color: #28a745, font size: 10.2pt (13.6px), font weight: normal). Expected contrast ratio of 4.5:1\",\u001b[39m\n\u001b[31m+         \"html\": \"<span class=\\\"status-badge status-success\\\">success</span>\",\u001b[39m\n\u001b[31m+         \"impact\": \"serious\",\u001b[39m\n\u001b[31m+         \"none\": Array [],\u001b[39m\n\u001b[31m+         \"target\": Array [\u001b[39m\n\u001b[31m+           \"span\",\u001b[39m\n\u001b[31m+         ],\u001b[39m\n\u001b[31m+       },\u001b[39m\n\u001b[31m+       Object {\u001b[39m\n\u001b[31m+         \"all\": Array [],\u001b[39m\n\u001b[31m+         \"any\": Array [\u001b[39m\n\u001b[31m+           Object {\u001b[39m\n\u001b[31m+             \"data\": Object {\u001b[39m\n\u001b[31m+               \"bgColor\": \"#667eea\",\u001b[39m\n\u001b[31m+               \"colorParse\": undefined,\u001b[39m\n\u001b[31m+               \"contrastRatio\": 3.66,\u001b[39m\n\u001b[31m+               \"expectedContrastRatio\": \"4.5:1\",\u001b[39m\n\u001b[31m+               \"fgColor\": \"#ffffff\",\u001b[39m\n\u001b[31m+               \"fontSize\": \"12.0pt (16px)\",\u001b[39m\n\u001b[31m+               \"fontWeight\": \"bold\",\u001b[39m\n\u001b[31m+               \"messageKey\": null,\u001b[39m\n\u001b[31m+               \"shadowColor\": undefined,\u001b[39m\n\u001b[31m+             },\u001b[39m\n\u001b[31m+             \"id\": \"color-contrast\",\u001b[39m\n\u001b[31m+             \"impact\": \"serious\",\u001b[39m\n\u001b[31m+             \"message\": \"Element has insufficient color contrast of 3.66 (foreground color: #ffffff, background color: #667eea, font size: 12.0pt (16px), font weight: bold). Expected contrast ratio of 4.5:1\",\u001b[39m\n\u001b[31m+             \"relatedNodes\": Array [\u001b[39m\n\u001b[31m+               Object {\u001b[39m\n\u001b[31m+                 \"html\": \"<th>name</th>\",\u001b[39m\n\u001b[31m+                 \"target\": Array [\u001b[39m\n\u001b[31m+                   \"th:nth-child(1)\",\u001b[39m\n\u001b[31m+                 ],\u001b[39m\n\u001b[31m+               },\u001b[39m\n\u001b[31m+             ],\u001b[39m\n\u001b[31m+           },\u001b[39m\n\u001b[31m+         ],\u001b[39m\n\u001b[31m+         \"failureSummary\": \"Fix any of the following:\u001b[39m\n\u001b[31m+   Element has insufficient color contrast of 3.66 (foreground color: #ffffff, background color: #667eea, font size: 12.0pt (16px), font weight: bold). Expected contrast ratio of 4.5:1\",\u001b[39m\n\u001b[31m+         \"html\": \"<th>name</th>\",\u001b[39m\n\u001b[31m+         \"impact\": \"serious\",\u001b[39m\n\u001b[31m+         \"none\": Array [],\u001b[39m\n\u001b[31m+         \"target\": Array [\u001b[39m\n\u001b[31m+           \"th:nth-child(1)\",\u001b[39m\n\u001b[31m+         ],\u001b[39m\n\u001b[31m+       },\u001b[39m\n\u001b[31m+       Object {\u001b[39m\n\u001b[31m+         \"all\": Array [],\u001b[39m\n\u001b[31m+         \"any\": Array [\u001b[39m\n\u001b[31m+           Object {\u001b[39m\n\u001b[31m+             \"data\": Object {\u001b[39m\n\u001b[31m+               \"bgColor\": \"#667eea\",\u001b[39m\n\u001b[31m+               \"colorParse\": undefined,\u001b[39m\n\u001b[31m+               \"contrastRatio\": 3.66,\u001b[39m\n\u001b[31m+               \"expectedContrastRatio\": \"4.5:1\",\u001b[39m\n\u001b[31m+               \"fgColor\": \"#ffffff\",\u001b[39m\n\u001b[31m+               \"fontSize\": \"12.0pt (16px)\",\u001b[39m\n\u001b[31m+               \"fontWeight\": \"bold\",\u001b[39m\n\u001b[31m+               \"messageKey\": null,\u001b[39m\n\u001b[31m+               \"shadowColor\": undefined,\u001b[39m\n\u001b[31m+             },\u001b[39m\n\u001b[31m+             \"id\": \"color-contrast\",\u001b[39m\n\u001b[31m+             \"impact\": \"serious\",\u001b[39m\n\u001b[31m+             \"message\": \"Element has insufficient color contrast of 3.66 (foreground color: #ffffff, background color: #667eea, font size: 12.0pt (16px), font weight: bold). Expected contrast ratio of 4.5:1\",\u001b[39m\n\u001b[31m+             \"relatedNodes\": Array [\u001b[39m\n\u001b[31m+               Object {\u001b[39m\n\u001b[31m+                 \"html\": \"<th>price</th>\",\u001b[39m\n\u001b[31m+                 \"target\": Array [\u001b[39m\n\u001b[31m+                   \"th:nth-child(2)\",\u001b[39m\n\u001b[31m+                 ],\u001b[39m\n\u001b[31m+               },\u001b[39m\n\u001b[31m+             ],\u001b[39m\n\u001b[31m+           },\u001b[39m\n\u001b[31m+         ],\u001b[39m\n\u001b[31m+         \"failureSummary\": \"Fix any of the following:\u001b[39m\n\u001b[31m+   Element has insufficient color contrast of 3.66 (foreground color: #ffffff, background color: #667eea, font size: 12.0pt (16px), font weight: bold). Expected contrast ratio of 4.5:1\",\u001b[39m\n\u001b[31m+         \"html\": \"<th>price</th>\",\u001b[39m\n\u001b[31m+         \"impact\": \"serious\",\u001b[39m\n\u001b[31m+         \"none\": Array [],\u001b[39m\n\u001b[31m+         \"target\": Array [\u001b[39m\n\u001b[31m+           \"th:nth-child(2)\",\u001b[39m\n\u001b[31m+         ],\u001b[39m\n\u001b[31m+       },\u001b[39m\n\u001b[31m+       Object {\u001b[39m\n\u001b[31m+         \"all\": Array [],\u001b[39m\n\u001b[31m+         \"any\": Array [\u001b[39m\n\u001b[31m+           Object {\u001b[39m\n\u001b[31m+             \"data\": Object {\u001b[39m\n\u001b[31m+               \"bgColor\": \"#667eea\",\u001b[39m\n\u001b[31m+               \"colorParse\": undefined,\u001b[39m\n\u001b[31m+               \"contrastRatio\": 3.66,\u001b[39m\n\u001b[31m+               \"expectedContrastRatio\": \"4.5:1\",\u001b[39m\n\u001b[31m+               \"fgColor\": \"#ffffff\",\u001b[39m\n\u001b[31m+               \"fontSize\": \"12.0pt (16px)\",\u001b[39m\n\u001b[31m+               \"fontWeight\": \"bold\",\u001b[39m\n\u001b[31m+               \"messageKey\": null,\u001b[39m\n\u001b[31m+               \"shadowColor\": undefined,\u001b[39m\n\u001b[31m+             },\u001b[39m\n\u001b[31m+             \"id\": \"color-contrast\",\u001b[39m\n\u001b[31m+             \"impact\": \"serious\",\u001b[39m\n\u001b[31m+             \"message\": \"Element has insufficient color contrast of 3.66 (foreground color: #ffffff, background color: #667eea, font size: 12.0pt (16px), font weight: bold). Expected contrast ratio of 4.5:1\",\u001b[39m\n\u001b[31m+             \"relatedNodes\": Array [\u001b[39m\n\u001b[31m+               Object {\u001b[39m\n\u001b[31m+                 \"html\": \"<th>category</th>\",\u001b[39m\n\u001b[31m+                 \"target\": Array [\u001b[39m\n\u001b[31m+                   \"th:nth-child(3)\",\u001b[39m\n\u001b[31m+                 ],\u001b[39m\n\u001b[31m+               },\u001b[39m\n\u001b[31m+             ],\u001b[39m\n\u001b[31m+           },\u001b[39m\n\u001b[31m+         ],\u001b[39m\n\u001b[31m+         \"failureSummary\": \"Fix any of the following:\u001b[39m\n\u001b[31m+   Element has insufficient color contrast of 3.66 (foreground color: #ffffff, background color: #667eea, font size: 12.0pt (16px), font weight: bold). Expected contrast ratio of 4.5:1\",\u001b[39m\n\u001b[31m+         \"html\": \"<th>category</th>\",\u001b[39m\n\u001b[31m+         \"impact\": \"serious\",\u001b[39m\n\u001b[31m+         \"none\": Array [],\u001b[39m\n\u001b[31m+         \"target\": Array [\u001b[39m\n\u001b[31m+           \"th:nth-child(3)\",\u001b[39m\n\u001b[31m+         ],\u001b[39m\n\u001b[31m+       },\u001b[39m\n\u001b[31m+     ],\u001b[39m\n\u001b[31m+     \"tags\": Array [\u001b[39m\n\u001b[31m+       \"cat.color\",\u001b[39m\n\u001b[31m+       \"wcag2aa\",\u001b[39m\n\u001b[31m+       \"wcag143\",\u001b[39m\n\u001b[31m+       \"TTv5\",\u001b[39m\n\u001b[31m+       \"TT13.c\",\u001b[39m\n\u001b[31m+       \"EN-301-549\",\u001b[39m\n\u001b[31m+       \"EN-9.1.4.3\",\u001b[39m\n\u001b[31m+       \"ACT\",\u001b[39m\n\u001b[31m+       \"RGAAv4\",\u001b[39m\n\u001b[31m+       \"RGAA-3.2.1\",\u001b[39m\n\u001b[31m+     ],\u001b[39m\n\u001b[31m+   },\u001b[39m\n\u001b[31m+ ]\u001b[39m",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  -   1\u001b[39m\n\u001b[31m+ Received  + 171\u001b[39m\n\n\u001b[32m- Array []\u001b[39m\n\u001b[31m+ Array [\u001b[39m\n\u001b[31m+   Object {\u001b[39m\n\u001b[31m+     \"description\": \"Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds\",\u001b[39m\n\u001b[31m+     \"help\": \"Elements must meet minimum color contrast ratio thresholds\",\u001b[39m\n\u001b[31m+     \"helpUrl\": \"https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=axeAPI\",\u001b[39m\n\u001b[31m+     \"id\": \"color-contrast\",\u001b[39m\n\u001b[31m+     \"impact\": \"serious\",\u001b[39m\n\u001b[31m+     \"nodes\": Array [\u001b[39m\n\u001b[31m+       Object {\u001b[39m\n\u001b[31m+         \"all\": Array [],\u001b[39m\n\u001b[31m+         \"any\": Array [\u001b[39m\n\u001b[31m+           Object {\u001b[39m\n\u001b[31m+             \"data\": Object {\u001b[39m\n\u001b[31m+               \"bgColor\": \"#28a745\",\u001b[39m\n\u001b[31m+               \"colorParse\": undefined,\u001b[39m\n\u001b[31m+               \"contrastRatio\": 3.13,\u001b[39m\n\u001b[31m+               \"expectedContrastRatio\": \"4.5:1\",\u001b[39m\n\u001b[31m+               \"fgColor\": \"#ffffff\",\u001b[39m\n\u001b[31m+               \"fontSize\": \"10.2pt (13.6px)\",\u001b[39m\n\u001b[31m+               \"fontWeight\": \"normal\",\u001b[39m\n\u001b[31m+               \"messageKey\": null,\u001b[39m\n\u001b[31m+               \"shadowColor\": undefined,\u001b[39m\n\u001b[31m+             },\u001b[39m\n\u001b[31m+             \"id\": \"color-contrast\",\u001b[39m\n\u001b[31m+             \"impact\": \"serious\",\u001b[39m\n\u001b[31m+             \"message\": \"Element has insufficient color contrast of 3.13 (foreground color: #ffffff, background color: #28a745, font size: 10.2pt (13.6px), font weight: normal). Expected contrast ratio of 4.5:1\",\u001b[39m\n\u001b[31m+             \"relatedNodes\": Array [\u001b[39m\n\u001b[31m+               Object {\u001b[39m\n\u001b[31m+                 \"html\": \"<span class=\\\"status-badge status-success\\\">success</span>\",\u001b[39m\n\u001b[31m+                 \"target\": Array [\u001b[39m\n\u001b[31m+                   \"span\",\u001b[39m\n\u001b[31m+                 ],\u001b[39m\n\u001b[31m+               },\u001b[39m\n\u001b[31m+             ],\u001b[39m\n\u001b[31m+           },\u001b[39m\n\u001b[31m+         ],\u001b[39m\n\u001b[31m+         \"failureSummary\": \"Fix any of the following:\u001b[39m\n\u001b[31m+   Element has insufficient color contrast of 3.13 (foreground color: #ffffff, background color: #28a745, font size: 10.2pt (13.6px), font weight: normal). Expected contrast ratio of 4.5:1\",\u001b[39m\n\u001b[31m+         \"html\": \"<span class=\\\"status-badge status-success\\\">success</span>\",\u001b[39m\n\u001b[31m+         \"impact\": \"serious\",\u001b[39m\n\u001b[31m+         \"none\": Array [],\u001b[39m\n\u001b[31m+         \"target\": Array [\u001b[39m\n\u001b[31m+           \"span\",\u001b[39m\n\u001b[31m+         ],\u001b[39m\n\u001b[31m+       },\u001b[39m\n\u001b[31m+       Object {\u001b[39m\n\u001b[31m+         \"all\": Array [],\u001b[39m\n\u001b[31m+         \"any\": Array [\u001b[39m\n\u001b[31m+           Object {\u001b[39m\n\u001b[31m+             \"data\": Object {\u001b[39m\n\u001b[31m+               \"bgColor\": \"#667eea\",\u001b[39m\n\u001b[31m+               \"colorParse\": undefined,\u001b[39m\n\u001b[31m+               \"contrastRatio\": 3.66,\u001b[39m\n\u001b[31m+               \"expectedContrastRatio\": \"4.5:1\",\u001b[39m\n\u001b[31m+               \"fgColor\": \"#ffffff\",\u001b[39m\n\u001b[31m+               \"fontSize\": \"12.0pt (16px)\",\u001b[39m\n\u001b[31m+               \"fontWeight\": \"bold\",\u001b[39m\n\u001b[31m+               \"messageKey\": null,\u001b[39m\n\u001b[31m+               \"shadowColor\": undefined,\u001b[39m\n\u001b[31m+             },\u001b[39m\n\u001b[31m+             \"id\": \"color-contrast\",\u001b[39m\n\u001b[31m+             \"impact\": \"serious\",\u001b[39m\n\u001b[31m+             \"message\": \"Element has insufficient color contrast of 3.66 (foreground color: #ffffff, background color: #667eea, font size: 12.0pt (16px), font weight: bold). Expected contrast ratio of 4.5:1\",\u001b[39m\n\u001b[31m+             \"relatedNodes\": Array [\u001b[39m\n\u001b[31m+               Object {\u001b[39m\n\u001b[31m+                 \"html\": \"<th>name</th>\",\u001b[39m\n\u001b[31m+                 \"target\": Array [\u001b[39m\n\u001b[31m+                   \"th:nth-child(1)\",\u001b[39m\n\u001b[31m+                 ],\u001b[39m\n\u001b[31m+               },\u001b[39m\n\u001b[31m+             ],\u001b[39m\n\u001b[31m+           },\u001b[39m\n\u001b[31m+         ],\u001b[39m\n\u001b[31m+         \"failureSummary\": \"Fix any of the following:\u001b[39m\n\u001b[31m+   Element has insufficient color contrast of 3.66 (foreground color: #ffffff, background color: #667eea, font size: 12.0pt (16px), font weight: bold). Expected contrast ratio of 4.5:1\",\u001b[39m\n\u001b[31m+         \"html\": \"<th>name</th>\",\u001b[39m\n\u001b[31m+         \"impact\": \"serious\",\u001b[39m\n\u001b[31m+         \"none\": Array [],\u001b[39m\n\u001b[31m+         \"target\": Array [\u001b[39m\n\u001b[31m+           \"th:nth-child(1)\",\u001b[39m\n\u001b[31m+         ],\u001b[39m\n\u001b[31m+       },\u001b[39m\n\u001b[31m+       Object {\u001b[39m\n\u001b[31m+         \"all\": Array [],\u001b[39m\n\u001b[31m+         \"any\": Array [\u001b[39m\n\u001b[31m+           Object {\u001b[39m\n\u001b[31m+             \"data\": Object {\u001b[39m\n\u001b[31m+               \"bgColor\": \"#667eea\",\u001b[39m\n\u001b[31m+               \"colorParse\": undefined,\u001b[39m\n\u001b[31m+               \"contrastRatio\": 3.66,\u001b[39m\n\u001b[31m+               \"expectedContrastRatio\": \"4.5:1\",\u001b[39m\n\u001b[31m+               \"fgColor\": \"#ffffff\",\u001b[39m\n\u001b[31m+               \"fontSize\": \"12.0pt (16px)\",\u001b[39m\n\u001b[31m+               \"fontWeight\": \"bold\",\u001b[39m\n\u001b[31m+               \"messageKey\": null,\u001b[39m\n\u001b[31m+               \"shadowColor\": undefined,\u001b[39m\n\u001b[31m+             },\u001b[39m\n\u001b[31m+             \"id\": \"color-contrast\",\u001b[39m\n\u001b[31m+             \"impact\": \"serious\",\u001b[39m\n\u001b[31m+             \"message\": \"Element has insufficient color contrast of 3.66 (foreground color: #ffffff, background color: #667eea, font size: 12.0pt (16px), font weight: bold). Expected contrast ratio of 4.5:1\",\u001b[39m\n\u001b[31m+             \"relatedNodes\": Array [\u001b[39m\n\u001b[31m+               Object {\u001b[39m\n\u001b[31m+                 \"html\": \"<th>price</th>\",\u001b[39m\n\u001b[31m+                 \"target\": Array [\u001b[39m\n\u001b[31m+                   \"th:nth-child(2)\",\u001b[39m\n\u001b[31m+                 ],\u001b[39m\n\u001b[31m+               },\u001b[39m\n\u001b[31m+             ],\u001b[39m\n\u001b[31m+           },\u001b[39m\n\u001b[31m+         ],\u001b[39m\n\u001b[31m+         \"failureSummary\": \"Fix any of the following:\u001b[39m\n\u001b[31m+   Element has insufficient color contrast of 3.66 (foreground color: #ffffff, background color: #667eea, font size: 12.0pt (16px), font weight: bold). Expected contrast ratio of 4.5:1\",\u001b[39m\n\u001b[31m+         \"html\": \"<th>price</th>\",\u001b[39m\n\u001b[31m+         \"impact\": \"serious\",\u001b[39m\n\u001b[31m+         \"none\": Array [],\u001b[39m\n\u001b[31m+         \"target\": Array [\u001b[39m\n\u001b[31m+           \"th:nth-child(2)\",\u001b[39m\n\u001b[31m+         ],\u001b[39m\n\u001b[31m+       },\u001b[39m\n\u001b[31m+       Object {\u001b[39m\n\u001b[31m+         \"all\": Array [],\u001b[39m\n\u001b[31m+         \"any\": Array [\u001b[39m\n\u001b[31m+           Object {\u001b[39m\n\u001b[31m+             \"data\": Object {\u001b[39m\n\u001b[31m+               \"bgColor\": \"#667eea\",\u001b[39m\n\u001b[31m+               \"colorParse\": undefined,\u001b[39m\n\u001b[31m+               \"contrastRatio\": 3.66,\u001b[39m\n\u001b[31m+               \"expectedContrastRatio\": \"4.5:1\",\u001b[39m\n\u001b[31m+               \"fgColor\": \"#ffffff\",\u001b[39m\n\u001b[31m+               \"fontSize\": \"12.0pt (16px)\",\u001b[39m\n\u001b[31m+               \"fontWeight\": \"bold\",\u001b[39m\n\u001b[31m+               \"messageKey\": null,\u001b[39m\n\u001b[31m+               \"shadowColor\": undefined,\u001b[39m\n\u001b[31m+             },\u001b[39m\n\u001b[31m+             \"id\": \"color-contrast\",\u001b[39m\n\u001b[31m+             \"impact\": \"serious\",\u001b[39m\n\u001b[31m+             \"message\": \"Element has insufficient color contrast of 3.66 (foreground color: #ffffff, background color: #667eea, font size: 12.0pt (16px), font weight: bold). Expected contrast ratio of 4.5:1\",\u001b[39m\n\u001b[31m+             \"relatedNodes\": Array [\u001b[39m\n\u001b[31m+               Object {\u001b[39m\n\u001b[31m+                 \"html\": \"<th>category</th>\",\u001b[39m\n\u001b[31m+                 \"target\": Array [\u001b[39m\n\u001b[31m+                   \"th:nth-child(3)\",\u001b[39m\n\u001b[31m+                 ],\u001b[39m\n\u001b[31m+               },\u001b[39m\n\u001b[31m+             ],\u001b[39m\n\u001b[31m+           },\u001b[39m\n\u001b[31m+         ],\u001b[39m\n\u001b[31m+         \"failureSummary\": \"Fix any of the following:\u001b[39m\n\u001b[31m+   Element has insufficient color contrast of 3.66 (foreground color: #ffffff, background color: #667eea, font size: 12.0pt (16px), font weight: bold). Expected contrast ratio of 4.5:1\",\u001b[39m\n\u001b[31m+         \"html\": \"<th>category</th>\",\u001b[39m\n\u001b[31m+         \"impact\": \"serious\",\u001b[39m\n\u001b[31m+         \"none\": Array [],\u001b[39m\n\u001b[31m+         \"target\": Array [\u001b[39m\n\u001b[31m+           \"th:nth-child(3)\",\u001b[39m\n\u001b[31m+         ],\u001b[39m\n\u001b[31m+       },\u001b[39m\n\u001b[31m+     ],\u001b[39m\n\u001b[31m+     \"tags\": Array [\u001b[39m\n\u001b[31m+       \"cat.color\",\u001b[39m\n\u001b[31m+       \"wcag2aa\",\u001b[39m\n\u001b[31m+       \"wcag143\",\u001b[39m\n\u001b[31m+       \"TTv5\",\u001b[39m\n\u001b[31m+       \"TT13.c\",\u001b[39m\n\u001b[31m+       \"EN-301-549\",\u001b[39m\n\u001b[31m+       \"EN-9.1.4.3\",\u001b[39m\n\u001b[31m+       \"ACT\",\u001b[39m\n\u001b[31m+       \"RGAAv4\",\u001b[39m\n\u001b[31m+       \"RGAA-3.2.1\",\u001b[39m\n\u001b[31m+     ],\u001b[39m\n\u001b[31m+   },\u001b[39m\n\u001b[31m+ ]\u001b[39m\n    at /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs:150:74",
+                    "location": {
+                      "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                      "column": 74,
+                      "line": 150
+                    },
+                    "snippet": "  148 |   await shot('desktop-results');\n  149 |   test.fail(true, 'UX-002: visible normal-size text does not meet 4.5:1 contrast');\n> 150 |   expect(result.violations.filter(item => item.id === 'color-contrast')).toEqual([]);\n      |                                                                          ^\n  151 | });\n  152 |\n  153 | test('UX-003: dynamic error is announced to screen readers', async () => {"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                        "column": 74,
+                        "line": 150
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  -   1\u001b[39m\n\u001b[31m+ Received  + 171\u001b[39m\n\n\u001b[32m- Array []\u001b[39m\n\u001b[31m+ Array [\u001b[39m\n\u001b[31m+   Object {\u001b[39m\n\u001b[31m+     \"description\": \"Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds\",\u001b[39m\n\u001b[31m+     \"help\": \"Elements must meet minimum color contrast ratio thresholds\",\u001b[39m\n\u001b[31m+     \"helpUrl\": \"https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=axeAPI\",\u001b[39m\n\u001b[31m+     \"id\": \"color-contrast\",\u001b[39m\n\u001b[31m+     \"impact\": \"serious\",\u001b[39m\n\u001b[31m+     \"nodes\": Array [\u001b[39m\n\u001b[31m+       Object {\u001b[39m\n\u001b[31m+         \"all\": Array [],\u001b[39m\n\u001b[31m+         \"any\": Array [\u001b[39m\n\u001b[31m+           Object {\u001b[39m\n\u001b[31m+             \"data\": Object {\u001b[39m\n\u001b[31m+               \"bgColor\": \"#28a745\",\u001b[39m\n\u001b[31m+               \"colorParse\": undefined,\u001b[39m\n\u001b[31m+               \"contrastRatio\": 3.13,\u001b[39m\n\u001b[31m+               \"expectedContrastRatio\": \"4.5:1\",\u001b[39m\n\u001b[31m+               \"fgColor\": \"#ffffff\",\u001b[39m\n\u001b[31m+               \"fontSize\": \"10.2pt (13.6px)\",\u001b[39m\n\u001b[31m+               \"fontWeight\": \"normal\",\u001b[39m\n\u001b[31m+               \"messageKey\": null,\u001b[39m\n\u001b[31m+               \"shadowColor\": undefined,\u001b[39m\n\u001b[31m+             },\u001b[39m\n\u001b[31m+             \"id\": \"color-contrast\",\u001b[39m\n\u001b[31m+             \"impact\": \"serious\",\u001b[39m\n\u001b[31m+             \"message\": \"Element has insufficient color contrast of 3.13 (foreground color: #ffffff, background color: #28a745, font size: 10.2pt (13.6px), font weight: normal). Expected contrast ratio of 4.5:1\",\u001b[39m\n\u001b[31m+             \"relatedNodes\": Array [\u001b[39m\n\u001b[31m+               Object {\u001b[39m\n\u001b[31m+                 \"html\": \"<span class=\\\"status-badge status-success\\\">success</span>\",\u001b[39m\n\u001b[31m+                 \"target\": Array [\u001b[39m\n\u001b[31m+                   \"span\",\u001b[39m\n\u001b[31m+                 ],\u001b[39m\n\u001b[31m+               },\u001b[39m\n\u001b[31m+             ],\u001b[39m\n\u001b[31m+           },\u001b[39m\n\u001b[31m+         ],\u001b[39m\n\u001b[31m+         \"failureSummary\": \"Fix any of the following:\u001b[39m\n\u001b[31m+   Element has insufficient color contrast of 3.13 (foreground color: #ffffff, background color: #28a745, font size: 10.2pt (13.6px), font weight: normal). Expected contrast ratio of 4.5:1\",\u001b[39m\n\u001b[31m+         \"html\": \"<span class=\\\"status-badge status-success\\\">success</span>\",\u001b[39m\n\u001b[31m+         \"impact\": \"serious\",\u001b[39m\n\u001b[31m+         \"none\": Array [],\u001b[39m\n\u001b[31m+         \"target\": Array [\u001b[39m\n\u001b[31m+           \"span\",\u001b[39m\n\u001b[31m+         ],\u001b[39m\n\u001b[31m+       },\u001b[39m\n\u001b[31m+       Object {\u001b[39m\n\u001b[31m+         \"all\": Array [],\u001b[39m\n\u001b[31m+         \"any\": Array [\u001b[39m\n\u001b[31m+           Object {\u001b[39m\n\u001b[31m+             \"data\": Object {\u001b[39m\n\u001b[31m+               \"bgColor\": \"#667eea\",\u001b[39m\n\u001b[31m+               \"colorParse\": undefined,\u001b[39m\n\u001b[31m+               \"contrastRatio\": 3.66,\u001b[39m\n\u001b[31m+               \"expectedContrastRatio\": \"4.5:1\",\u001b[39m\n\u001b[31m+               \"fgColor\": \"#ffffff\",\u001b[39m\n\u001b[31m+               \"fontSize\": \"12.0pt (16px)\",\u001b[39m\n\u001b[31m+               \"fontWeight\": \"bold\",\u001b[39m\n\u001b[31m+               \"messageKey\": null,\u001b[39m\n\u001b[31m+               \"shadowColor\": undefined,\u001b[39m\n\u001b[31m+             },\u001b[39m\n\u001b[31m+             \"id\": \"color-contrast\",\u001b[39m\n\u001b[31m+             \"impact\": \"serious\",\u001b[39m\n\u001b[31m+             \"message\": \"Element has insufficient color contrast of 3.66 (foreground color: #ffffff, background color: #667eea, font size: 12.0pt (16px), font weight: bold). Expected contrast ratio of 4.5:1\",\u001b[39m\n\u001b[31m+             \"relatedNodes\": Array [\u001b[39m\n\u001b[31m+               Object {\u001b[39m\n\u001b[31m+                 \"html\": \"<th>name</th>\",\u001b[39m\n\u001b[31m+                 \"target\": Array [\u001b[39m\n\u001b[31m+                   \"th:nth-child(1)\",\u001b[39m\n\u001b[31m+                 ],\u001b[39m\n\u001b[31m+               },\u001b[39m\n\u001b[31m+             ],\u001b[39m\n\u001b[31m+           },\u001b[39m\n\u001b[31m+         ],\u001b[39m\n\u001b[31m+         \"failureSummary\": \"Fix any of the following:\u001b[39m\n\u001b[31m+   Element has insufficient color contrast of 3.66 (foreground color: #ffffff, background color: #667eea, font size: 12.0pt (16px), font weight: bold). Expected contrast ratio of 4.5:1\",\u001b[39m\n\u001b[31m+         \"html\": \"<th>name</th>\",\u001b[39m\n\u001b[31m+         \"impact\": \"serious\",\u001b[39m\n\u001b[31m+         \"none\": Array [],\u001b[39m\n\u001b[31m+         \"target\": Array [\u001b[39m\n\u001b[31m+           \"th:nth-child(1)\",\u001b[39m\n\u001b[31m+         ],\u001b[39m\n\u001b[31m+       },\u001b[39m\n\u001b[31m+       Object {\u001b[39m\n\u001b[31m+         \"all\": Array [],\u001b[39m\n\u001b[31m+         \"any\": Array [\u001b[39m\n\u001b[31m+           Object {\u001b[39m\n\u001b[31m+             \"data\": Object {\u001b[39m\n\u001b[31m+               \"bgColor\": \"#667eea\",\u001b[39m\n\u001b[31m+               \"colorParse\": undefined,\u001b[39m\n\u001b[31m+               \"contrastRatio\": 3.66,\u001b[39m\n\u001b[31m+               \"expectedContrastRatio\": \"4.5:1\",\u001b[39m\n\u001b[31m+               \"fgColor\": \"#ffffff\",\u001b[39m\n\u001b[31m+               \"fontSize\": \"12.0pt (16px)\",\u001b[39m\n\u001b[31m+               \"fontWeight\": \"bold\",\u001b[39m\n\u001b[31m+               \"messageKey\": null,\u001b[39m\n\u001b[31m+               \"shadowColor\": undefined,\u001b[39m\n\u001b[31m+             },\u001b[39m\n\u001b[31m+             \"id\": \"color-contrast\",\u001b[39m\n\u001b[31m+             \"impact\": \"serious\",\u001b[39m\n\u001b[31m+             \"message\": \"Element has insufficient color contrast of 3.66 (foreground color: #ffffff, background color: #667eea, font size: 12.0pt (16px), font weight: bold). Expected contrast ratio of 4.5:1\",\u001b[39m\n\u001b[31m+             \"relatedNodes\": Array [\u001b[39m\n\u001b[31m+               Object {\u001b[39m\n\u001b[31m+                 \"html\": \"<th>price</th>\",\u001b[39m\n\u001b[31m+                 \"target\": Array [\u001b[39m\n\u001b[31m+                   \"th:nth-child(2)\",\u001b[39m\n\u001b[31m+                 ],\u001b[39m\n\u001b[31m+               },\u001b[39m\n\u001b[31m+             ],\u001b[39m\n\u001b[31m+           },\u001b[39m\n\u001b[31m+         ],\u001b[39m\n\u001b[31m+         \"failureSummary\": \"Fix any of the following:\u001b[39m\n\u001b[31m+   Element has insufficient color contrast of 3.66 (foreground color: #ffffff, background color: #667eea, font size: 12.0pt (16px), font weight: bold). Expected contrast ratio of 4.5:1\",\u001b[39m\n\u001b[31m+         \"html\": \"<th>price</th>\",\u001b[39m\n\u001b[31m+         \"impact\": \"serious\",\u001b[39m\n\u001b[31m+         \"none\": Array [],\u001b[39m\n\u001b[31m+         \"target\": Array [\u001b[39m\n\u001b[31m+           \"th:nth-child(2)\",\u001b[39m\n\u001b[31m+         ],\u001b[39m\n\u001b[31m+       },\u001b[39m\n\u001b[31m+       Object {\u001b[39m\n\u001b[31m+         \"all\": Array [],\u001b[39m\n\u001b[31m+         \"any\": Array [\u001b[39m\n\u001b[31m+           Object {\u001b[39m\n\u001b[31m+             \"data\": Object {\u001b[39m\n\u001b[31m+               \"bgColor\": \"#667eea\",\u001b[39m\n\u001b[31m+               \"colorParse\": undefined,\u001b[39m\n\u001b[31m+               \"contrastRatio\": 3.66,\u001b[39m\n\u001b[31m+               \"expectedContrastRatio\": \"4.5:1\",\u001b[39m\n\u001b[31m+               \"fgColor\": \"#ffffff\",\u001b[39m\n\u001b[31m+               \"fontSize\": \"12.0pt (16px)\",\u001b[39m\n\u001b[31m+               \"fontWeight\": \"bold\",\u001b[39m\n\u001b[31m+               \"messageKey\": null,\u001b[39m\n\u001b[31m+               \"shadowColor\": undefined,\u001b[39m\n\u001b[31m+             },\u001b[39m\n\u001b[31m+             \"id\": \"color-contrast\",\u001b[39m\n\u001b[31m+             \"impact\": \"serious\",\u001b[39m\n\u001b[31m+             \"message\": \"Element has insufficient color contrast of 3.66 (foreground color: #ffffff, background color: #667eea, font size: 12.0pt (16px), font weight: bold). Expected contrast ratio of 4.5:1\",\u001b[39m\n\u001b[31m+             \"relatedNodes\": Array [\u001b[39m\n\u001b[31m+               Object {\u001b[39m\n\u001b[31m+                 \"html\": \"<th>category</th>\",\u001b[39m\n\u001b[31m+                 \"target\": Array [\u001b[39m\n\u001b[31m+                   \"th:nth-child(3)\",\u001b[39m\n\u001b[31m+                 ],\u001b[39m\n\u001b[31m+               },\u001b[39m\n\u001b[31m+             ],\u001b[39m\n\u001b[31m+           },\u001b[39m\n\u001b[31m+         ],\u001b[39m\n\u001b[31m+         \"failureSummary\": \"Fix any of the following:\u001b[39m\n\u001b[31m+   Element has insufficient color contrast of 3.66 (foreground color: #ffffff, background color: #667eea, font size: 12.0pt (16px), font weight: bold). Expected contrast ratio of 4.5:1\",\u001b[39m\n\u001b[31m+         \"html\": \"<th>category</th>\",\u001b[39m\n\u001b[31m+         \"impact\": \"serious\",\u001b[39m\n\u001b[31m+         \"none\": Array [],\u001b[39m\n\u001b[31m+         \"target\": Array [\u001b[39m\n\u001b[31m+           \"th:nth-child(3)\",\u001b[39m\n\u001b[31m+         ],\u001b[39m\n\u001b[31m+       },\u001b[39m\n\u001b[31m+     ],\u001b[39m\n\u001b[31m+     \"tags\": Array [\u001b[39m\n\u001b[31m+       \"cat.color\",\u001b[39m\n\u001b[31m+       \"wcag2aa\",\u001b[39m\n\u001b[31m+       \"wcag143\",\u001b[39m\n\u001b[31m+       \"TTv5\",\u001b[39m\n\u001b[31m+       \"TT13.c\",\u001b[39m\n\u001b[31m+       \"EN-301-549\",\u001b[39m\n\u001b[31m+       \"EN-9.1.4.3\",\u001b[39m\n\u001b[31m+       \"ACT\",\u001b[39m\n\u001b[31m+       \"RGAAv4\",\u001b[39m\n\u001b[31m+       \"RGAA-3.2.1\",\u001b[39m\n\u001b[31m+     ],\u001b[39m\n\u001b[31m+   },\u001b[39m\n\u001b[31m+ ]\u001b[39m\n\n  148 |   await shot('desktop-results');\n  149 |   test.fail(true, 'UX-002: visible normal-size text does not meet 4.5:1 contrast');\n> 150 |   expect(result.violations.filter(item => item.id === 'color-contrast')).toEqual([]);\n      |                                                                          ^\n  151 | });\n  152 |\n  153 | test('UX-003: dynamic error is announced to screen readers', async () => {\n    at /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs:150:74"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T01:57:33.770Z",
+                  "annotations": [
+                    {
+                      "type": "fail",
+                      "description": "UX-002: visible normal-size text does not meet 4.5:1 contrast",
+                      "location": {
+                        "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                        "line": 149,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/docs/qa/2026-10-02/artifacts/ux-test-output/dashboard-UX-002-text-has--47f0b-ntrast-in-completed-results/error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                    "column": 74,
+                    "line": 150
+                  }
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "98c9c7983ccfaa711b4b-bc713a5d60c642dbf806",
+          "file": "dashboard.spec.cjs",
+          "line": 143,
+          "column": 1
+        },
+        {
+          "title": "UX-003: dynamic error is announced to screen readers",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "fail",
+                  "description": "UX-003: alert container and inserted feedback lack live-region semantics",
+                  "location": {
+                    "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                    "line": 166,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "failed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 308,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mtrue\u001b[39m\nReceived: \u001b[31mfalse\u001b[39m",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mtrue\u001b[39m\nReceived: \u001b[31mfalse\u001b[39m\n    at /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs:167:58",
+                    "location": {
+                      "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                      "column": 58,
+                      "line": 167
+                    },
+                    "snippet": "  165 |   save('error-semantics', errorSemantics);\n  166 |   test.fail(true, 'UX-003: alert container and inserted feedback lack live-region semantics');\n> 167 |   expect(errorSemantics.some(item => item.ancestorLive)).toBe(true);\n      |                                                          ^\n  168 | });\n  169 |\n  170 | test('UX-004: opening details moves keyboard focus into visible detail context', async () => {"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                        "column": 58,
+                        "line": 167
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mtrue\u001b[39m\nReceived: \u001b[31mfalse\u001b[39m\n\n  165 |   save('error-semantics', errorSemantics);\n  166 |   test.fail(true, 'UX-003: alert container and inserted feedback lack live-region semantics');\n> 167 |   expect(errorSemantics.some(item => item.ancestorLive)).toBe(true);\n      |                                                          ^\n  168 | });\n  169 |\n  170 | test('UX-004: opening details moves keyboard focus into visible detail context', async () => {\n    at /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs:167:58"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T01:57:34.281Z",
+                  "annotations": [
+                    {
+                      "type": "fail",
+                      "description": "UX-003: alert container and inserted feedback lack live-region semantics",
+                      "location": {
+                        "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                        "line": 166,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/docs/qa/2026-10-02/artifacts/ux-test-output/dashboard-UX-003-dynamic-e-99a71-announced-to-screen-readers/error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                    "column": 58,
+                    "line": 167
+                  }
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "98c9c7983ccfaa711b4b-89694ccc620f7da01f07",
+          "file": "dashboard.spec.cjs",
+          "line": 153,
+          "column": 1
+        },
+        {
+          "title": "UX-004: opening details moves keyboard focus into visible detail context",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "fail",
+                  "description": "UX-004: only visual scroll changes; focus remains on original View Details",
+                  "location": {
+                    "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                    "line": 179,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "failed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 285,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mtrue\u001b[39m\nReceived: \u001b[31mfalse\u001b[39m",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mtrue\u001b[39m\nReceived: \u001b[31mfalse\u001b[39m\n    at /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs:180:31",
+                    "location": {
+                      "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                      "column": 31,
+                      "line": 180
+                    },
+                    "snippet": "  178 |   await shot('details-keyboard-focus');\n  179 |   test.fail(true, 'UX-004: only visual scroll changes; focus remains on original View Details');\n> 180 |   expect(focus.insideDetails).toBe(true);\n      |                               ^\n  181 | });\n  182 |\n  183 | test('UX-005: users can retrieve result items beyond the preview', async () => {"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                        "column": 31,
+                        "line": 180
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mtrue\u001b[39m\nReceived: \u001b[31mfalse\u001b[39m\n\n  178 |   await shot('details-keyboard-focus');\n  179 |   test.fail(true, 'UX-004: only visual scroll changes; focus remains on original View Details');\n> 180 |   expect(focus.insideDetails).toBe(true);\n      |                               ^\n  181 | });\n  182 |\n  183 | test('UX-005: users can retrieve result items beyond the preview', async () => {\n    at /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs:180:31"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T01:57:34.593Z",
+                  "annotations": [
+                    {
+                      "type": "fail",
+                      "description": "UX-004: only visual scroll changes; focus remains on original View Details",
+                      "location": {
+                        "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                        "line": 179,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/docs/qa/2026-10-02/artifacts/ux-test-output/dashboard-UX-004-opening-d-a34ce-into-visible-detail-context/error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                    "column": 31,
+                    "line": 180
+                  }
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "98c9c7983ccfaa711b4b-099cbc3273b54aecca6a",
+          "file": "dashboard.spec.cjs",
+          "line": 170,
+          "column": 1
+        },
+        {
+          "title": "UX-005: users can retrieve result items beyond the preview",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "fail",
+                  "description": "UX-005: no next-page, export, download or full-results action exists",
+                  "location": {
+                    "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                    "line": 189,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "failed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 1680,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).not.\u001b[22mtoHaveCount\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByRole('button', { name: /next|download|export|all results/i }).or(getByRole('link', { name: /next|download|export|all results/i }))\nExpected: not \u001b[32m0\u001b[39m\nReceived: \u001b[31m0\u001b[39m\nTimeout:  1500ms\n\nCall log:\n\u001b[2m  - Expect \"not toHaveCount\" getByRole('button', { name: /next|download|export|all results/i }).or(getByRole('link', { name: /next|download|export|all results/i })) with timeout 1500ms\u001b[22m\n\u001b[2m  - waiting for getByRole('button', { name: /next|download|export|all results/i }).or(getByRole('link', { name: /next|download|export|all results/i }))\u001b[22m\n\u001b[2m    16 × locator resolved to 0 elements\u001b[22m\n\u001b[2m       - unexpected value \"0\"\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).not.\u001b[22mtoHaveCount\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByRole('button', { name: /next|download|export|all results/i }).or(getByRole('link', { name: /next|download|export|all results/i }))\nExpected: not \u001b[32m0\u001b[39m\nReceived: \u001b[31m0\u001b[39m\nTimeout:  1500ms\n\nCall log:\n\u001b[2m  - Expect \"not toHaveCount\" getByRole('button', { name: /next|download|export|all results/i }).or(getByRole('link', { name: /next|download|export|all results/i })) with timeout 1500ms\u001b[22m\n\u001b[2m  - waiting for getByRole('button', { name: /next|download|export|all results/i }).or(getByRole('link', { name: /next|download|export|all results/i }))\u001b[22m\n\u001b[2m    16 × locator resolved to 0 elements\u001b[22m\n\u001b[2m       - unexpected value \"0\"\u001b[22m\n\n    at /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs:190:167",
+                    "location": {
+                      "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                      "column": 167,
+                      "line": 190
+                    },
+                    "snippet": "  188 |   save('result-actions', await page.getByRole('button').allTextContents());\n  189 |   test.fail(true, 'UX-005: no next-page, export, download or full-results action exists');\n> 190 |   await expect(page.getByRole('button', { name: /next|download|export|all results/i }).or(page.getByRole('link', { name: /next|download|export|all results/i }))).not.toHaveCount(0);\n      |                                                                                                                                                                       ^\n  191 | });\n  192 |\n  193 | test('UX-006: failed job-list load offers an in-app retry', async () => {"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                        "column": 167,
+                        "line": 190
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).not.\u001b[22mtoHaveCount\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByRole('button', { name: /next|download|export|all results/i }).or(getByRole('link', { name: /next|download|export|all results/i }))\nExpected: not \u001b[32m0\u001b[39m\nReceived: \u001b[31m0\u001b[39m\nTimeout:  1500ms\n\nCall log:\n\u001b[2m  - Expect \"not toHaveCount\" getByRole('button', { name: /next|download|export|all results/i }).or(getByRole('link', { name: /next|download|export|all results/i })) with timeout 1500ms\u001b[22m\n\u001b[2m  - waiting for getByRole('button', { name: /next|download|export|all results/i }).or(getByRole('link', { name: /next|download|export|all results/i }))\u001b[22m\n\u001b[2m    16 × locator resolved to 0 elements\u001b[22m\n\u001b[2m       - unexpected value \"0\"\u001b[22m\n\n\n  188 |   save('result-actions', await page.getByRole('button').allTextContents());\n  189 |   test.fail(true, 'UX-005: no next-page, export, download or full-results action exists');\n> 190 |   await expect(page.getByRole('button', { name: /next|download|export|all results/i }).or(page.getByRole('link', { name: /next|download|export|all results/i }))).not.toHaveCount(0);\n      |                                                                                                                                                                       ^\n  191 | });\n  192 |\n  193 | test('UX-006: failed job-list load offers an in-app retry', async () => {\n    at /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs:190:167"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T01:57:34.884Z",
+                  "annotations": [
+                    {
+                      "type": "fail",
+                      "description": "UX-005: no next-page, export, download or full-results action exists",
+                      "location": {
+                        "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                        "line": 189,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/docs/qa/2026-10-02/artifacts/ux-test-output/dashboard-UX-005-users-can-ce27f-lt-items-beyond-the-preview/error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                    "column": 167,
+                    "line": 190
+                  }
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "98c9c7983ccfaa711b4b-dd96700c3da50af4789a",
+          "file": "dashboard.spec.cjs",
+          "line": 183,
+          "column": 1
+        },
+        {
+          "title": "UX-006: failed job-list load offers an in-app retry",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "fail",
+                  "description": "UX-006: job list stays failed and has no Retry or Refresh control",
+                  "location": {
+                    "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                    "line": 207,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "failed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 586,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mtrue\u001b[39m\nReceived: \u001b[31mfalse\u001b[39m",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mtrue\u001b[39m\nReceived: \u001b[31mfalse\u001b[39m\n    at /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs:208:39",
+                    "location": {
+                      "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                      "column": 39,
+                      "line": 208
+                    },
+                    "snippet": "  206 |   save('error-recovery', { jobsRequestsBeforeRecovery: before, jobsRequestsAfter11Seconds: after, infoRequests: apiRequests.filter(item => item.endpoint === '/info').length, pageStillFailed, recovered, retryAvailable });\n  207 |   test.fail(true, 'UX-006: job list stays failed and has no Retry or Refresh control');\n> 208 |   expect(recovered || retryAvailable).toBe(true);\n      |                                       ^\n  209 | });\n  210 |\n  211 | test('evidence: 200 percent text scale and close focus state', async () => {"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                        "column": 39,
+                        "line": 208
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mtrue\u001b[39m\nReceived: \u001b[31mfalse\u001b[39m\n\n  206 |   save('error-recovery', { jobsRequestsBeforeRecovery: before, jobsRequestsAfter11Seconds: after, infoRequests: apiRequests.filter(item => item.endpoint === '/info').length, pageStillFailed, recovered, retryAvailable });\n  207 |   test.fail(true, 'UX-006: job list stays failed and has no Retry or Refresh control');\n> 208 |   expect(recovered || retryAvailable).toBe(true);\n      |                                       ^\n  209 | });\n  210 |\n  211 | test('evidence: 200 percent text scale and close focus state', async () => {\n    at /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs:208:39"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T01:57:36.571Z",
+                  "annotations": [
+                    {
+                      "type": "fail",
+                      "description": "UX-006: job list stays failed and has no Retry or Refresh control",
+                      "location": {
+                        "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                        "line": 207,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/docs/qa/2026-10-02/artifacts/ux-test-output/dashboard-UX-006-failed-job-list-load-offers-an-in-app-retry/error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                    "column": 39,
+                    "line": 208
+                  }
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "98c9c7983ccfaa711b4b-2add4b16e4513ee8ba67",
+          "file": "dashboard.spec.cjs",
+          "line": 193,
+          "column": 1
+        },
+        {
+          "title": "evidence: 200 percent text scale and close focus state",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 380,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T01:57:37.163Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "98c9c7983ccfaa711b4b-f99dfb29643f56a054fd",
+          "file": "dashboard.spec.cjs",
+          "line": 211,
+          "column": 1
+        },
+        {
+          "title": "UX-004: closing details restores visible keyboard focus",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "fail",
+                  "description": "UX-004: focus stays on hidden Close button instead of returning to opener",
+                  "location": {
+                    "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                    "line": 231,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "failed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 213,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mfalse\u001b[39m\nReceived: \u001b[31mtrue\u001b[39m",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mfalse\u001b[39m\nReceived: \u001b[31mtrue\u001b[39m\n    at /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs:232:89",
+                    "location": {
+                      "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                      "column": 89,
+                      "line": 232
+                    },
+                    "snippet": "  230 |   await expect(page.locator('#job-details')).toBeHidden();\n  231 |   test.fail(true, 'UX-004: focus stays on hidden Close button instead of returning to opener');\n> 232 |   expect(await page.evaluate(() => Boolean(document.activeElement.closest('.hidden')))).toBe(false);\n      |                                                                                         ^\n  233 | });\n  234 |"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                        "column": 89,
+                        "line": 232
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mfalse\u001b[39m\nReceived: \u001b[31mtrue\u001b[39m\n\n  230 |   await expect(page.locator('#job-details')).toBeHidden();\n  231 |   test.fail(true, 'UX-004: focus stays on hidden Close button instead of returning to opener');\n> 232 |   expect(await page.evaluate(() => Boolean(document.activeElement.closest('.hidden')))).toBe(false);\n      |                                                                                         ^\n  233 | });\n  234 |\n    at /Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs:232:89"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T01:57:37.548Z",
+                  "annotations": [
+                    {
+                      "type": "fail",
+                      "description": "UX-004: focus stays on hidden Close button instead of returning to opener",
+                      "location": {
+                        "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                        "line": 231,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/docs/qa/2026-10-02/artifacts/ux-test-output/dashboard-UX-004-closing-d-7ac39-ores-visible-keyboard-focus/error-context.md"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/docs/qa/2026-10-02/artifacts/ux-test-output/dashboard-UX-004-closing-d-7ac39-ores-visible-keyboard-focus/error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/sellers/Projects/qa-sweep-2026-10-02/GrannScraperV1-BIG/tests/qa_ux/dashboard.spec.cjs",
+                    "column": 89,
+                    "line": 232
+                  }
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "98c9c7983ccfaa711b4b-20ee69cc429bcd4ca6e8",
+          "file": "dashboard.spec.cjs",
+          "line": 224,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-03T01:57:31.428Z",
+    "duration": 6355.5689999999995,
+    "expected": 9,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

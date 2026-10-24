@@ -1,0 +1,548 @@
+examples/01_quick_start.py-1-#!/usr/bin/env python3
+examples/01_quick_start.py-2-"""
+examples/01_quick_start.py:3:Example 1: Quick Start - Scrape a website in 5 lines of code
+examples/01_quick_start.py-4-
+examples/01_quick_start.py-5-This example shows the simplest way to use GrandmaScrape.
+examples/01_quick_start.py-6-"""
+examples/01_quick_start.py-7-
+examples/01_quick_start.py:8:from scraper.sdk import GrandmaScrapeClient
+examples/01_quick_start.py-9-
+examples/01_quick_start.py-10-def main():
+examples/01_quick_start.py:11:    print("🧓 GrandmaScrape - Quick Start Example\n")
+examples/01_quick_start.py-12-
+examples/01_quick_start.py-13-    # 1. Create client (assumes API server is running at localhost:8000)
+examples/01_quick_start.py-14-    with GrandmaScrapeClient("http://localhost:8000") as client:
+examples/01_quick_start.py-15-
+examples/01_quick_start.py-16-        # 2. Auto-scrape a website (AI-powered, zero config!)
+--
+README.md-7-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+README.md-8-[![Status](https://img.shields.io/badge/status-active%20development-orange.svg)]()
+README.md-9-
+README.md-10-**An open-source scraping toolkit with a friendly CLI, FastAPI service, and Python SDK.**
+README.md-11-
+README.md:12:The project currently ships a single-node scraping engine (static + Playwright), a set of beginner-friendly CLI modes, an HTTP API with an optional dashboard, and a Python SDK for programmatic access. Distributed orchestration and other Layer B features live on the roadmap while the core experience is hardened.
+README.md-13-
+README.md-14----
+README.md-15-
+README.md:16:## ⚡ Quick Start
+README.md-17-
+README.md-18-### Installation
+README.md-19-
+README.md-20-```bash
+README.md-21-# Install dependencies
+README.md:22:poetry install
+README.md-23-
+README.md-24-# Install Playwright browsers
+README.md:25:poetry run playwright install chromium
+README.md-26-```
+README.md-27-
+README.md-28-### Grandma Mode (Easiest)
+README.md-29-
+README.md-30-```bash
+README.md-31-# Just paste a URL and answer 3 simple questions
+README.md:32:scraper easy https://example.com
+README.md-33-```
+README.md-34-
+README.md-35-### Massive Mode (Max Power, Single Command)
+README.md-36-
+README.md-37-```bash
+README.md-38-# Intelligent auto-detection with smart defaults
+README.md:39:scraper massive https://example.com --max-pages 100 --export csv,json
+README.md-40-```
+README.md-41-
+README.md-42-### Wizard Mode (Interactive Setup)
+README.md-43-
+README.md-44-```bash
+README.md-45-# Step-by-step guidance to create a custom job
+README.md:46:scraper wizard
+README.md-47-```
+README.md-48-
+README.md-49----
+README.md-50-
+README.md-51-## 🎯 Current Capabilities
+--
+README.md-77-
+README.md-78----
+README.md-79-
+README.md-80-## 📖 Usage Examples
+README.md-81-
+README.md:82:### Example 1: Quick CSV Export
+README.md-83-
+README.md-84-```bash
+README.md:85:scraper easy https://news.ycombinator.com
+README.md-86-# Answers prompts, exports to ~/scraper_results/hackernews_2025-11-18.csv
+README.md-87-```
+README.md-88-
+README.md-89-### Example 2: Custom Job Config
+README.md-90-
+--
+README.md-110-
+README.md-111-export_formats: ["csv", "json", "excel"]
+README.md-112-```
+README.md-113-
+README.md-114-```bash
+README.md:115:scraper run config/my_job.yaml
+README.md-116-```
+README.md-117-
+README.md-118-### Example 3: Programmatic Usage
+README.md-119-
+README.md-120-```python
+README.md:121:from scraper.core.engine import ScraperEngine
+README.md:122:from scraper.config.models import ScrapeJob
+README.md-123-
+README.md-124-job = ScrapeJob(
+README.md-125-    name="my_scrape",
+README.md-126-    start_url="https://example.com",
+README.md-127-    item_selector=".product",
+--
+README.md-137-```
+README.md-138-
+README.md-139-### Example 4: Python SDK (Layer C)
+README.md-140-
+README.md-141-```python
+README.md:142:from scraper.sdk import GrandmaScrapeClient
+README.md-143-
+README.md-144-# Initialize client
+README.md-145-with GrandmaScrapeClient("http://localhost:8000") as client:
+README.md-146-    # Auto-scrape with zero config
+README.md-147-    job_id = client.auto_scrape(
+--
+README.md-159-    # Check data quality
+README.md-160-    quality = client.check_data_quality(job_id)
+README.md-161-    print(f"Quality score: {quality['quality_report']['quality_score']:.2f}")
+README.md-162-```
+README.md-163-
+README.md:164:### Example 5: Web Dashboard (Layer C)
+README.md-165-
+README.md-166-```bash
+README.md:167:# Start API server with dashboard
+README.md-168-python -m scraper.api.rest_server
+README.md-169-
+README.md-170-# Open browser to http://localhost:8000
+README.md-171-# 1. Enter URL in auto-scrape form
+README.md-172-# 2. Click "Start Auto-Scrape"
+--
+README.md-175-```
+README.md-176-
+README.md-177-### Example 6: Docker Deployment (Layer C)
+README.md-178-
+README.md-179-```bash
+README.md:180:# Quick start
+README.md-181-docker-compose up -d
+README.md-182-
+README.md-183-# Production deployment
+README.md-184-docker-compose -f docker-compose.prod.yml up -d
+README.md-185-
+--
+README.md-187-docker-compose ps
+README.md-188-
+README.md-189-# View logs
+README.md-190-docker-compose logs -f
+README.md-191-
+README.md:192:# Access dashboard at http://localhost:8000
+README.md-193-```
+README.md-194-
+README.md-195----
+README.md-196-
+README.md-197-## 🏗️ Architecture
+--
+README.md-239----
+README.md-240-
+README.md-241-## 📚 Documentation
+README.md-242-
+README.md-243-**Getting Started:**
+README.md:244:- [Getting Started Guide](GETTING_STARTED.md) - 5-minute quick start for beginners
+README.md-245-- [Platform Summary](PLATFORM_SUMMARY.md) - Complete feature overview
+README.md-246-- [Success Summary](SUCCESS_SUMMARY.md) - Achievement statistics & ROI
+README.md-247-
+README.md-248-**Advanced Features:**
+README.md-249-- [Ultra Power Features](ULTRA_POWER.md) - Layer B intelligence features
+--
+README.md-257-- [Contributing Guide](CONTRIBUTING.md) - How to contribute
+README.md-258-- [Security Policy](SECURITY.md) - Security and responsible disclosure
+README.md-259-- [Changelog](CHANGELOG.md) - Version history and updates
+README.md-260-
+README.md-261-**API Documentation:**
+README.md:262:- Auto-generated OpenAPI docs at `/docs` when running `scraper serve`
+README.md-263-
+README.md-264----
+README.md-265-
+README.md-266-## 🧪 Testing
+README.md-267-
+README.md-268-```bash
+README.md-269-# Run all tests
+README.md-270-poetry run pytest
+README.md-271-
+README.md-272-# Run with coverage
+README.md:273:poetry run pytest --cov=scraper --cov-report=html
+README.md-274-
+README.md-275-# Run specific test suite
+README.md-276-poetry run pytest tests/core/
+README.md-277-```
+README.md-278-
+--
+GETTING_STARTED.md-4-
+GETTING_STARTED.md-5----
+GETTING_STARTED.md-6-
+GETTING_STARTED.md-7-## Table of Contents
+GETTING_STARTED.md-8-
+GETTING_STARTED.md:9:1. [Installation](#installation)
+GETTING_STARTED.md:10:2. [Quick Start (5 Minutes)](#quick-start-5-minutes)
+GETTING_STARTED.md-11-3. [Choose Your Interface](#choose-your-interface)
+GETTING_STARTED.md-12-4. [Common Use Cases](#common-use-cases)
+GETTING_STARTED.md-13-5. [Next Steps](#next-steps)
+GETTING_STARTED.md-14-
+GETTING_STARTED.md-15----
+--
+GETTING_STARTED.md-24-
+GETTING_STARTED.md-25-### Install with Poetry (Recommended)
+GETTING_STARTED.md-26-
+GETTING_STARTED.md-27-```bash
+GETTING_STARTED.md-28-# 1. Clone the repository
+GETTING_STARTED.md:29:git clone https://github.com/yourorg/GrannScraperV1-BIG.git
+GETTING_STARTED.md:30:cd GrannScraperV1-BIG
+GETTING_STARTED.md-31-
+GETTING_STARTED.md-32-# 2. Install dependencies
+GETTING_STARTED.md:33:poetry install
+GETTING_STARTED.md-34-
+GETTING_STARTED.md-35-# 3. Install Playwright browsers (for JavaScript-heavy sites)
+GETTING_STARTED.md:36:poetry run playwright install chromium
+GETTING_STARTED.md-37-
+GETTING_STARTED.md:38:# 4. Verify installation
+GETTING_STARTED.md:39:poetry run scraper --help
+GETTING_STARTED.md-40-```
+GETTING_STARTED.md-41-
+GETTING_STARTED.md-42-### Install with pip
+GETTING_STARTED.md-43-
+GETTING_STARTED.md-44-```bash
+GETTING_STARTED.md-45-# 1. Clone and navigate
+GETTING_STARTED.md:46:git clone https://github.com/yourorg/GrannScraperV1-BIG.git
+GETTING_STARTED.md:47:cd GrannScraperV1-BIG
+GETTING_STARTED.md-48-
+GETTING_STARTED.md-49-# 2. Create virtual environment
+GETTING_STARTED.md-50-python -m venv venv
+GETTING_STARTED.md-51-source venv/bin/activate  # On Windows: venv\Scripts\activate
+GETTING_STARTED.md-52-
+GETTING_STARTED.md-53-# 3. Install
+GETTING_STARTED.md:54:pip install -e .
+GETTING_STARTED.md:55:playwright install chromium
+GETTING_STARTED.md-56-
+GETTING_STARTED.md-57-# 4. Verify
+GETTING_STARTED.md:58:scraper --help
+GETTING_STARTED.md-59-```
+GETTING_STARTED.md-60-
+GETTING_STARTED.md-61----
+GETTING_STARTED.md-62-
+GETTING_STARTED.md:63:## Quick Start (5 Minutes)
+GETTING_STARTED.md-64-
+GETTING_STARTED.md-65-### Method 1: CLI (Grandma-Simple!)
+GETTING_STARTED.md-66-
+GETTING_STARTED.md-67-**Just 3 questions, that's it!**
+GETTING_STARTED.md-68-
+GETTING_STARTED.md-69-```bash
+GETTING_STARTED.md:70:scraper easy https://example.com/products
+GETTING_STARTED.md-71-```
+GETTING_STARTED.md-72-
+GETTING_STARTED.md-73-You'll be asked:
+GETTING_STARTED.md-74-1. What to name your scrape?
+GETTING_STARTED.md-75-2. How many pages to scrape?
+GETTING_STARTED.md-76-3. What format to export? (CSV, JSON, Excel)
+GETTING_STARTED.md-77-
+GETTING_STARTED.md-78-Done! Results saved to `~/scraper_results/`
+GETTING_STARTED.md-79-
+GETTING_STARTED.md:80:### Method 2: Web Dashboard
+GETTING_STARTED.md-81-
+GETTING_STARTED.md-82-**Point-and-click interface - no coding required!**
+GETTING_STARTED.md-83-
+GETTING_STARTED.md-84-```bash
+GETTING_STARTED.md-85-# Start the server
+GETTING_STARTED.md:86:scraper serve
+GETTING_STARTED.md-87-
+GETTING_STARTED.md-88-# Open browser to:
+GETTING_STARTED.md-89-http://localhost:8000
+GETTING_STARTED.md-90-```
+GETTING_STARTED.md-91-
+--
+GETTING_STARTED.md-97-### Method 3: Python SDK
+GETTING_STARTED.md-98-
+GETTING_STARTED.md-99-**For developers - clean, pythonic API**
+GETTING_STARTED.md-100-
+GETTING_STARTED.md-101-```python
+GETTING_STARTED.md:102:from scraper.sdk import GrandmaScrapeClient
+GETTING_STARTED.md-103-
+GETTING_STARTED.md-104-# Auto-scrape with one method
+GETTING_STARTED.md-105-with GrandmaScrapeClient() as client:
+GETTING_STARTED.md-106-    job_id = client.auto_scrape(
+GETTING_STARTED.md-107-        "https://example.com",
+--
+GETTING_STARTED.md-117-### Method 4: Docker (Production)
+GETTING_STARTED.md-118-
+GETTING_STARTED.md-119-**Containerized deployment**
+GETTING_STARTED.md-120-
+GETTING_STARTED.md-121-```bash
+GETTING_STARTED.md:122:# Quick start
+GETTING_STARTED.md-123-docker-compose up -d
+GETTING_STARTED.md-124-
+GETTING_STARTED.md:125:# Access dashboard
+GETTING_STARTED.md-126-open http://localhost:8000
+GETTING_STARTED.md-127-```
+GETTING_STARTED.md-128-
+GETTING_STARTED.md-129----
+GETTING_STARTED.md-130-
+--
+GETTING_STARTED.md-132-
+GETTING_STARTED.md-133-GrandmaScrape has **4 interfaces** for different users:
+GETTING_STARTED.md-134-
+GETTING_STARTED.md-135-### 1. CLI - Command Line Interface
+GETTING_STARTED.md-136-
+GETTING_STARTED.md:137:**Best for:** Quick scripts, automation, cron jobs
+GETTING_STARTED.md-138-
+GETTING_STARTED.md-139-**Power Level:** ⚡⚡⚡⚡
+GETTING_STARTED.md-140-
+GETTING_STARTED.md-141-**Commands:**
+GETTING_STARTED.md-142-```bash
+GETTING_STARTED.md-143-# Easy mode (3 questions)
+GETTING_STARTED.md:144:scraper easy https://site.com
+GETTING_STARTED.md-145-
+GETTING_STARTED.md-146-# Smart mode (AI auto-detection)
+GETTING_STARTED.md:147:scraper smart https://site.com --concurrent
+GETTING_STARTED.md-148-
+GETTING_STARTED.md-149-# Massive mode (max power)
+GETTING_STARTED.md:150:scraper massive https://site.com --max-pages 1000
+GETTING_STARTED.md-151-
+GETTING_STARTED.md-152-# Start API server
+GETTING_STARTED.md:153:scraper serve
+GETTING_STARTED.md-154-```
+GETTING_STARTED.md-155-
+GETTING_STARTED.md-156-**Full Command List:**
+GETTING_STARTED.md-157-```bash
+GETTING_STARTED.md:158:scraper --help
+GETTING_STARTED.md-159-
+GETTING_STARTED.md-160-Commands:
+GETTING_STARTED.md:161:  serve     - Start API server + web dashboard
+GETTING_STARTED.md-162-  easy      - 3 questions, that's it! (grandma-friendly)
+GETTING_STARTED.md-163-  smart     - AI auto-detection (zero configuration)
+GETTING_STARTED.md-164-  analyze   - Deep site analysis
+GETTING_STARTED.md-165-  massive   - Max power mode
+GETTING_STARTED.md-166-  wizard    - Interactive job builder
+--
+GETTING_STARTED.md-169-  validate  - Check config file
+GETTING_STARTED.md-170-```
+GETTING_STARTED.md-171-
+GETTING_STARTED.md-172----
+GETTING_STARTED.md-173-
+GETTING_STARTED.md:174:### 2. Web Dashboard - Browser Interface
+GETTING_STARTED.md-175-
+GETTING_STARTED.md-176-**Best for:** Non-technical users, one-off scrapes, exploration
+GETTING_STARTED.md-177-
+GETTING_STARTED.md-178-**Power Level:** ⚡⚡⚡
+GETTING_STARTED.md-179-
+--
+GETTING_STARTED.md-184-- Results viewer
+GETTING_STARTED.md-185-- No coding required
+GETTING_STARTED.md-186-
+GETTING_STARTED.md-187-**Usage:**
+GETTING_STARTED.md-188-```bash
+GETTING_STARTED.md:189:scraper serve
+GETTING_STARTED.md-190-# Visit http://localhost:8000
+GETTING_STARTED.md-191-```
+GETTING_STARTED.md-192-
+GETTING_STARTED.md-193----
+GETTING_STARTED.md-194-
+--
+GETTING_STARTED.md-198-
+GETTING_STARTED.md-199-**Power Level:** ⚡⚡⚡⚡⚡
+GETTING_STARTED.md-200-
+GETTING_STARTED.md-201-**Basic Usage:**
+GETTING_STARTED.md-202-```python
+GETTING_STARTED.md:203:from scraper.sdk import GrandmaScrapeClient
+GETTING_STARTED.md-204-
+GETTING_STARTED.md-205-with GrandmaScrapeClient() as client:
+GETTING_STARTED.md-206-    # Auto-scrape
+GETTING_STARTED.md-207-    job_id = client.auto_scrape(url, concurrent=True, wait=True)
+GETTING_STARTED.md-208-
+--
+GETTING_STARTED.md-214-```
+GETTING_STARTED.md-215-
+GETTING_STARTED.md-216-**Advanced Usage:**
+GETTING_STARTED.md-217-```python
+GETTING_STARTED.md-218-# Async for performance
+GETTING_STARTED.md:219:from scraper.sdk import AsyncGrandmaScrapeClient
+GETTING_STARTED.md-220-
+GETTING_STARTED.md-221-async with AsyncGrandmaScrapeClient() as client:
+GETTING_STARTED.md-222-    job_id = await client.auto_scrape(url)
+GETTING_STARTED.md-223-    await client.wait_for_job(job_id)
+GETTING_STARTED.md-224-    results = await client.get_all_results(job_id)
+--
+GETTING_STARTED.md-232-
+GETTING_STARTED.md-233-**Power Level:** ⚡⚡⚡⚡⚡
+GETTING_STARTED.md-234-
+GETTING_STARTED.md-235-**Start Server:**
+GETTING_STARTED.md-236-```bash
+GETTING_STARTED.md:237:scraper serve --port 8000
+GETTING_STARTED.md-238-```
+GETTING_STARTED.md-239-
+GETTING_STARTED.md-240-**Example Requests:**
+GETTING_STARTED.md-241-```bash
+GETTING_STARTED.md-242-# Auto-detect structure
+--
+GETTING_STARTED.md-271-```bash
+GETTING_STARTED.md-272-# Create cron job (runs daily at 2 AM)
+GETTING_STARTED.md-273-crontab -e
+GETTING_STARTED.md-274-
+GETTING_STARTED.md-275-# Add line:
+GETTING_STARTED.md:276:0 2 * * * cd /path/to/scraper && scraper smart https://competitor.com/products --export csv
+GETTING_STARTED.md-277-```
+GETTING_STARTED.md-278-
+GETTING_STARTED.md-279----
+GETTING_STARTED.md-280-
+GETTING_STARTED.md-281-### Use Case 2: Data Science Project
+--
+GETTING_STARTED.md-283-**Goal:** Collect training data for ML model
+GETTING_STARTED.md-284-
+GETTING_STARTED.md-285-**Solution:** Python SDK + Pandas
+GETTING_STARTED.md-286-
+GETTING_STARTED.md-287-```python
+GETTING_STARTED.md:288:from scraper.sdk import GrandmaScrapeClient
+GETTING_STARTED.md:289:import pandas as pd
+GETTING_STARTED.md-290-
+GETTING_STARTED.md-291-with GrandmaScrapeClient() as client:
+GETTING_STARTED.md-292-    # Scrape data
+GETTING_STARTED.md-293-    job_id = client.auto_scrape(
+GETTING_STARTED.md-294-        "https://dataset-source.com",
+--
+GETTING_STARTED.md-300-    # Load into Pandas
+GETTING_STARTED.md-301-    data = client.get_all_results(job_id)
+GETTING_STARTED.md-302-    df = pd.DataFrame(data)
+GETTING_STARTED.md-303-
+GETTING_STARTED.md-304-    # Train model
+GETTING_STARTED.md:305:    from sklearn.model_selection import train_test_split
+GETTING_STARTED.md-306-    # ... your ML code
+GETTING_STARTED.md-307-```
+GETTING_STARTED.md-308-
+GETTING_STARTED.md-309----
+GETTING_STARTED.md-310-
+--
+GETTING_STARTED.md-345-
+GETTING_STARTED.md-346-### 1. Try the Examples
+GETTING_STARTED.md-347-
+GETTING_STARTED.md-348-```bash
+GETTING_STARTED.md-349-# Basic examples
+GETTING_STARTED.md:350:python examples/01_quick_start.py
+GETTING_STARTED.md-351-python examples/02_pandas_integration.py
+GETTING_STARTED.md-352-python examples/03_async_concurrent.py
+GETTING_STARTED.md-353-
+GETTING_STARTED.md-354-# See all examples
+GETTING_STARTED.md-355-ls examples/
+--
+GETTING_STARTED.md-394-
+GETTING_STARTED.md-395-### Server Management
+GETTING_STARTED.md-396-
+GETTING_STARTED.md-397-```bash
+GETTING_STARTED.md-398-# Start server
+GETTING_STARTED.md:399:scraper serve
+GETTING_STARTED.md-400-
+GETTING_STARTED.md-401-# Start on custom port
+GETTING_STARTED.md:402:scraper serve --port 3000
+GETTING_STARTED.md-403-
+GETTING_STARTED.md-404-# Development mode (auto-reload)
+GETTING_STARTED.md:405:scraper serve --reload
+GETTING_STARTED.md-406-```
+GETTING_STARTED.md-407-
+GETTING_STARTED.md-408-### Job Management
+GETTING_STARTED.md-409-
+GETTING_STARTED.md-410-```bash
+GETTING_STARTED.md-411-# List saved jobs
+GETTING_STARTED.md:412:scraper list
+GETTING_STARTED.md-413-
+GETTING_STARTED.md-414-# Run saved job
+GETTING_STARTED.md:415:scraper run my_job
+GETTING_STARTED.md-416-
+GETTING_STARTED.md-417-# Validate config
+GETTING_STARTED.md:418:scraper validate config/job.yaml
+GETTING_STARTED.md-419-```
+GETTING_STARTED.md-420-
+GETTING_STARTED.md-421-### Docker Operations
+GETTING_STARTED.md-422-
+GETTING_STARTED.md-423-```bash
+--
+GETTING_STARTED.md-443-**Problem:** Port already in use
+GETTING_STARTED.md-444-
+GETTING_STARTED.md-445-**Solution:**
+GETTING_STARTED.md-446-```bash
+GETTING_STARTED.md-447-# Use different port
+GETTING_STARTED.md:448:scraper serve --port 3000
+GETTING_STARTED.md-449-
+GETTING_STARTED.md-450-# Or kill process on port 8000
+GETTING_STARTED.md-451-lsof -ti:8000 | xargs kill
+GETTING_STARTED.md-452-```
+GETTING_STARTED.md-453-
+--
+GETTING_STARTED.md-458-**Problem:** Takes too long
+GETTING_STARTED.md-459-
+GETTING_STARTED.md-460-**Solution:**
+GETTING_STARTED.md-461-```bash
+GETTING_STARTED.md-462-# Enable concurrent scraping (10x faster)
+GETTING_STARTED.md:463:scraper smart URL --concurrent
+GETTING_STARTED.md-464-
+GETTING_STARTED.md-465-# Or in SDK:
+GETTING_STARTED.md-466-client.auto_scrape(url, concurrent=True)
+GETTING_STARTED.md-467-```
+GETTING_STARTED.md-468-
+--
+GETTING_STARTED.md-472-
+GETTING_STARTED.md-473-**Problem:** Module not found
+GETTING_STARTED.md-474-
+GETTING_STARTED.md-475-**Solution:**
+GETTING_STARTED.md-476-```bash
+GETTING_STARTED.md:477:# Reinstall dependencies
+GETTING_STARTED.md:478:poetry install
+GETTING_STARTED.md-479-
+GETTING_STARTED.md-480-# Or with pip:
+GETTING_STARTED.md:481:pip install -e .
+GETTING_STARTED.md-482-```
+GETTING_STARTED.md-483-
+GETTING_STARTED.md-484----
+GETTING_STARTED.md-485-
+GETTING_STARTED.md-486-### Quality Issues
+--
+GETTING_STARTED.md-513-
+GETTING_STARTED.md-514-### API Documentation
+GETTING_STARTED.md-515-
+GETTING_STARTED.md-516-```bash
+GETTING_STARTED.md-517-# Start server
+GETTING_STARTED.md:518:scraper serve
+GETTING_STARTED.md-519-
+GETTING_STARTED.md-520-# Visit interactive docs
+GETTING_STARTED.md-521-http://localhost:8000/docs
+GETTING_STARTED.md-522-```
+GETTING_STARTED.md-523-
+--
+GETTING_STARTED.md-542-
+GETTING_STARTED.md-543-### 1. Start Simple
+GETTING_STARTED.md-544-
+GETTING_STARTED.md-545-```bash
+GETTING_STARTED.md-546-# Begin with easy mode
+GETTING_STARTED.md:547:scraper easy https://simple-site.com
+GETTING_STARTED.md-548-
+GETTING_STARTED.md-549-# Then graduate to smart mode
+GETTING_STARTED.md:550:scraper smart https://simple-site.com
+GETTING_STARTED.md-551-```
+GETTING_STARTED.md-552-
+GETTING_STARTED.md-553-### 2. Use Concurrent Scraping
+GETTING_STARTED.md-554-
+GETTING_STARTED.md-555-```python
+--
+GETTING_STARTED.md-585-## What's Next?
+GETTING_STARTED.md-586-
+GETTING_STARTED.md-587-You're ready to start scraping! Here's a suggested learning path:
+GETTING_STARTED.md-588-
+GETTING_STARTED.md-589-1. **✅ Install GrandmaScrape** (You did this!)
+GETTING_STARTED.md:590:2. **⬜ Try `scraper easy`** - Get your first scrape
+GETTING_STARTED.md:591:3. **⬜ Run `01_quick_start.py`** - See SDK in action
+GETTING_STARTED.md:592:4. **⬜ Start web dashboard** - Try the UI
+GETTING_STARTED.md-593-5. **⬜ Read `ULTRA_POWER.md`** - Learn advanced features
+GETTING_STARTED.md-594-6. **⬜ Build your first project** - Apply to real use case
+GETTING_STARTED.md-595-7. **⬜ Deploy to production** - See `DEPLOYMENT.md`
+GETTING_STARTED.md-596-
+GETTING_STARTED.md-597----

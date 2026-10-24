@@ -1,0 +1,17 @@
+{
+  "covered_lines": 1354,
+  "num_statements": 5434,
+  "percent_covered": 24.971988795518207,
+  "percent_covered_display": "25",
+  "missing_lines": 4080,
+  "excluded_lines": 16,
+  "percent_statements_covered": 24.917188075082812,
+  "percent_statements_covered_display": "25",
+  "num_branches": 1706,
+  "num_partial_branches": 119,
+  "covered_branches": 429,
+  "missing_branches": 1277,
+  "percent_branches_covered": 25.146541617819462,
+  "percent_branches_covered_display": "25"
+}
+['', '### 2026-10-03T01:48:20Z — initial-identity', '', 'Command (argv): `[\'/bin/sh\', \'-c\', \'pwd && git worktree list && git branch --show-current && git remote get-url origin && sed -n "1,240p" docs/qa/2026-10-02/PLAN.md\']`', '', 'Exit 0; 0.04s; [output](artifacts/backend-initial-identity-3b7934d3.txt).', '', '### 2026-10-03T01:48:25Z — inspect-layout']

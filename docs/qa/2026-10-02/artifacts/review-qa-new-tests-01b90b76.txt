@@ -1,0 +1,115 @@
+<string>:1: SyntaxWarning: "\(" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\("? A raw string is also an option.
+tests/qa_frontend/playwright.config.cjs
+tests/qa_frontend/dashboard.spec.cjs
+tests/qa_ux/playwright.config.cjs
+tests/qa_ux/dashboard.spec.cjs
+tests/conftest.py
+tests/qa_backend/conftest.py
+
+tests/qa_backend/test_boundaries_exports.py:21:async def test_url_pattern_generates_exact_contiguous_window(start, count):
+tests/qa_backend/test_boundaries_exports.py:36:async def test_static_fetcher_retry_classes(job, monkeypatch, statuses, expected_calls, success):
+tests/qa_backend/test_boundaries_exports.py:55:@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-007: proxy-enabled fetch passes unsupported proxies keyword to AsyncClient.get")
+tests/qa_backend/test_boundaries_exports.py:56:async def test_proxy_enabled_fetch_reaches_configured_transport(job, monkeypatch):
+tests/qa_backend/test_boundaries_exports.py:75:async def test_local_export_round_trip(job, format_name):
+tests/qa_security/test_security_boundaries.py:1:"""Offline security contracts. Known defects stay strict-xfail until repaired.
+tests/qa_security/test_security_boundaries.py:43:@pytest.mark.xfail(strict=True, reason="BE-010: privileged API routes have no auth dependency")
+tests/qa_security/test_security_boundaries.py:44:async def test_api_rejects_unauthenticated_job_access(client, identity, operation):
+tests/qa_security/test_security_boundaries.py:63:@pytest.mark.xfail(strict=True, reason="BE-010: OpenAPI declares no security on job operations")
+tests/qa_security/test_security_boundaries.py:64:async def test_openapi_declares_auth_for_privileged_routes(client):
+tests/qa_security/test_security_boundaries.py:70:async def test_public_health_is_accessible(client):
+tests/qa_security/test_security_boundaries.py:79:@pytest.mark.xfail(strict=True, reason="BE-011: static fetcher permits nonpublic destinations")
+tests/qa_security/test_security_boundaries.py:80:async def test_static_fetch_blocks_nonpublic_destinations(target):
+tests/qa_security/test_security_boundaries.py:95:@pytest.mark.xfail(strict=True, reason="BE-011: redirect targets are not revalidated")
+tests/qa_security/test_security_boundaries.py:96:async def test_static_fetch_blocks_public_to_private_redirect(monkeypatch):
+tests/qa_security/test_security_boundaries.py:116:async def test_static_fetch_public_fixture_positive_control():
+tests/qa_security/test_security_boundaries.py:166:@pytest.mark.xfail(strict=True, reason="BE-012: API export filename can escape base_path")
+tests/qa_security/test_security_boundaries.py:167:async def test_api_export_cannot_overwrite_sibling_marker(client, monkeypatch, tmp_path):
+tests/qa_security/test_security_boundaries.py:174:async def test_api_export_with_safe_filename_positive_control(client, monkeypatch, tmp_path):
+tests/qa_security/test_security_boundaries.py:179:@pytest.mark.xfail(strict=True, reason="BE-013: pagination has no server-side upper bound")
+tests/qa_security/test_security_boundaries.py:180:def test_pagination_rejects_excessive_work_budget():
+tests/qa_ux/test_cli_docs.py:27:def test_cli_help_lists_documented_commands():
+tests/qa_ux/test_cli_docs.py:34:@pytest.mark.xfail(strict=True, raises=AssertionError, reason="UX-007: list command shadows built-in list and cannot enumerate saved jobs")
+tests/qa_ux/test_cli_docs.py:35:def test_saved_jobs_are_listed(tmp_path):
+tests/qa_ux/test_cli_docs.py:44:@pytest.mark.xfail(strict=True, raises=AssertionError, reason="UX-008: README uses a config pathname but scraper run only accepts a saved-job name")
+tests/qa_ux/test_cli_docs.py:45:def test_readme_config_path_can_be_run(monkeypatch, tmp_path):
+tests/qa_ux/test_cli_docs.py:57:@pytest.mark.xfail(strict=True, raises=AssertionError, reason="UX-008: README's flat browser/pagination/export keys are silently ignored")
+tests/qa_ux/test_cli_docs.py:58:def test_readme_job_config_preserves_documented_settings():
+tests/qa_ux/test_cli_docs.py:69:def test_easy_mode_cancel_explains_outcome_without_network():
+tests/qa_ux/test_cli_docs.py:75:def test_valid_saved_job_name_reaches_runner(monkeypatch, tmp_path):
+tests/qa_backend/test_api_contracts.py:1:"""Real in-process routes; known defects retain desired assertions as strict xfails."""
+tests/qa_backend/test_api_contracts.py:12:async def test_openapi_declares_create_contract(client):
+tests/qa_backend/test_api_contracts.py:20:async def test_create_read_list_delete_and_duplicate(client, job):
+tests/qa_backend/test_api_contracts.py:36:async def test_missing_job_returns_404(client, suffix):
+tests/qa_backend/test_api_contracts.py:41:async def test_create_rejects_invalid_input(client, payload):
+tests/qa_backend/test_api_contracts.py:45:async def test_concurrent_run_requests_start_only_once(client, job, monkeypatch):
+tests/qa_backend/test_api_contracts.py:63:async def test_delete_cancels_active_task(client, job, monkeypatch):
+tests/qa_backend/test_api_contracts.py:75:async def test_results_pagination_boundaries(client, job):
+tests/qa_backend/test_api_contracts.py:87:@pytest.mark.xfail(strict=True, reason="BE-004: server-generated IDs contain a dot rejected by detail/delete")
+tests/qa_backend/test_api_contracts.py:88:async def test_server_generated_job_id_round_trips(client, job):
+tests/qa_backend/test_api_contracts.py:98:@pytest.mark.xfail(strict=True, reason="BE-008: results accepts zero/negative limit and negative offset")
+tests/qa_backend/test_api_contracts.py:100:async def test_invalid_results_pagination_is_rejected(client, job, query):
+tests/qa_backend/test_api_contracts.py:107:async def test_workflow_without_dependencies_round_trips(client):
+tests/qa_backend/test_api_contracts.py:116:@pytest.mark.xfail(strict=True, reason="BE-005: invalid workflow nodes/DAG errors escape as 500")
+tests/qa_backend/test_api_contracts.py:122:async def test_bad_workflow_returns_validation_error(client, nodes):
+tests/qa_backend/test_api_contracts.py:127:@pytest.mark.xfail(strict=True, reason="FE-001: root dashboard app.js path is not served")
+tests/qa_backend/test_api_contracts.py:128:async def test_dashboard_script_is_available(client):
+tests/qa_backend/test_api_contracts.py:140:async def test_mounted_dashboard_script_is_available(client):
+tests/qa_backend/test_api_contracts.py:144:@pytest.mark.xfail(strict=True, reason="FE-002: dashboard max_pages is an ignored top-level field")
+tests/qa_backend/test_api_contracts.py:145:async def test_dashboard_requested_page_limit_is_preserved(client, job):
+tests/qa_backend/test_api_contracts.py:153:@pytest.mark.xfail(strict=True, reason="FE-003: dashboard export.format is ignored; CSV default wins")
+tests/qa_backend/test_api_contracts.py:154:async def test_dashboard_requested_export_format_is_preserved(client, job):
+tests/qa_frontend/probe_browsers.cjs:16:      const actualEngine = /Firefox\//.test(userAgent) ? 'firefox' : /Chrome\//.test(userAgent) ? 'chromium' : /AppleWebKit\//.test(userAgent) ? 'webkit' : 'unknown';
+tests/qa_backend/test_execution.py:18:@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-001: standard run fails with UnboundLocalError and leaves no terminal result")
+tests/qa_backend/test_execution.py:19:async def test_standard_api_run_persists_success(client, job, monkeypatch):
+tests/qa_backend/test_execution.py:34:@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-002: concurrent workers never exit once active_workers reaches zero")
+tests/qa_backend/test_execution.py:35:async def test_concurrent_scraper_finishes_after_completed_work(job, monkeypatch):
+tests/qa_backend/test_execution.py:64:@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-003: incremental API callback passes ScrapeResult instead of item dicts")
+tests/qa_backend/test_execution.py:65:async def test_incremental_api_run_accepts_engine_result(client, job, monkeypatch):
+tests/qa_backend/test_execution.py:77:@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-003: incremental scraping never caches page freshness, so replay re-fetches all URLs")
+tests/qa_backend/test_execution.py:78:async def test_incremental_repeat_uses_cache(job, tmp_path):
+tests/qa_backend/test_execution.py:88:@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-003: cached items are omitted from incremental results")
+tests/qa_backend/test_execution.py:89:async def test_incremental_cached_items_are_returned(job, tmp_path):
+tests/qa_backend/test_execution.py:99:@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-005: DAG plan runs dependents first and drops prerequisites")
+tests/qa_backend/test_execution.py:100:def test_workflow_orders_prerequisites_before_dependents():
+tests/qa_backend/test_execution.py:126:async def test_engine_extracts_and_counts_fixture_items(job, monkeypatch):
+tests/qa_backend/test_execution.py:135:@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-006: max_items is checked only before a page and allows page overshoot")
+tests/qa_backend/test_execution.py:136:async def test_engine_respects_item_limit_within_page(job, monkeypatch):
+tests/qa_backend/test_execution.py:145:async def test_engine_converts_transport_failure_to_terminal_result(job, monkeypatch):
+tests/qa_backend/test_execution.py:158:@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-009: next-button pagination never follows the discovered link")
+tests/qa_backend/test_execution.py:159:async def test_engine_follows_next_button(job, monkeypatch):
+tests/qa_ux/dashboard.spec.cjs:99:test('baseline: named controls, keyboard operation, native invalid URL, empty/loading semantics evidence', async () => {
+tests/qa_ux/dashboard.spec.cjs:126:test('UX-001: populated mobile page reflows without document horizontal overflow', async () => {
+tests/qa_ux/dashboard.spec.cjs:132:  test.fail(true, 'UX-001: job text and horizontal action row overflow the mobile viewport');
+tests/qa_ux/dashboard.spec.cjs:136:test('UX-002: text has WCAG AA contrast in completed results', async () => {
+tests/qa_ux/dashboard.spec.cjs:142:  test.fail(true, 'UX-002: visible normal-size text does not meet 4.5:1 contrast');
+tests/qa_ux/dashboard.spec.cjs:146:test('UX-003: dynamic error is announced to screen readers', async () => {
+tests/qa_ux/dashboard.spec.cjs:153:  test.fail(true, 'UX-003: alert container and inserted feedback lack live-region semantics');
+tests/qa_ux/dashboard.spec.cjs:157:test('UX-004: opening details moves keyboard focus into visible detail context', async () => {
+tests/qa_ux/dashboard.spec.cjs:166:  test.fail(true, 'UX-004: only visual scroll changes; focus remains on original View Details');
+tests/qa_ux/dashboard.spec.cjs:170:test('UX-005: users can retrieve result items beyond the preview', async () => {
+tests/qa_ux/dashboard.spec.cjs:176:  test.fail(true, 'UX-005: no next-page, export, download or full-results action exists');
+tests/qa_ux/dashboard.spec.cjs:180:test('UX-006: failed job-list load offers an in-app retry', async () => {
+tests/qa_ux/dashboard.spec.cjs:185:  test.fail(true, 'UX-006: job list stays failed and has no Retry or Refresh control');
+tests/qa_ux/dashboard.spec.cjs:189:test('evidence: 200 percent text scale and close focus state', async () => {
+tests/qa_frontend/README.md:19:Known defects use strict Playwright `test.fail` annotations with finding IDs. They fail CI if behavior unexpectedly passes, prompting removal of the expected-failure marker. Setup and preconditions run before these annotations so infrastructure failures remain real failures. Passing tests cover analyze/create/run order, initial and result views, cancellation and confirmation, browser bounds, disabled submission during loading, and recovery after a rejected analysis.
+tests/qa_frontend/dashboard.spec.cjs:85:test('FE-001 root dashboard loads its script and initial jobs', async ({ page }) => {
+tests/qa_frontend/dashboard.spec.cjs:90:  test.fail(true, 'FE-001: app.js resolves to /app.js; only /static/app.js exists');
+tests/qa_frontend/dashboard.spec.cjs:94:test('working asset route: empty state then analysis/create/run/list flow', async ({ page }) => {
+tests/qa_frontend/dashboard.spec.cjs:110:  test(`FE-002 selected page limit ${pages} survives API model validation`, async ({ page }) => {
+tests/qa_frontend/dashboard.spec.cjs:116:    test.fail(true, 'FE-002: max_pages sent at job root is ignored instead of pagination.max_pages');
+tests/qa_frontend/dashboard.spec.cjs:122:  test(`FE-003 selected ${format} export survives API model validation`, async ({ page }) => {
+tests/qa_frontend/dashboard.spec.cjs:127:    test.fail(true, 'FE-003: export.format is ignored; model expects export.formats');
+tests/qa_frontend/dashboard.spec.cjs:132:test('FE-004 dashboard API requests use the serving origin', async ({ page }) => {
+tests/qa_frontend/dashboard.spec.cjs:135:  test.fail(true, 'FE-004: API_BASE is permanently http://localhost:8000/api/v1');
+tests/qa_frontend/dashboard.spec.cjs:139:test('FE-005 job names are rendered as text, not HTML elements', async ({ page }) => {
+tests/qa_frontend/dashboard.spec.cjs:145:  test.fail(true, 'FE-005: job.name is interpolated into innerHTML');
+tests/qa_frontend/dashboard.spec.cjs:149:test('FE-005 scraped field names and values remain literal text', async ({ page }) => {
+tests/qa_frontend/dashboard.spec.cjs:154:  test.fail(true, 'FE-005: results are interpolated into innerHTML');
+tests/qa_frontend/dashboard.spec.cjs:158:test('results can be opened and closed; null values show a dash', async ({ page }) => {
+tests/qa_frontend/dashboard.spec.cjs:170:test('delete requires confirmation; cancelling keeps job; confirming removes it', async ({ page }) => {
+tests/qa_frontend/dashboard.spec.cjs:182:test('analyze error preserves input and lets user retry successfully', async ({ page }) => {
+tests/qa_frontend/dashboard.spec.cjs:195:test('request in progress disables submit until analysis finishes', async ({ page }) => {
+tests/qa_frontend/dashboard.spec.cjs:207:test('browser validation blocks page limits outside the visible range', async ({ page }) => {
+tests/qa_frontend/dashboard.spec.cjs:217:test('list outage clears spinner and exposes failure', async ({ page }) => {
+tests/qa_frontend/dashboard.spec.cjs:224:test('local navigation performance and console/network evidence', async ({ page, browser }) => {
+

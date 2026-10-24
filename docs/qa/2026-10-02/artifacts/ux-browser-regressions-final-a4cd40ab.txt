@@ -1,0 +1,14 @@
+
+Running 9 tests using 1 worker
+
+  ✓  1 tests/qa_ux/dashboard.spec.cjs:102:1 › baseline: named controls, keyboard operation, native invalid URL, empty/loading semantics evidence (1.6s)
+  ✘  2 tests/qa_ux/dashboard.spec.cjs:130:1 › UX-001: populated mobile page reflows without document horizontal overflow (385ms)
+  ✘  3 tests/qa_ux/dashboard.spec.cjs:143:1 › UX-002: text has WCAG AA contrast in completed results (520ms)
+  ✘  4 tests/qa_ux/dashboard.spec.cjs:153:1 › UX-003: dynamic error is announced to screen readers (1.8s)
+  ✘  5 tests/qa_ux/dashboard.spec.cjs:164:1 › UX-004: opening details moves keyboard focus into visible detail context (292ms)
+  ✘  6 tests/qa_ux/dashboard.spec.cjs:177:1 › UX-005: users can retrieve result items beyond the preview (1.7s)
+  ✘  7 tests/qa_ux/dashboard.spec.cjs:187:1 › UX-006: failed job-list load offers an in-app retry (2.1s)
+  ✓  8 tests/qa_ux/dashboard.spec.cjs:203:1 › evidence: 200 percent text scale and close focus state (395ms)
+  ✘  9 tests/qa_ux/dashboard.spec.cjs:216:1 › UX-004: closing details restores visible keyboard focus (215ms)
+
+  9 passed (9.3s)

@@ -1,0 +1,149 @@
+FFFFFFFFFFF.FFFF.FF.FFF.F                                                [100%]
+=================================== FAILURES ===================================
+________ test_api_rejects_unauthenticated_job_access[create-anonymous] _________
+tests/qa_security/test_security_boundaries.py:61: in test_api_rejects_unauthenticated_job_access
+    assert response.status_code in (401, 403)
+E   assert 200 in (401, 403)
+E    +  where 200 = <Response [200 OK]>.status_code
+_________ test_api_rejects_unauthenticated_job_access[create-invalid] __________
+tests/qa_security/test_security_boundaries.py:61: in test_api_rejects_unauthenticated_job_access
+    assert response.status_code in (401, 403)
+E   assert 200 in (401, 403)
+E    +  where 200 = <Response [200 OK]>.status_code
+_________ test_api_rejects_unauthenticated_job_access[list-anonymous] __________
+tests/qa_security/test_security_boundaries.py:61: in test_api_rejects_unauthenticated_job_access
+    assert response.status_code in (401, 403)
+E   assert 200 in (401, 403)
+E    +  where 200 = <Response [200 OK]>.status_code
+__________ test_api_rejects_unauthenticated_job_access[list-invalid] ___________
+tests/qa_security/test_security_boundaries.py:61: in test_api_rejects_unauthenticated_job_access
+    assert response.status_code in (401, 403)
+E   assert 200 in (401, 403)
+E    +  where 200 = <Response [200 OK]>.status_code
+________ test_api_rejects_unauthenticated_job_access[detail-anonymous] _________
+tests/qa_security/test_security_boundaries.py:61: in test_api_rejects_unauthenticated_job_access
+    assert response.status_code in (401, 403)
+E   assert 200 in (401, 403)
+E    +  where 200 = <Response [200 OK]>.status_code
+_________ test_api_rejects_unauthenticated_job_access[detail-invalid] __________
+tests/qa_security/test_security_boundaries.py:61: in test_api_rejects_unauthenticated_job_access
+    assert response.status_code in (401, 403)
+E   assert 200 in (401, 403)
+E    +  where 200 = <Response [200 OK]>.status_code
+________ test_api_rejects_unauthenticated_job_access[results-anonymous] ________
+tests/qa_security/test_security_boundaries.py:61: in test_api_rejects_unauthenticated_job_access
+    assert response.status_code in (401, 403)
+E   assert 200 in (401, 403)
+E    +  where 200 = <Response [200 OK]>.status_code
+_________ test_api_rejects_unauthenticated_job_access[results-invalid] _________
+tests/qa_security/test_security_boundaries.py:61: in test_api_rejects_unauthenticated_job_access
+    assert response.status_code in (401, 403)
+E   assert 200 in (401, 403)
+E    +  where 200 = <Response [200 OK]>.status_code
+________ test_api_rejects_unauthenticated_job_access[delete-anonymous] _________
+tests/qa_security/test_security_boundaries.py:61: in test_api_rejects_unauthenticated_job_access
+    assert response.status_code in (401, 403)
+E   assert 200 in (401, 403)
+E    +  where 200 = <Response [200 OK]>.status_code
+_________ test_api_rejects_unauthenticated_job_access[delete-invalid] __________
+tests/qa_security/test_security_boundaries.py:61: in test_api_rejects_unauthenticated_job_access
+    assert response.status_code in (401, 403)
+E   assert 200 in (401, 403)
+E    +  where 200 = <Response [200 OK]>.status_code
+_______________ test_openapi_declares_auth_for_privileged_routes _______________
+tests/qa_security/test_security_boundaries.py:68: in test_openapi_declares_auth_for_privileged_routes
+    assert schema["paths"]["/api/v1/jobs"][method].get("security")
+E   AssertionError: assert None
+E    +  where None = <built-in method get of dict object at 0x109ae5d80>('security')
+E    +    where <built-in method get of dict object at 0x109ae5d80> = {'description': 'List all jobs.\n\nReturns list of jobs with metadata.', 'operationId': 'list_jobs_api_v1_jobs_get', '...ion/json': {'schema': {'$ref': '#/components/schemas/HTTPValidationError'}}}, 'description': 'Validation Error'}}, ...}.get
+_____ test_static_fetch_blocks_nonpublic_destinations[http://127.0.0.1/qa] _____
+tests/qa_security/test_security_boundaries.py:93: in test_static_fetch_blocks_nonpublic_destinations
+    assert requested == []
+E   AssertionError: assert ['http://127.0.0.1/qa'] == []
+E     
+E     Left contains one more item: 'http://127.0.0.1/qa'
+E     Use -v to get more diff
+_____ test_static_fetch_blocks_nonpublic_destinations[http://10.0.0.1/qa] ______
+tests/qa_security/test_security_boundaries.py:93: in test_static_fetch_blocks_nonpublic_destinations
+    assert requested == []
+E   AssertionError: assert ['http://10.0.0.1/qa'] == []
+E     
+E     Left contains one more item: 'http://10.0.0.1/qa'
+E     Use -v to get more diff
+_______ test_static_fetch_blocks_nonpublic_destinations[http://[::1]/qa] _______
+tests/qa_security/test_security_boundaries.py:93: in test_static_fetch_blocks_nonpublic_destinations
+    assert requested == []
+E   AssertionError: assert ['http://[::1]/qa'] == []
+E     
+E     Left contains one more item: 'http://[::1]/qa'
+E     Use -v to get more diff
+_____________ test_static_fetch_blocks_public_to_private_redirect ______________
+tests/qa_security/test_security_boundaries.py:114: in test_static_fetch_blocks_public_to_private_redirect
+    assert requested == ["https://example.test"]
+E   AssertionError: assert ['https://exa...127.0.0.1/qa'] == ['https://example.test']
+E     
+E     Left contains one more item: 'http://127.0.0.1/qa'
+E     Use -v to get more diff
+______________________ test_analyze_rejects_nonpublic_url ______________________
+tests/qa_security/test_security_boundaries.py:144: in test_analyze_rejects_nonpublic_url
+    assert response.status_code in (400, 403, 422)
+E   assert 200 in (400, 403, 422)
+E    +  where 200 = <Response [200 OK]>.status_code
+_______________ test_api_export_cannot_overwrite_sibling_marker ________________
+tests/qa_security/test_security_boundaries.py:190: in test_api_export_cannot_overwrite_sibling_marker
+    assert marker.read_text(encoding="utf-8") == "original QA marker"
+E   assert '{\n  "metada...46.681223"\n}' == 'original QA marker'
+E     
+E     - original QA marker
+E     + {
+E     +   "metadata": {
+E     +     "job_name": "QA fixture"
+E     +   },
+E     +   "items": [...
+E     
+E     ...Full output truncated (7 lines hidden), use '-vv' to show
+________________ test_pagination_rejects_excessive_work_budget _________________
+tests/qa_security/test_security_boundaries.py:201: in test_pagination_rejects_excessive_work_budget
+    with pytest.raises(ValidationError):
+E   Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+____________________ test_api_rejects_excessive_work_budget ____________________
+tests/qa_security/test_security_boundaries.py:213: in test_api_rejects_excessive_work_budget
+    assert response.status_code == 422
+E   assert 200 == 422
+E    +  where 200 = <Response [200 OK]>.status_code
+_____________________ test_engine_respects_robots_disallow _____________________
+tests/qa_security/test_security_boundaries.py:240: in test_engine_respects_robots_disallow
+    assert "/qa" not in requested
+E   AssertionError: assert '/qa' not in ['/qa']
+___________ test_api_rate_limiter_does_not_log_credential_identifier ___________
+tests/qa_security/test_security_boundaries.py:257: in test_api_rate_limiter_does_not_log_credential_identifier
+    assert identifier not in caplog.text
+E   AssertionError: assert 'qa-nonsecret-marker' not in 'WARNING  sc...arker: 0/0\n'
+E     
+E     'qa-nonsecret-marker' is contained here:
+E       eeded for qa-nonsecret-marker: 0/0
+------------------------------ Captured log call -------------------------------
+WARNING  scraper.security.auth:auth.py:317 Rate limit exceeded for qa-nonsecret-marker: 0/0
+=========================== short test summary info ============================
+FAILED tests/qa_security/test_security_boundaries.py::test_api_rejects_unauthenticated_job_access[create-anonymous]
+FAILED tests/qa_security/test_security_boundaries.py::test_api_rejects_unauthenticated_job_access[create-invalid]
+FAILED tests/qa_security/test_security_boundaries.py::test_api_rejects_unauthenticated_job_access[list-anonymous]
+FAILED tests/qa_security/test_security_boundaries.py::test_api_rejects_unauthenticated_job_access[list-invalid]
+FAILED tests/qa_security/test_security_boundaries.py::test_api_rejects_unauthenticated_job_access[detail-anonymous]
+FAILED tests/qa_security/test_security_boundaries.py::test_api_rejects_unauthenticated_job_access[detail-invalid]
+FAILED tests/qa_security/test_security_boundaries.py::test_api_rejects_unauthenticated_job_access[results-anonymous]
+FAILED tests/qa_security/test_security_boundaries.py::test_api_rejects_unauthenticated_job_access[results-invalid]
+FAILED tests/qa_security/test_security_boundaries.py::test_api_rejects_unauthenticated_job_access[delete-anonymous]
+FAILED tests/qa_security/test_security_boundaries.py::test_api_rejects_unauthenticated_job_access[delete-invalid]
+FAILED tests/qa_security/test_security_boundaries.py::test_openapi_declares_auth_for_privileged_routes
+FAILED tests/qa_security/test_security_boundaries.py::test_static_fetch_blocks_nonpublic_destinations[http://127.0.0.1/qa]
+FAILED tests/qa_security/test_security_boundaries.py::test_static_fetch_blocks_nonpublic_destinations[http://10.0.0.1/qa]
+FAILED tests/qa_security/test_security_boundaries.py::test_static_fetch_blocks_nonpublic_destinations[http://[::1]/qa]
+FAILED tests/qa_security/test_security_boundaries.py::test_static_fetch_blocks_public_to_private_redirect
+FAILED tests/qa_security/test_security_boundaries.py::test_analyze_rejects_nonpublic_url
+FAILED tests/qa_security/test_security_boundaries.py::test_api_export_cannot_overwrite_sibling_marker
+FAILED tests/qa_security/test_security_boundaries.py::test_pagination_rejects_excessive_work_budget
+FAILED tests/qa_security/test_security_boundaries.py::test_api_rejects_excessive_work_budget
+FAILED tests/qa_security/test_security_boundaries.py::test_engine_respects_robots_disallow
+FAILED tests/qa_security/test_security_boundaries.py::test_api_rate_limiter_does_not_log_credential_identifier
+21 failed, 4 passed in 1.07s

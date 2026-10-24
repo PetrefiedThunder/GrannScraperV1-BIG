@@ -1,0 +1,354 @@
+{
+  "navigation": [
+    {
+      "name": "http://127.0.0.1:18765/static/index.html",
+      "entryType": "navigation",
+      "startTime": 0,
+      "duration": 17,
+      "navigationId": 6369,
+      "initiatorType": "navigation",
+      "deliveryType": "",
+      "nextHopProtocol": "http/1.1",
+      "renderBlockingStatus": "non-blocking",
+      "contentType": "text/html",
+      "contentEncoding": "",
+      "workerStart": 0,
+      "workerRouterEvaluationStart": 0,
+      "workerCacheLookupStart": 0,
+      "workerMatchedSourceType": "",
+      "workerFinalSourceType": "",
+      "redirectStart": 0,
+      "redirectEnd": 0,
+      "fetchStart": 0.10000000009313226,
+      "domainLookupStart": 1.5,
+      "domainLookupEnd": 1.5,
+      "connectStart": 1.5,
+      "secureConnectionStart": 0,
+      "connectEnd": 1.6000000000931323,
+      "requestStart": 1.7000000001862645,
+      "responseStart": 2.1000000000931323,
+      "firstInterimResponseStart": 0,
+      "finalResponseHeadersStart": 2.1000000000931323,
+      "responseEnd": 2.2000000001862645,
+      "transferSize": 9662,
+      "encodedBodySize": 9362,
+      "decodedBodySize": 9362,
+      "responseStatus": 200,
+      "serverTiming": [],
+      "unloadEventStart": 0,
+      "unloadEventEnd": 0,
+      "domInteractive": 16.899999999906868,
+      "domContentLoadedEventStart": 16.899999999906868,
+      "domContentLoadedEventEnd": 17,
+      "domComplete": 17,
+      "loadEventStart": 17,
+      "loadEventEnd": 17,
+      "type": "navigate",
+      "redirectCount": 0,
+      "activationStart": 0,
+      "criticalCHRestart": 0,
+      "notRestoredReasons": null,
+      "confidence": {
+        "randomizedTriggerRate": 0.4994798,
+        "value": "low"
+      }
+    }
+  ],
+  "paint": [
+    {
+      "name": "first-paint",
+      "entryType": "paint",
+      "startTime": 24,
+      "duration": 0,
+      "navigationId": 6369,
+      "paintTime": 15.5,
+      "presentationTime": 24
+    },
+    {
+      "name": "first-contentful-paint",
+      "entryType": "paint",
+      "startTime": 24,
+      "duration": 0,
+      "navigationId": 6369,
+      "paintTime": 15.5,
+      "presentationTime": 24
+    }
+  ],
+  "resources": [
+    {
+      "name": "http://127.0.0.1:18765/static/app.js",
+      "duration": 2.5,
+      "transferSize": 11047
+    },
+    {
+      "name": "http://localhost:8000/api/v1/info",
+      "duration": 3.6000000000931323,
+      "transferSize": 0
+    },
+    {
+      "name": "http://localhost:8000/api/v1/jobs",
+      "duration": 1.5,
+      "transferSize": 0
+    },
+    {
+      "name": "http://localhost:8000/api/v1/info",
+      "duration": 1.3999999999068677,
+      "transferSize": 0
+    },
+    {
+      "name": "http://localhost:8000/api/v1/jobs/qa_job/status",
+      "duration": 1.7000000001862645,
+      "transferSize": 0
+    },
+    {
+      "name": "http://localhost:8000/api/v1/jobs/qa_job/results?limit=10",
+      "duration": 2,
+      "transferSize": 0
+    }
+  ],
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.8010.12 Safari/537.36",
+  "browserVersion": "153.0.8010.12",
+  "console_errors": [],
+  "failed_requests": [],
+  "blocked": [],
+  "coverage": [
+    {
+      "url": "http://127.0.0.1:18765/static/app.js",
+      "total_utf16_units": 10747,
+      "executed_utf16_units": 6087,
+      "functions": [
+        {
+          "functionName": "",
+          "isBlockCoverage": true,
+          "ranges": [
+            {
+              "startOffset": 0,
+              "endOffset": 10747,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "functionName": "showAlert",
+          "isBlockCoverage": false,
+          "ranges": [
+            {
+              "startOffset": 271,
+              "endOffset": 641,
+              "count": 0
+            }
+          ]
+        },
+        {
+          "functionName": "apiCall",
+          "isBlockCoverage": true,
+          "ranges": [
+            {
+              "startOffset": 643,
+              "endOffset": 1272,
+              "count": 5
+            },
+            {
+              "startOffset": 956,
+              "endOffset": 1083,
+              "count": 0
+            },
+            {
+              "startOffset": 1129,
+              "endOffset": 1270,
+              "count": 0
+            }
+          ]
+        },
+        {
+          "functionName": "loadStats",
+          "isBlockCoverage": true,
+          "ranges": [
+            {
+              "startOffset": 1451,
+              "endOffset": 1985,
+              "count": 2
+            },
+            {
+              "startOffset": 1907,
+              "endOffset": 1983,
+              "count": 0
+            }
+          ]
+        },
+        {
+          "functionName": "",
+          "isBlockCoverage": false,
+          "ranges": [
+            {
+              "startOffset": 2239,
+              "endOffset": 4546,
+              "count": 0
+            }
+          ]
+        },
+        {
+          "functionName": "loadJobs",
+          "isBlockCoverage": true,
+          "ranges": [
+            {
+              "startOffset": 4723,
+              "endOffset": 6441,
+              "count": 1
+            },
+            {
+              "startOffset": 5084,
+              "endOffset": 5240,
+              "count": 0
+            },
+            {
+              "startOffset": 6231,
+              "endOffset": 6375,
+              "count": 0
+            }
+          ]
+        },
+        {
+          "functionName": "",
+          "isBlockCoverage": true,
+          "ranges": [
+            {
+              "startOffset": 5273,
+              "endOffset": 6183,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "functionName": "deleteJob",
+          "isBlockCoverage": false,
+          "ranges": [
+            {
+              "startOffset": 6443,
+              "endOffset": 6817,
+              "count": 0
+            }
+          ]
+        },
+        {
+          "functionName": "viewJobDetails",
+          "isBlockCoverage": true,
+          "ranges": [
+            {
+              "startOffset": 6995,
+              "endOffset": 10214,
+              "count": 1
+            },
+            {
+              "startOffset": 7534,
+              "endOffset": 7541,
+              "count": 0
+            },
+            {
+              "startOffset": 7627,
+              "endOffset": 7633,
+              "count": 0
+            },
+            {
+              "startOffset": 9236,
+              "endOffset": 9392,
+              "count": 0
+            },
+            {
+              "startOffset": 9410,
+              "endOffset": 9489,
+              "count": 0
+            },
+            {
+              "startOffset": 9505,
+              "endOffset": 9633,
+              "count": 0
+            },
+            {
+              "startOffset": 9643,
+              "endOffset": 9954,
+              "count": 0
+            },
+            {
+              "startOffset": 10000,
+              "endOffset": 10130,
+              "count": 0
+            }
+          ]
+        },
+        {
+          "functionName": "",
+          "isBlockCoverage": true,
+          "ranges": [
+            {
+              "startOffset": 8599,
+              "endOffset": 8684,
+              "count": 2
+            }
+          ]
+        },
+        {
+          "functionName": "",
+          "isBlockCoverage": true,
+          "ranges": [
+            {
+              "startOffset": 8782,
+              "endOffset": 9130,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "functionName": "",
+          "isBlockCoverage": true,
+          "ranges": [
+            {
+              "startOffset": 8871,
+              "endOffset": 9065,
+              "count": 2
+            },
+            {
+              "startOffset": 9026,
+              "endOffset": 9031,
+              "count": 0
+            }
+          ]
+        },
+        {
+          "functionName": "hideJobDetails",
+          "isBlockCoverage": false,
+          "ranges": [
+            {
+              "startOffset": 10216,
+              "endOffset": 10313,
+              "count": 0
+            }
+          ]
+        },
+        {
+          "functionName": "init",
+          "isBlockCoverage": true,
+          "ranges": [
+            {
+              "startOffset": 10494,
+              "endOffset": 10699,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "functionName": "",
+          "isBlockCoverage": false,
+          "ranges": [
+            {
+              "startOffset": 10642,
+              "endOffset": 10688,
+              "count": 0
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "note": "Unthrottled loopback diagnostic; not Lighthouse or production measurement. Coverage limited to this empty/list/details journey."
+}

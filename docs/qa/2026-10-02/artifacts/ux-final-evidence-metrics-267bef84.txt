@@ -1,0 +1,29 @@
+ux-mobile-layout.json
+{
+  "viewport": 375,
+  "document": 632,
+  "job": {
+    "x": 45,
+    "y": 1339,
+    "width": 285,
+    "height": 142,
+    "top": 1339,
+    "right": 330,
+    "bottom": 1481,
+    "left": 45
+  }
+}
+ux-mobile-320-layout.json
+{
+  "viewport": 320,
+  "document": 632
+}
+ux-error-recovery.json
+{
+  "jobsRequestsBeforeRecovery": 1,
+  "jobsRequestsAfter11Seconds": 1,
+  "infoRequests": 2,
+  "pageStillFailed": true
+}
+runnerstats {'startTime': '2026-10-03T01:53:05.911Z', 'duration': 9306.768, 'expected': 9, 'skipped': 0, 'unexpected': 0, 'flaky': 0}
+Browser versions [{'userAgent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.8010.12 Safari/537.36', 'windowWidth': 1440, 'windowHeight': 1000, 'orientationAngle': 0, 'orientationType': 'landscape-primary'}]

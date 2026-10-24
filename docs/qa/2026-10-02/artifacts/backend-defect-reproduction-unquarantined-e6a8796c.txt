@@ -1,0 +1,133 @@
+...........FFFF.FFFF.FF.....F....FFFFFF.F.F                              [100%]
+=================================== FAILURES ===================================
+___________________ test_server_generated_job_id_round_trips ___________________
+tests/qa_backend/test_api_contracts.py:94: in test_server_generated_job_id_round_trips
+    assert (await client.get(f"/api/v1/jobs/{job_id}")).status_code == 200
+E   assert 400 == 200
+E    +  where 400 = <Response [400 Bad Request]>.status_code
+_____________ test_invalid_results_pagination_is_rejected[limit=0] _____________
+tests/qa_backend/test_api_contracts.py:104: in test_invalid_results_pagination_is_rejected
+    assert (await client.get(f"/api/v1/jobs/{job.id}/results?{query}")).status_code == 422
+E   assert 200 == 422
+E    +  where 200 = <Response [200 OK]>.status_code
+____________ test_invalid_results_pagination_is_rejected[limit=-1] _____________
+tests/qa_backend/test_api_contracts.py:104: in test_invalid_results_pagination_is_rejected
+    assert (await client.get(f"/api/v1/jobs/{job.id}/results?{query}")).status_code == 422
+E   assert 200 == 422
+E    +  where 200 = <Response [200 OK]>.status_code
+____________ test_invalid_results_pagination_is_rejected[offset=-1] ____________
+tests/qa_backend/test_api_contracts.py:104: in test_invalid_results_pagination_is_rejected
+    assert (await client.get(f"/api/v1/jobs/{job.id}/results?{query}")).status_code == 422
+E   assert 200 == 422
+E    +  where 200 = <Response [200 OK]>.status_code
+______________ test_bad_workflow_returns_validation_error[nodes0] ______________
+tests/qa_backend/test_api_contracts.py:124: in test_bad_workflow_returns_validation_error
+    assert response.status_code in (400, 422)
+E   assert 500 in (400, 422)
+E    +  where 500 = <Response [500 Internal Server Error]>.status_code
+______________ test_bad_workflow_returns_validation_error[nodes1] ______________
+tests/qa_backend/test_api_contracts.py:124: in test_bad_workflow_returns_validation_error
+    assert response.status_code in (400, 422)
+E   assert 500 in (400, 422)
+E    +  where 500 = <Response [500 Internal Server Error]>.status_code
+______________ test_bad_workflow_returns_validation_error[nodes2] ______________
+tests/qa_backend/test_api_contracts.py:124: in test_bad_workflow_returns_validation_error
+    assert response.status_code in (400, 422)
+E   assert 500 in (400, 422)
+E    +  where 500 = <Response [500 Internal Server Error]>.status_code
+______________________ test_dashboard_script_is_available ______________________
+tests/qa_backend/test_api_contracts.py:137: in test_dashboard_script_is_available
+    assert response.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = <Response [404 Not Found]>.status_code
+_______________ test_dashboard_requested_page_limit_is_preserved _______________
+tests/qa_backend/test_api_contracts.py:150: in test_dashboard_requested_page_limit_is_preserved
+    assert api.jobs_db[job.id].pagination.max_pages == 2
+E   AssertionError: assert 10 == 2
+E    +  where 10 = PaginationConfig(mode=<PaginationMode.NONE: 'none'>, next_button_selector=None, url_pattern=None, start_page=1, max_pages=10, scroll_times=5, scroll_pause=1.0).max_pages
+E    +    where PaginationConfig(mode=<PaginationMode.NONE: 'none'>, next_button_selector=None, url_pattern=None, start_page=1, max_pages=10, scroll_times=5, scroll_pause=1.0) = ScrapeJob(id='qa_job', name='QA fixture', description=None, enabled=True, tags=[], start_url='https://fixture.invalid/...ted_at=datetime.datetime(2026, 10, 3, 1, 52, 29, 921224), updated_at=datetime.datetime(2026, 10, 3, 1, 52, 29, 921224)).pagination
+_____________ test_dashboard_requested_export_format_is_preserved ______________
+tests/qa_backend/test_api_contracts.py:158: in test_dashboard_requested_export_format_is_preserved
+    assert api.jobs_db[job.id].export.formats == ["json"]
+E   AssertionError: assert ['csv'] == ['json']
+E     
+E     At index 0 diff: 'csv' != 'json'
+E     Use -v to get more diff
+____________ test_proxy_enabled_fetch_reaches_configured_transport _____________
+tests/qa_backend/test_boundaries_exports.py:70: in test_proxy_enabled_fetch_reaches_configured_transport
+    assert soup is not None, "TypeError from unsupported request-level proxy argument is swallowed"
+E   AssertionError: TypeError from unsupported request-level proxy argument is swallowed
+E   assert None is not None
+------------------------------ Captured log call -------------------------------
+ERROR    scraper.core.fetcher_static:fetcher_static.py:205 Unexpected error fetching https://fixture.invalid/page/1: AsyncClient.get() got an unexpected keyword argument 'proxies'
+____________________ test_standard_api_run_persists_success ____________________
+tests/qa_backend/test_execution.py:28: in test_standard_api_run_persists_success
+    assert outcome == [expected], f"Background execution returned: {outcome!r}"
+E   AssertionError: Background execution returned: [UnboundLocalError("cannot access local variable 'ScraperEngine' where it is not associated with a value")]
+E   assert [UnboundLocal...ith a value")] == [ScrapeResult... metadata={})]
+E     
+E     At index 0 diff: UnboundLocalError("cannot access local variable 'ScraperEngine' where it is not associated with a value") != ScrapeResult(job_id='qa_job', status='success', items_scraped=1, pages_visited=0, errors=[], warnings=[], start_time=datetime.datetime(2026, 10, 3, 1, 52, 29, 993999), end_time=None, duration_seconds=None, data=[{'title': 'one'}], metadata={})
+E     Use -v to get more diff
+____________ test_concurrent_scraper_finishes_after_completed_work _____________
+tests/qa_backend/test_execution.py:60: in test_concurrent_scraper_finishes_after_completed_work
+    assert finished, "Result collected but idle workers never finish; active_workers is zero"
+E   AssertionError: Result collected but idle workers never finish; active_workers is zero
+E   assert False
+________________ test_incremental_api_run_accepts_engine_result ________________
+tests/qa_backend/test_execution.py:73: in test_incremental_api_run_accepts_engine_result
+    assert isinstance(outcome[0], ScrapeResult), f"Incremental callback returned {outcome!r}"
+E   AssertionError: Incremental callback returned [TypeError('Object of type datetime is not JSON serializable')]
+E   assert False
+E    +  where False = isinstance(TypeError('Object of type datetime is not JSON serializable'), ScrapeResult)
+______________________ test_incremental_repeat_uses_cache ______________________
+tests/qa_backend/test_execution.py:84: in test_incremental_repeat_uses_cache
+    assert second["stats"]["urls_scraped"] == 0
+E   assert 1 == 0
+__________________ test_incremental_cached_items_are_returned __________________
+tests/qa_backend/test_execution.py:96: in test_incremental_cached_items_are_returned
+    assert result["cached_items"] == [{"title": "one"}]
+E   AssertionError: assert [] == [{'title': 'one'}]
+E     
+E     Right contains one more item: {'title': 'one'}
+E     Use -v to get more diff
+_____________ test_workflow_orders_prerequisites_before_dependents _____________
+tests/qa_backend/test_execution.py:105: in test_workflow_orders_prerequisites_before_dependents
+    assert workflow.execution_order == [["fetch"], ["export"]]
+E   AssertionError: assert [['export']] == [['fetch'], ['export']]
+E     
+E     At index 0 diff: ['export'] != ['fetch']
+E     Right contains one more item: ['export']
+E     Use -v to get more diff
+_________________ test_engine_respects_item_limit_within_page __________________
+tests/qa_backend/test_execution.py:141: in test_engine_respects_item_limit_within_page
+    assert result.items_scraped == 1
+E   AssertionError: assert 3 == 1
+E    +  where 3 = ScrapeResult(job_id='qa_job', status='success', items_scraped=3, pages_visited=1, errors=[], warnings=[], start_time=d...tle': 'Three'}], metadata={'session_stats': {'visited': 1, 'failed': 0}, 'job_name': 'QA fixture', 'job_id': 'qa_job'}).items_scraped
+_______________________ test_engine_follows_next_button ________________________
+tests/qa_backend/test_execution.py:176: in test_engine_follows_next_button
+    assert fetched == ["https://fixture.invalid/page/1", "https://fixture.invalid/page/2"]
+E   AssertionError: assert ['https://fix...valid/page/1'] == ['https://fix...valid/page/2']
+E     
+E     Right contains one more item: 'https://fixture.invalid/page/2'
+E     Use -v to get more diff
+=========================== short test summary info ============================
+FAILED tests/qa_backend/test_api_contracts.py::test_server_generated_job_id_round_trips
+FAILED tests/qa_backend/test_api_contracts.py::test_invalid_results_pagination_is_rejected[limit=0]
+FAILED tests/qa_backend/test_api_contracts.py::test_invalid_results_pagination_is_rejected[limit=-1]
+FAILED tests/qa_backend/test_api_contracts.py::test_invalid_results_pagination_is_rejected[offset=-1]
+FAILED tests/qa_backend/test_api_contracts.py::test_bad_workflow_returns_validation_error[nodes0]
+FAILED tests/qa_backend/test_api_contracts.py::test_bad_workflow_returns_validation_error[nodes1]
+FAILED tests/qa_backend/test_api_contracts.py::test_bad_workflow_returns_validation_error[nodes2]
+FAILED tests/qa_backend/test_api_contracts.py::test_dashboard_script_is_available
+FAILED tests/qa_backend/test_api_contracts.py::test_dashboard_requested_page_limit_is_preserved
+FAILED tests/qa_backend/test_api_contracts.py::test_dashboard_requested_export_format_is_preserved
+FAILED tests/qa_backend/test_boundaries_exports.py::test_proxy_enabled_fetch_reaches_configured_transport
+FAILED tests/qa_backend/test_execution.py::test_standard_api_run_persists_success
+FAILED tests/qa_backend/test_execution.py::test_concurrent_scraper_finishes_after_completed_work
+FAILED tests/qa_backend/test_execution.py::test_incremental_api_run_accepts_engine_result
+FAILED tests/qa_backend/test_execution.py::test_incremental_repeat_uses_cache
+FAILED tests/qa_backend/test_execution.py::test_incremental_cached_items_are_returned
+FAILED tests/qa_backend/test_execution.py::test_workflow_orders_prerequisites_before_dependents
+FAILED tests/qa_backend/test_execution.py::test_engine_respects_item_limit_within_page
+FAILED tests/qa_backend/test_execution.py::test_engine_follows_next_button - ...
+19 failed, 24 passed in 0.64s
