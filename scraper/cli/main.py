@@ -421,8 +421,8 @@ async def _run_job(job: ScrapeJob) -> None:
             console.print(f"  • {path}")
 
 
-@cli.command()
-def list() -> None:
+@cli.command("list")
+def list_jobs() -> None:
     """List all saved scraping jobs."""
     config_dir = Path.home() / ".grandma-scraper" / "jobs"
 

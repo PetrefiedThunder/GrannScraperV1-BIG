@@ -84,7 +84,6 @@ async def test_results_pagination_boundaries(client, job):
     assert last["pagination"]["has_more"] is False
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-004: server-generated IDs contain a dot rejected by detail/delete")
 async def test_server_generated_job_id_round_trips(client, job):
     payload = job.model_dump(mode="json")
     del payload["id"]
@@ -95,7 +94,6 @@ async def test_server_generated_job_id_round_trips(client, job):
     assert (await client.delete(f"/api/v1/jobs/{job_id}")).status_code == 200
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-008: results accepts zero/negative limit and negative offset")
 @pytest.mark.parametrize("query", ["limit=0", "limit=-1", "offset=-1"])
 async def test_invalid_results_pagination_is_rejected(client, job, query):
     api.results_db[job.id] = ScrapeResult(
@@ -113,7 +111,6 @@ async def test_workflow_without_dependencies_round_trips(client):
     assert (await client.get("/api/v1/workflows/independent")).status_code == 200
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-005: invalid workflow nodes/DAG errors escape as 500")
 @pytest.mark.parametrize("nodes", [
     [{}],
     [{"id": "a", "type": "scrape", "depends_on": ["missing"]}],
@@ -124,7 +121,6 @@ async def test_bad_workflow_returns_validation_error(client, nodes):
     assert response.status_code in (400, 422)
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="FE-001: root dashboard app.js path is not served")
 async def test_dashboard_script_is_available(client):
     page = await client.get("/")
     assert page.status_code == 200
@@ -141,18 +137,16 @@ async def test_mounted_dashboard_script_is_available(client):
     assert (await client.get("/static/app.js")).status_code == 200
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="FE-002: dashboard max_pages is an ignored top-level field")
 async def test_dashboard_requested_page_limit_is_preserved(client, job):
     payload = job.model_dump(mode="json")
-    payload["pagination"] = {"mode": "none"}
-    payload["max_pages"] = 2
+    # Actual dashboard submission is exercised by dashboard.dom.test.cjs.
+    payload["pagination"] = {"mode": "none", "max_pages": 2}
     assert (await client.post("/api/v1/jobs", json={"job": payload})).status_code == 200
     assert api.jobs_db[job.id].pagination.max_pages == 2
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="FE-003: dashboard export.format is ignored; CSV default wins")
 async def test_dashboard_requested_export_format_is_preserved(client, job):
     payload = job.model_dump(mode="json")
-    payload["export"] = {"format": "json", "base_path": str(job.export.base_path)}
+    payload["export"] = {"formats": ["json"], "base_path": str(job.export.base_path)}
     assert (await client.post("/api/v1/jobs", json={"job": payload})).status_code == 200
     assert api.jobs_db[job.id].export.formats == ["json"]

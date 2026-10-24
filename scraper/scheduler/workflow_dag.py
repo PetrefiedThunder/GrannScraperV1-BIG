@@ -100,7 +100,12 @@ class WorkflowDAG:
         )
 
     def _validate_dag(self):
-        """Validate that graph is acyclic."""
+        """Validate dependency references and reject cycles."""
+        for node in self.nodes.values():
+            for dep_id in node.depends_on:
+                if dep_id not in self.nodes:
+                    raise ValueError(f"Node {node.id} depends on missing node {dep_id}")
+
         visited = set()
         rec_stack = set()
 
@@ -133,11 +138,11 @@ class WorkflowDAG:
 
         Returns list of lists, where each inner list can execute in parallel.
         """
-        # Calculate in-degree
-        in_degree = {node_id: 0 for node_id in self.nodes}
-        for node in self.nodes.values():
-            for dep in node.depends_on:
-                in_degree[dep] += 1
+        # Each node waits for its own distinct prerequisites.
+        in_degree = {
+            node_id: len(set(node.depends_on))
+            for node_id, node in self.nodes.items()
+        }
 
         # Find nodes with no dependencies
         queue = deque([
@@ -165,6 +170,9 @@ class WorkflowDAG:
                             next_queue.append(other_id)
 
             queue.extend(next_queue)
+
+        if sum(len(level) for level in levels) != len(self.nodes):
+            raise ValueError("Workflow execution plan does not include every node")
 
         return levels
 

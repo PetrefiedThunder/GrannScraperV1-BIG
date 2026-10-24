@@ -9,6 +9,8 @@ Expose all scraping capabilities via REST API for:
 """
 
 import asyncio
+import hashlib
+import json
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -20,7 +22,7 @@ from fastapi.responses import FileResponse, StreamingResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from scraper.config.models import ScrapeJob, ScrapeResult
+from scraper.config.models import PaginationMode, ScrapeJob, ScrapeResult
 from scraper.core.engine import ScraperEngine
 from scraper.core.concurrent_engine import ConcurrentScraper
 from scraper.export.export_manager import ExportManager
@@ -206,6 +208,7 @@ async def run_job(
             raise HTTPException(status_code=400, detail="Job already running")
 
         job = jobs_db[job_id]
+        results_db.pop(job_id, None)
 
         # Start job in background
         task = asyncio.create_task(
@@ -231,40 +234,62 @@ async def _execute_job(
     incremental: bool
 ) -> ScrapeResult:
     """Execute a job (called in background)."""
+    start_time = datetime.utcnow()
+    result = None
     try:
         if incremental:
             # Incremental scraping
             cache = SmartCache()
-            incremental_scraper = IncrementalScraper(cache)
+            # Extracted data depends on the complete job configuration, not only its URL.
+            cache_key = hashlib.sha256(
+                json.dumps(job.model_dump(mode="json"), sort_keys=True).encode()
+            ).hexdigest()
+            incremental_scraper = IncrementalScraper(cache, namespace=cache_key)
 
             # Get URLs to scrape
-            from scraper.core.engine import ScraperEngine
             engine = ScraperEngine()
             urls = await engine._generate_urls(job)
 
             # Scrape incrementally
+            pages_visited = 0
+
+            async def scrape_incremental_url(url: str) -> list[dict[str, Any]]:
+                nonlocal pages_visited
+                page_job = job.model_copy(deep=True)
+                page_job.start_url = url
+                if page_job.pagination.mode == "url_pattern":
+                    page_job.pagination.mode = PaginationMode.NONE
+                page_result = await engine.run_job(page_job)
+                if page_result.status != "success":
+                    raise RuntimeError("Incremental page did not complete successfully")
+                pages_visited += page_result.pages_visited
+                return page_result.data
+
             result_data = await incremental_scraper.scrape_incremental(
                 urls,
-                lambda url: engine.run_job(job),
+                scrape_incremental_url,
                 ttl_seconds=3600
             )
 
             # Convert to ScrapeResult
+            items = result_data['new_items'] + result_data['cached_items']
             result = ScrapeResult(
                 job_id=job_id,
                 status="success",
-                items_scraped=len(result_data['new_items']),
-                pages_visited=result_data['stats']['urls_scraped'],
-                data=result_data['new_items'],
+                items_scraped=len(items),
+                pages_visited=pages_visited,
+                start_time=start_time,
+                end_time=datetime.utcnow(),
+                duration_seconds=None,
+                data=items,
                 metadata=result_data['stats']
             )
 
-        elif concurrent:
+        elif concurrent and job.pagination.mode != "next_button":
             # Concurrent scraping
             concurrent_scraper = ConcurrentScraper(job, max_workers=10)
 
             # Add URLs
-            from scraper.core.engine import ScraperEngine
             engine = ScraperEngine()
             urls = await engine._generate_urls(job)
             await concurrent_scraper.add_urls(urls)
@@ -283,11 +308,13 @@ async def _execute_job(
             result = await concurrent_scraper.run(scrape_single)
 
         else:
-            # Standard scraping
+            # Next links depend on the previous page, even when concurrent is requested.
             engine = ScraperEngine()
             result = await engine.run_job(job)
 
         # Store result
+        if jobs_db.get(job_id) is not job or running_jobs.get(job_id) is not asyncio.current_task():
+            return result
         results_db[job_id] = result
 
         # Export
@@ -296,10 +323,28 @@ async def _execute_job(
 
         return result
 
+    except (Exception, asyncio.CancelledError) as exc:
+        if result is None:
+            result = ScrapeResult(
+                job_id=job_id, status="failed", start_time=start_time,
+                items_scraped=0, pages_visited=0, end_time=None, duration_seconds=None,
+            )
+        result.status = "failed"
+        result.end_time = datetime.utcnow()
+        result.duration_seconds = (result.end_time - result.start_time).total_seconds()
+        cancelled = isinstance(exc, asyncio.CancelledError)
+        result.errors.append("Job cancelled" if cancelled else "Job execution failed")
+        # A deleted job must not be recreated by its cancelled background task.
+        if jobs_db.get(job_id) is job and running_jobs.get(job_id) is asyncio.current_task():
+            results_db[job_id] = result
+        if cancelled:
+            raise
+        return result
+
     finally:
         # Remove from running jobs (with lock to prevent race conditions)
         async with jobs_lock:
-            if job_id in running_jobs:
+            if running_jobs.get(job_id) is asyncio.current_task():
                 del running_jobs[job_id]
 
 
@@ -334,8 +379,8 @@ async def get_job_status(job_id: str) -> Dict[str, Any]:
 @app.get("/api/v1/jobs/{job_id}/results")
 async def get_job_results(
     job_id: str,
-    limit: int = Query(100, description="Max items to return"),
-    offset: int = Query(0, description="Offset for pagination")
+    limit: int = Query(100, ge=1, description="Max items to return"),
+    offset: int = Query(0, ge=0, description="Offset for pagination")
 ) -> Dict[str, Any]:
     """Get job results with pagination."""
     if job_id not in results_db:
@@ -463,11 +508,14 @@ async def create_workflow(request: WorkflowCreateRequest) -> Dict[str, Any]:
 
     workflow = WorkflowDAG(request.name)
 
-    for node_data in request.nodes:
-        node = WorkflowNode(**node_data)
-        workflow.add_node(node)
+    try:
+        for node_data in request.nodes:
+            node = WorkflowNode(**node_data)
+            workflow.add_node(node)
 
-    workflow.build()
+        workflow.build()
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail="Invalid workflow definition") from exc
 
     workflows_db[request.name] = workflow
 

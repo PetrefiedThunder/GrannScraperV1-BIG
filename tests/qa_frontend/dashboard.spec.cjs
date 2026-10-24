@@ -2,7 +2,7 @@ const { test, expect } = require('@playwright/test');
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
-const artifacts = path.resolve(__dirname, '../../docs/qa/2026-10-02/artifacts');
+const artifacts = process.env.QA_ARTIFACTS_DIR || path.resolve(__dirname, '../../docs/qa/2026-10-02/artifacts');
 const target = 'https://example.invalid/catalog';
 // Response keys mirror rest_server.py:94-143,306-358,365-410,557-578.
 const analysis = {
@@ -53,7 +53,7 @@ async function setup(page, overrides = {}) {
         return json({ job_id: 'qa_job', status: 'success', total_items: items.length, pages_visited: 1, errors: [], items: items.slice(0, 10), pagination: { limit: 10, offset: 0, has_more: items.length > 10 } });
       }
       if (request.method() === 'DELETE') {
-        state.jobs = state.jobs.filter(job => job.id !== endpoint.split('/').pop());
+        state.jobs = state.jobs.filter(job => job.id !== decodeURIComponent(endpoint.slice('/jobs/'.length)));
         return json({ status: 'deleted', job_id: 'qa_job' });
       }
       return json({ detail: 'Unmocked API request' }, 500);
@@ -90,7 +90,6 @@ test('FE-001 root dashboard loads its script and initial jobs', async ({ page })
   await expect(page.locator('#auto-scrape-form')).toBeVisible();
   await page.screenshot({ path: path.join(artifacts, 'frontend-root-script-404.png'), fullPage: true });
   fs.writeFileSync(path.join(artifacts, 'frontend-root-errors.json'), JSON.stringify(state, null, 2));
-  test.fail(true, 'FE-001: app.js resolves to /app.js; only /static/app.js exists');
   await expect(page.locator('#job-list')).toContainText('No jobs yet');
 });
 
@@ -116,7 +115,6 @@ for (const pages of ['1', '2', '1000']) {
     await submit(page, { pages });
     await expect(page.locator('#job-list .job-item')).toHaveCount(1);
     const persisted = modelSettings(state.created);
-    test.fail(true, 'FE-002: max_pages sent at job root is ignored instead of pagination.max_pages');
     expect(persisted.max_pages).toBe(Number(pages));
   });
 }
@@ -128,7 +126,6 @@ for (const format of ['json', 'excel']) {
     await submit(page, { format });
     await expect(page.locator('#job-list .job-item')).toHaveCount(1);
     const persisted = modelSettings(state.created);
-    test.fail(true, 'FE-003: export.format is ignored; model expects export.formats');
     expect(persisted.formats).toEqual([format]);
   });
 }
@@ -136,7 +133,6 @@ for (const format of ['json', 'excel']) {
 test('FE-004 dashboard API requests use the serving origin', async ({ page }) => {
   const state = await setup(page);
   await openWorkingAssetPath(page);
-  test.fail(true, 'FE-004: API_BASE is permanently http://localhost:8000/api/v1');
   expect([...new Set(state.requests.map(request => new URL(request.url).origin))]).toEqual([new URL(page.url()).origin]);
 });
 
@@ -146,8 +142,8 @@ test('FE-005 job names are rendered as text, not HTML elements', async ({ page }
   await setup(page, { jobs: [{ ...sampleJob, name }] });
   await openWorkingAssetPath(page);
   await page.screenshot({ path: path.join(artifacts, 'frontend-literal-markup.png'), fullPage: true });
-  test.fail(true, 'FE-005: job.name is interpolated into innerHTML');
   await expect(page.locator('[data-qa-fixture="literal"]')).toHaveCount(0);
+  await expect(page.locator('.job-info h3')).toHaveText(name);
 });
 
 test('FE-005 scraped field names and values remain literal text', async ({ page }) => {
@@ -155,8 +151,26 @@ test('FE-005 scraped field names and values remain literal text', async ({ page 
   await openWorkingAssetPath(page);
   await page.getByRole('button', { name: 'View Details' }).click();
   await expect(page.locator('.results-table')).toBeVisible();
-  test.fail(true, 'FE-005: results are interpolated into innerHTML');
   await expect(page.locator('[data-qa-fixture]')).toHaveCount(0);
+});
+
+test('FE-005 job IDs and URLs remain literal and action paths preserve the ID', async ({ page }) => {
+  const id = "qa_'/segment?query#fragment";
+  const start_url = '<em data-qa-fixture="url">Literal URL</em>';
+  const state = await setup(page, { jobs: [{ ...sampleJob, id, start_url }] });
+  await openWorkingAssetPath(page);
+  await expect(page.locator('[data-qa-fixture]')).toHaveCount(0);
+  await expect(page.locator('.job-info')).toContainText(start_url);
+  await expect(page.locator('.job-info')).toContainText(id);
+  await page.getByRole('button', { name: 'View Details' }).click();
+  await expect(page.locator('.results-table')).toBeVisible();
+  await expect(page.locator('#job-details-content h3').first()).toHaveText(`Job: ${id}`);
+  expect(state.requests.some(request => new URL(request.url).pathname === `/api/v1/jobs/${encodeURIComponent(id)}/status`)).toBe(true);
+  page.once('dialog', dialog => dialog.accept());
+  await page.getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect(page.locator('#job-list')).toContainText('No jobs yet');
+  expect(state.requests.some(request => request.method === 'DELETE' && new URL(request.url).pathname === `/api/v1/jobs/${encodeURIComponent(id)}`)).toBe(true);
+  expect(state.errors).toEqual([]);
 });
 
 test('results can be opened and closed; null values show a dash', async ({ page }, testInfo) => {

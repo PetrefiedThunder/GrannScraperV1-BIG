@@ -4,7 +4,6 @@ import asyncio
 from unittest.mock import AsyncMock
 
 from bs4 import BeautifulSoup
-import pytest
 
 from scraper.api import rest_server as api
 from scraper.config.models import ScrapeResult
@@ -15,7 +14,6 @@ from scraper.scheduler.workflow_dag import WorkflowDAG, WorkflowNode
 from scraper.storage.smart_cache import IncrementalScraper, SmartCache
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-001: standard run fails with UnboundLocalError and leaves no terminal result")
 async def test_standard_api_run_persists_success(client, job, monkeypatch):
     api.jobs_db[job.id] = job
     expected = ScrapeResult(job_id=job.id, status="success", items_scraped=1, data=[{"title": "one"}])
@@ -31,7 +29,6 @@ async def test_standard_api_run_persists_success(client, job, monkeypatch):
     assert status["is_running"] is False
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-002: concurrent workers never exit once active_workers reaches zero")
 async def test_concurrent_scraper_finishes_after_completed_work(job, monkeypatch):
     scraper = ConcurrentScraper(job, max_workers=2)
     await scraper.add_urls([job.start_url])
@@ -61,7 +58,6 @@ async def test_concurrent_scraper_finishes_after_completed_work(job, monkeypatch
     assert outcome[0].items_scraped == 1
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-003: incremental API callback passes ScrapeResult instead of item dicts")
 async def test_incremental_api_run_accepts_engine_result(client, job, monkeypatch):
     api.jobs_db[job.id] = job
     expected = ScrapeResult(job_id=job.id, status="success", items_scraped=1, data=[{"title": "one"}])
@@ -74,7 +70,6 @@ async def test_incremental_api_run_accepts_engine_result(client, job, monkeypatc
     assert outcome[0].data == expected.data
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-003: incremental scraping never caches page freshness, so replay re-fetches all URLs")
 async def test_incremental_repeat_uses_cache(job, tmp_path):
     scraper = IncrementalScraper(SmartCache(tmp_path / "repeat-cache"))
     fetch = AsyncMock(return_value=[{"title": "one"}])
@@ -85,7 +80,6 @@ async def test_incremental_repeat_uses_cache(job, tmp_path):
     assert fetch.await_count == 1
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-003: cached items are omitted from incremental results")
 async def test_incremental_cached_items_are_returned(job, tmp_path):
     cache = SmartCache(tmp_path / "prepopulated-cache")
     cache.cache_page(job.start_url, "<p>one</p>")
@@ -96,7 +90,6 @@ async def test_incremental_cached_items_are_returned(job, tmp_path):
     assert result["cached_items"] == [{"title": "one"}]
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-005: DAG plan runs dependents first and drops prerequisites")
 def test_workflow_orders_prerequisites_before_dependents():
     workflow = WorkflowDAG("qa-chain")
     workflow.add_node(WorkflowNode(id="fetch", type="scrape"))
@@ -132,7 +125,6 @@ async def test_engine_extracts_and_counts_fixture_items(job, monkeypatch):
     assert [item["title"] for item in result.data] == ["One", "Two", "Three"]
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-006: max_items is checked only before a page and allows page overshoot")
 async def test_engine_respects_item_limit_within_page(job, monkeypatch):
     monkeypatch.setattr(engine_module, "StaticFetcher", FixtureFetcher)
     job.max_items = 1
@@ -155,7 +147,6 @@ async def test_engine_converts_transport_failure_to_terminal_result(job, monkeyp
     assert result.end_time is not None
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="BE-009: next-button pagination never follows the discovered link")
 async def test_engine_follows_next_button(job, monkeypatch):
     fetched = []
 

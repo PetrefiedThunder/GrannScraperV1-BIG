@@ -82,17 +82,7 @@ class ConcurrentScraper:
         logger.debug(f"Worker {worker_id} started")
 
         while True:
-            try:
-                # Get task with timeout to allow graceful shutdown
-                task = await asyncio.wait_for(
-                    self.task_queue.get(),
-                    timeout=5.0
-                )
-            except asyncio.TimeoutError:
-                # Check if queue is empty and no workers active
-                if self.task_queue.empty() and self.active_workers == 1:
-                    break
-                continue
+            task = await self.task_queue.get()
 
             self.active_workers += 1
 
@@ -125,7 +115,8 @@ class ConcurrentScraper:
                             task.retry_count += 1
                             backoff = self.job.retry.backoff_factor ** task.retry_count
                             await asyncio.sleep(backoff)
-                            await self.add_task(task)
+                            # A retry is another attempt at the same task.
+                            await self.task_queue.put(task)
                             logger.info(f"Retry {task.retry_count} for {task.url}")
                         else:
                             # Max retries exceeded
@@ -136,6 +127,11 @@ class ConcurrentScraper:
                                 'task': task
                             })
                             self.failed_tasks += 1
+
+            except asyncio.CancelledError:
+                # Wake the collector when a callback cancels its worker.
+                await self.result_queue.put({'status': 'cancelled'})
+                raise
 
             except Exception as e:
                 logger.error(f"Worker {worker_id} error on {task.url}: {e}")
@@ -150,8 +146,6 @@ class ConcurrentScraper:
             finally:
                 self.active_workers -= 1
                 self.task_queue.task_done()
-
-        logger.debug(f"Worker {worker_id} finished")
 
     async def run(self, scrape_func: Callable) -> ScrapeResult:
         """
@@ -177,16 +171,13 @@ class ConcurrentScraper:
             for i in range(self.max_workers)
         ]
 
-        # Process results as they come in
-        results_processed = 0
-        while results_processed < self.total_tasks:
-            try:
-                # Get result with timeout
-                item = await asyncio.wait_for(
-                    self.result_queue.get(),
-                    timeout=10.0
-                )
-
+        try:
+            # Each submitted task produces one terminal result, including retries.
+            results_processed = 0
+            while results_processed < self.total_tasks:
+                item = await self.result_queue.get()
+                if item['status'] == 'cancelled':
+                    raise asyncio.CancelledError()
                 results_processed += 1
 
                 if item['status'] == 'success':
@@ -207,13 +198,12 @@ class ConcurrentScraper:
                 progress = (results_processed / self.total_tasks) * 100
                 logger.info(f"Progress: {progress:.1f}% ({results_processed}/{self.total_tasks})")
 
-            except asyncio.TimeoutError:
-                # Check if all tasks are done
-                if self.task_queue.empty() and self.active_workers == 0:
-                    break
-
-        # Wait for all workers to finish
-        await asyncio.gather(*workers, return_exceptions=True)
+            await self.task_queue.join()
+        finally:
+            # Workers wait for more work until the run completes or is cancelled.
+            for worker in workers:
+                worker.cancel()
+            await asyncio.gather(*workers, return_exceptions=True)
 
         # Finalize result
         result.end_time = datetime.utcnow()
