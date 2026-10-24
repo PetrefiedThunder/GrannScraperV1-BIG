@@ -484,6 +484,8 @@ def validate(config_path: str) -> None:
     except Exception as e:
         console.print(f"[bold red]✗ Configuration is invalid![/bold red]")
         console.print(f"\n[bold]Error:[/bold] {e}")
+        # Click treats a normal return as success. Invalid configs must fail the process.
+        raise SystemExit(1) from None
 
 
 @cli.command()
