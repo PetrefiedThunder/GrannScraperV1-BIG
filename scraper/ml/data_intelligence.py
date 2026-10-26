@@ -91,7 +91,7 @@ class DataQualityAnalyzer:
         return (filled_cells / total_cells * 100) if total_cells > 0 else 0
 
     def _calculate_consistency(self, items: List[Dict]) -> float:
-        """Calculate format consistency (0-100)."""
+        """Score non-null value types and string formats (0-100)."""
         if len(items) < 2:
             return 100
 
@@ -111,13 +111,14 @@ class DataQualityAnalyzer:
             types = [type(v).__name__ for v in values]
             type_consistency = Counter(types).most_common(1)[0][1] / len(types)
 
-            # Check format consistency for strings
-            if isinstance(values[0], str):
-                format_patterns = self._detect_format_patterns(values)
+            # Check string formats without passing other value types to regexes
+            string_values = [value for value in values if isinstance(value, str)]
+            if string_values:
+                format_patterns = self._detect_format_patterns(string_values)
                 format_consistency = max(
-                    count / len(values)
+                    count / len(string_values)
                     for count in format_patterns.values()
-                ) if format_patterns else 1.0
+                )
             else:
                 format_consistency = 1.0
 
