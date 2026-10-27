@@ -7,7 +7,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '../..');
-const artifacts = path.join(root, 'docs/qa/2026-10-02/artifacts');
+const artifacts = process.env.QA_ARTIFACTS_DIR || path.join(root, 'docs/qa/2026-10-02/artifacts');
 const origin = 'http://127.0.0.1:8766';
 let server;
 let browser;
@@ -64,11 +64,11 @@ test.beforeEach(async () => {
   state = { jobs };
   await context.route('**/*', async route => {
     const url = new URL(route.request().url());
-    if (url.origin === origin) { await route.continue(); return; }
-    if (url.origin !== 'http://localhost:8000' || !url.pathname.startsWith('/api/v1/')) {
+    if (url.origin !== origin) {
       externalBlocked.push(url.origin + url.pathname);
       await route.abort('blockedbyclient'); return;
     }
+    if (!url.pathname.startsWith('/api/v1/')) { await route.continue(); return; }
     const endpoint = url.pathname.replace('/api/v1', '');
     const method = route.request().method();
     apiRequests.push({ endpoint, method });

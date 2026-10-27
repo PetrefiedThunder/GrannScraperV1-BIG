@@ -31,7 +31,6 @@ def test_cli_help_lists_documented_commands():
         assert name in result.output
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="UX-007: list command shadows built-in list and cannot enumerate saved jobs")
 def test_saved_jobs_are_listed(tmp_path):
     jobs = tmp_path / ".grandma-scraper" / "jobs"
     jobs.mkdir(parents=True)

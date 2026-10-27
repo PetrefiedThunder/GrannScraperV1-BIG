@@ -212,6 +212,46 @@ class SmartCache:
 
             conn.commit()
 
+    def cache_incremental_items(self, items: list[dict[str, Any]], source_url: str) -> None:
+        """Persist a successful extraction snapshot and its freshness together."""
+        # Keep the existing item index populated; page metadata is authoritative
+        # for replay because item hashes alone do not preserve source or order.
+        self.cache_items(items, source_url)
+        with sqlite3.connect(str(self.db_path)) as conn:
+            existing = conn.execute(
+                "SELECT metadata FROM page_cache WHERE url = ?", (source_url,)
+            ).fetchone()
+            metadata = json.loads(existing[0]) if existing and existing[0] else {}
+            metadata["_incremental_items"] = items
+            conn.execute("""
+                INSERT INTO page_cache (url, content_hash, scraped_at, metadata)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(url) DO UPDATE SET
+                    scraped_at = excluded.scraped_at,
+                    metadata = excluded.metadata
+            """, (
+                source_url,
+                self._hash_content(""),
+                datetime.utcnow().isoformat(),
+                json.dumps(metadata),
+            ))
+
+    def get_cached_items(self, source_url: str) -> list[dict[str, Any]]:
+        """Return the exact extraction snapshot, or legacy cached items."""
+        with sqlite3.connect(str(self.db_path)) as conn:
+            page = conn.execute(
+                "SELECT metadata FROM page_cache WHERE url = ?", (source_url,)
+            ).fetchone()
+            metadata = json.loads(page[0]) if page and page[0] else {}
+            if "_incremental_items" in metadata:
+                items: list[dict[str, Any]] = metadata["_incremental_items"]
+                return items
+            rows = conn.execute(
+                "SELECT data FROM item_cache WHERE source_url = ? ORDER BY rowid",
+                (source_url,),
+            ).fetchall()
+            return [json.loads(row[0]) for row in rows]
+
     def get_changed_urls(
         self,
         urls: List[str],
@@ -356,8 +396,9 @@ class IncrementalScraper:
     - Only processes new/changed items
     """
 
-    def __init__(self, cache: SmartCache):
+    def __init__(self, cache: SmartCache, namespace: str = ""):
         self.cache = cache
+        self.namespace = namespace
 
     async def scrape_incremental(
         self,
@@ -376,7 +417,10 @@ class IncrementalScraper:
         start_time = datetime.utcnow()
 
         # Filter to only URLs that need scraping
-        urls_to_scrape = self.cache.get_changed_urls(urls, ttl_seconds)
+        cache_keys = {url: f"{self.namespace}:{url}" if self.namespace else url for url in urls}
+        urls_to_scrape = [
+            url for url in urls if self.cache.should_scrape(cache_keys[url], ttl_seconds)[0]
+        ]
 
         logger.info(
             f"Incremental scrape: {len(urls_to_scrape)}/{len(urls)} URLs need updating"
@@ -384,18 +428,33 @@ class IncrementalScraper:
 
         # Scrape changed URLs
         new_items = []
+        # One result list per position in ``urls`` so a repeated URL keeps every extraction.
+        results_by_position: Dict[int, List[Dict[str, Any]]] = {}
+        positions = {url: [i for i, u in enumerate(urls) if u == url] for url in dict.fromkeys(urls)}
+        scraped_seen: Dict[str, int] = {}
         for url in urls_to_scrape:
             items = await scrape_func(url)
-            if items:
-                new_items.extend(items)
-                self.cache.cache_items(items, url)
+            if not isinstance(items, list) or any(not isinstance(item, dict) for item in items):
+                raise TypeError("Incremental callback must return a list of item dictionaries")
+            self.cache.cache_incremental_items(items, cache_keys[url])
+            new_items.extend(items)
+            occurrence = scraped_seen.get(url, 0)
+            scraped_seen[url] = occurrence + 1
+            results_by_position[positions[url][occurrence]] = items
 
         # Get cached items for unchanged URLs
-        cached_urls = set(urls) - set(urls_to_scrape)
+        cached_urls = [url for url in dict.fromkeys(urls) if url not in urls_to_scrape]
         cached_items = []
+        for url in cached_urls:
+            url_items = self.cache.get_cached_items(cache_keys[url])
+            cached_items.extend(url_items)
+            for position in positions[url]:
+                results_by_position[position] = url_items
 
-        # Would load from cache here if we stored extracted items
-        # For now, just track stats
+        # All items in input URL order, whether refreshed or replayed from cache.
+        ordered_items = [
+            item for position in range(len(urls)) for item in results_by_position.get(position, [])
+        ]
 
         elapsed = (datetime.utcnow() - start_time).total_seconds()
 
@@ -417,6 +476,7 @@ class IncrementalScraper:
         return {
             'new_items': new_items,
             'cached_items': cached_items,
+            'items': ordered_items,
             'stats': stats,
         }
 

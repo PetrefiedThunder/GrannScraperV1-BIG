@@ -8,7 +8,7 @@ import asyncio
 import logging
 from datetime import datetime
 from typing import Any, Optional
-from urllib.parse import urljoin
+from urllib.parse import urldefrag, urljoin, urlparse
 
 from bs4 import BeautifulSoup
 
@@ -87,6 +87,7 @@ class ScraperEngine:
             async with fetcher:
                 # Generate URLs to scrape
                 urls = await self._generate_urls(job)
+                seen_urls = {urldefrag(url)[0] for url in urls}
 
                 logger.info(f"Will scrape {len(urls)} URLs")
 
@@ -97,7 +98,6 @@ class ScraperEngine:
                         break
 
                     # Rate limiting
-                    from urllib.parse import urlparse
                     domain = urlparse(url).netloc
                     await rate_limiter.acquire(domain)
 
@@ -125,8 +125,20 @@ class ScraperEngine:
                             llm_extractor,
                         )
 
+                        if job.max_items:
+                            items = items[:job.max_items - len(result.data)]
+
                         result.data.extend(items)
                         result.items_scraped += len(items)
+
+                        if (
+                            job.pagination.mode == PaginationMode.NEXT_BUTTON
+                            and len(urls) < job.pagination.max_pages
+                        ):
+                            next_url = self._next_page_url(soup, url, job)
+                            if next_url and next_url not in seen_urls:
+                                urls.append(next_url)
+                                seen_urls.add(next_url)
 
                         logger.info(
                             f"Page {i + 1}/{len(urls)}: "
@@ -173,6 +185,36 @@ class ScraperEngine:
             result.errors.append(str(e))
             return result
 
+    def _next_page_url(self, soup: BeautifulSoup, url: str, job: ScrapeJob) -> str | None:
+        """Resolve a next link without leaving the configured crawl domains."""
+        selector = job.pagination.next_button_selector
+        next_button = soup.select_one(selector) if selector else None
+        href = next_button.get("href") if next_button else None
+        if not isinstance(href, str) or not href.strip():
+            return None
+
+        try:
+            next_url = urldefrag(urljoin(url, href.strip()))[0]
+            parsed = urlparse(next_url)
+            if (
+                parsed.scheme not in ("http", "https")
+                or not parsed.hostname
+                or parsed.username is not None
+                or parsed.password is not None
+                or parsed.port == 0
+            ):
+                return None
+        except ValueError:
+            return None
+
+        domain = parsed.netloc.lower()
+        if job.allowed_domains and not any(
+            domain == allowed.lower() or domain.endswith(f".{allowed.lower()}")
+            for allowed in job.allowed_domains
+        ):
+            return None
+        return next_url
+
     async def _generate_urls(self, job: ScrapeJob) -> list[str]:
         """
         Generate list of URLs to scrape based on pagination config.
@@ -202,8 +244,7 @@ class ScraperEngine:
                     urls.append(url)
 
         elif pagination.mode == PaginationMode.NEXT_BUTTON:
-            # Will handle dynamically during scraping
-            # For now, return start URL
+            # Discover and append next links while scraping each page
             pass
 
         elif pagination.mode == PaginationMode.INFINITE_SCROLL:
