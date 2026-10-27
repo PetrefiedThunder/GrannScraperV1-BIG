@@ -97,3 +97,52 @@ async def test_incremental_api_cache_isolated_by_job_configuration(
     assert (await run_incremental(client, other_job)).data == changed.data
     assert (await run_incremental(client, job)).data == first.data
     assert scrape.await_count == 2
+
+
+async def test_incremental_api_keeps_url_order_and_records_duration_on_mixed_cache_run(
+    client: httpx.AsyncClient, job: ScrapeJob, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from uuid import uuid4
+
+    from scraper.storage.smart_cache import SmartCache
+
+    host = f"https://{uuid4().hex}.invalid"
+    job.pagination.mode = PaginationMode.URL_PATTERN
+    job.pagination.url_pattern = host + "/page/{page}"
+    job.pagination.max_pages = 3
+    api.jobs_db[job.id] = job
+    urls = [f"{host}/page/{page}" for page in range(1, 4)]
+
+    async def scrape(_self: api.ScraperEngine, page_job: ScrapeJob) -> ScrapeResult:
+        return ScrapeResult(
+            job_id=job.id,
+            status="success",
+            pages_visited=1,
+            items_scraped=1,
+            data=[{"url": page_job.start_url}],
+        )
+
+    # On the replay, only the last URL is stale, so the refreshed page would
+    # come before the cached ones if results were concatenated by source.
+    stale: set[str] = set()
+    real_should_scrape = SmartCache.should_scrape
+
+    def should_scrape(self: SmartCache, key: str, ttl_seconds: int | None = None):
+        if any(key.endswith(url) for url in stale):
+            return True, "forced stale"
+        return real_should_scrape(self, key, ttl_seconds)
+
+    monkeypatch.setattr(SmartCache, "should_scrape", should_scrape)
+    monkeypatch.setattr(api.ScraperEngine, "run_job", scrape)
+    monkeypatch.setattr(api.ExportManager, "export_result", AsyncMock(return_value={}))
+    first = await run_incremental(client, job)
+    stale.add(urls[-1])
+    mixed = await run_incremental(client, job)
+    expected = [{"url": url} for url in urls]
+    assert first.data == mixed.data == expected
+    assert mixed.metadata["urls_scraped"] == 1
+    assert mixed.metadata["urls_cached"] == len(urls) - 1
+    for result in (first, mixed):
+        assert result.end_time is not None
+        assert result.duration_seconds == (result.end_time - result.start_time).total_seconds()
+        assert result.duration_seconds >= 0

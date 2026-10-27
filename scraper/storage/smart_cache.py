@@ -428,18 +428,27 @@ class IncrementalScraper:
 
         # Scrape changed URLs
         new_items = []
+        items_by_url: Dict[str, List[Dict[str, Any]]] = {}
         for url in urls_to_scrape:
             items = await scrape_func(url)
             if not isinstance(items, list) or any(not isinstance(item, dict) for item in items):
                 raise TypeError("Incremental callback must return a list of item dictionaries")
             self.cache.cache_incremental_items(items, cache_keys[url])
             new_items.extend(items)
+            items_by_url[url] = items
 
         # Get cached items for unchanged URLs
         cached_urls = [url for url in dict.fromkeys(urls) if url not in urls_to_scrape]
         cached_items = []
         for url in cached_urls:
-            cached_items.extend(self.cache.get_cached_items(cache_keys[url]))
+            url_items = self.cache.get_cached_items(cache_keys[url])
+            cached_items.extend(url_items)
+            items_by_url[url] = url_items
+
+        # All items in input URL order, whether refreshed or replayed from cache.
+        ordered_items = [
+            item for url in dict.fromkeys(urls) for item in items_by_url.get(url, [])
+        ]
 
         elapsed = (datetime.utcnow() - start_time).total_seconds()
 
@@ -461,6 +470,7 @@ class IncrementalScraper:
         return {
             'new_items': new_items,
             'cached_items': cached_items,
+            'items': ordered_items,
             'stats': stats,
         }
 

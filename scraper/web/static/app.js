@@ -248,7 +248,7 @@ async function viewJobDetails(jobId) {
             appendLabeledValue(content, 'Items Scraped:', status.items_scraped);
             appendLabeledValue(content, 'Pages Visited:', status.pages_visited);
             appendLabeledValue(content, 'Errors:', status.errors);
-            appendLabeledValue(content, 'Duration:', `${status.duration?.toFixed(2)}s`);
+            appendLabeledValue(content, 'Duration:', Number.isFinite(status.duration) ? `${status.duration.toFixed(2)}s` : '-');
 
             try {
                 const results = await apiCall(`/jobs/${encodedJobId}/results?limit=10`);

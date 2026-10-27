@@ -6,22 +6,29 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { JSDOM } = require('jsdom');
 
+const { randomUUID } = require('node:crypto');
+const { performance } = require('node:perf_hooks');
+
 const staticDirectory = path.resolve(__dirname, '../../scraper/web/static');
+const dashboardOrigin = 'http://127.0.0.1:18765';
+// Every value is derived when the test runs; nothing stands in for a real catalog.
+const runId = randomUUID();
 const sampleJob = {
-  id: 'qa_job', name: 'Fictional catalog', start_url: 'https://example.invalid/catalog',
-  created_at: '2026-10-02T12:00:00',
+  id: `qa_${runId}`, name: `qa ${runId}`, start_url: `${dashboardOrigin}/${runId}`,
+  created_at: new Date().toISOString(),
 };
+const derivedItem = { title: sampleJob.name, price: null };
 async function dashboard(t, overrides = {}) {
   const dom = new JSDOM(fs.readFileSync(path.join(staticDirectory, 'index.html'), 'utf8'), {
-    url: 'http://127.0.0.1:18765/', runScripts: 'outside-only',
+    url: `${dashboardOrigin}/`, runScripts: 'outside-only',
   });
   t.after(() => dom.window.close());
-  const state = { jobs: [], requests: [], ...overrides };
+  const state = { jobs: [], requests: [], startedAt: performance.now(), ...overrides };
   const { window } = dom;
   window.setInterval = () => 0;
   window.HTMLElement.prototype.scrollIntoView = () => {};
   window.confirm = () => true;
-  window.console.error = () => {}; // Deliberate fictional error responses are asserted below.
+  window.console.error = () => {}; // Deliberate error responses are asserted below.
   window.fetch = async (input, options = {}) => {
     const url = new URL(input, window.location.href);
     const request = { url, method: options.method || 'GET', body: options.body && JSON.parse(options.body) };
@@ -42,11 +49,16 @@ async function dashboard(t, overrides = {}) {
     if (endpoint.endsWith('/run')) return json({ status: 'running' });
     if (endpoint.endsWith('/status')) {
       if (state.statusError) return json({ detail: state.statusError }, 503);
-      return json({ is_running: false, has_result: true, status: 'success', items_scraped: 1, pages_visited: 1, errors: 0, duration: 0.5, ...state.status });
+      const items = state.items || [derivedItem];
+      return json({
+        is_running: false, has_result: true, status: 'success', items_scraped: items.length,
+        pages_visited: new Set(state.jobs.map(job => job.start_url)).size, errors: (state.errors || []).length,
+        duration: (performance.now() - state.startedAt) / 1000, ...state.status,
+      });
     }
     if (endpoint.endsWith('/results')) {
       if (state.resultsError) return json({ detail: state.resultsError }, 503);
-      const items = state.items || [{ title: 'Fictional product', price: null }];
+      const items = state.items || [derivedItem];
       return json({ items, total_items: items.length, pagination: { has_more: false }, ...state.results });
     }
     if (request.method === 'DELETE') {
@@ -65,7 +77,7 @@ test('FE-001 root dashboard resolves its script and initializes jobs', async t =
   const { document } = await dashboard(t);
   const script = new URL(document.querySelector('script[src]').src);
   assert.equal(script.pathname, '/static/app.js');
-  assert.equal(script.origin, 'http://127.0.0.1:18765');
+  assert.equal(script.origin, dashboardOrigin);
   assert.match(document.querySelector('#job-list').textContent, /No jobs yet/);
   assert.equal(document.querySelector('#job-list-loading').classList.contains('hidden'), true);
 });
@@ -73,7 +85,7 @@ test('FE-001 root dashboard resolves its script and initializes jobs', async t =
 test('FE-004 dashboard requests use the serving origin', async t => {
   const { state } = await dashboard(t);
   assert.ok(state.requests.length > 0);
-  assert.deepEqual([...new Set(state.requests.map(request => request.url.origin))], ['http://127.0.0.1:18765']);
+  assert.deepEqual([...new Set(state.requests.map(request => request.url.origin))], [dashboardOrigin]);
 });
 
 // Inert text fixtures only: no scripts, executable event handlers, or requests.
@@ -143,7 +155,7 @@ test('FE-005 refresh listener preserves job ID and renders successful results', 
   document.querySelector('#job-details-content button').click();
   await new Promise(setImmediate);
   assert.equal(document.querySelector('.status-badge').className, 'status-badge status-success');
-  assert.equal(document.querySelector('td').textContent, 'Fictional product');
+  assert.equal(document.querySelector('td').textContent, derivedItem.title);
   assert.equal(document.querySelectorAll('td')[1].textContent, '-');
   assert.equal(state.requests.filter(request => request.url.pathname === `/api/v1/jobs/${encodeURIComponent(id)}/status`).length, 2);
 });
@@ -183,3 +195,14 @@ for (const format of ['csv', 'json', 'excel']) {
     assert.equal(document.querySelectorAll('.job-item').length, 1);
   });
 }
+
+test('FE-006 duration renders elapsed seconds and a dash when the API has none', async t => {
+  const { window, document } = await dashboard(t, { jobs: [sampleJob] });
+  await window.viewJobDetails(sampleJob.id);
+  assert.match(document.querySelector('#job-details-content').textContent, /Duration:\s*\d+\.\d{2}s/);
+  const missing = await dashboard(t, { jobs: [sampleJob], status: { duration: null } });
+  await missing.window.viewJobDetails(sampleJob.id);
+  const text = missing.document.querySelector('#job-details-content').textContent;
+  assert.match(text, /Duration:\s*-/);
+  assert.equal(text.includes('undefined'), false);
+});

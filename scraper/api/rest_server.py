@@ -271,16 +271,17 @@ async def _execute_job(
                 ttl_seconds=3600
             )
 
-            # Convert to ScrapeResult
-            items = result_data['new_items'] + result_data['cached_items']
+            # Convert to ScrapeResult, keeping the input URL order on mixed cache runs.
+            items = result_data['items']
+            end_time = datetime.utcnow()
             result = ScrapeResult(
                 job_id=job_id,
                 status="success",
                 items_scraped=len(items),
                 pages_visited=pages_visited,
                 start_time=start_time,
-                end_time=datetime.utcnow(),
-                duration_seconds=None,
+                end_time=end_time,
+                duration_seconds=(end_time - start_time).total_seconds(),
                 data=items,
                 metadata=result_data['stats']
             )
