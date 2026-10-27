@@ -10,9 +10,12 @@ const { randomUUID } = require('node:crypto');
 const { performance } = require('node:perf_hooks');
 
 const staticDirectory = path.resolve(__dirname, '../../scraper/web/static');
-const dashboardOrigin = 'http://127.0.0.1:18765';
 // Every value is derived when the test runs; nothing stands in for a real catalog.
 const runId = randomUUID();
+// jsdom never connects to this origin; it only scopes the page's same-origin requests.
+const dashboardOrigin = `http://${runId}.invalid`;
+// Quote, slash, query and fragment characters around per-run segments.
+const significantId = `qa_'/${runId}?${randomUUID()}#${randomUUID()}`;
 const sampleJob = {
   id: `qa_${runId}`, name: `qa ${runId}`, start_url: `${dashboardOrigin}/${runId}`,
   created_at: new Date().toISOString(),
@@ -132,7 +135,7 @@ for (const field of ['statusError', 'resultsError']) {
 }
 
 test('FE-005 job action listeners preserve quoted and URL-significant IDs', async t => {
-  const id = "qa_'/segment?query#fragment";
+  const id = significantId;
   const { document, state } = await dashboard(t, { jobs: [{ ...sampleJob, id }] });
   document.querySelector('.job-actions .btn').click();
   await new Promise(setImmediate);
@@ -146,7 +149,7 @@ test('FE-005 job action listeners preserve quoted and URL-significant IDs', asyn
 });
 
 test('FE-005 refresh listener preserves job ID and renders successful results', async t => {
-  const id = "qa_'/segment?query#fragment";
+  const id = significantId;
   const { window, document, state } = await dashboard(t, {
     jobs: [{ ...sampleJob, id }], status: { is_running: true, has_result: false },
   });

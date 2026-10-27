@@ -1,6 +1,7 @@
 """BE-003: incremental cache replay and failed refresh regressions."""
 
 import json
+import secrets
 import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -112,3 +113,14 @@ async def test_be003_invalid_callback_result_is_not_cached(
             [url], AsyncMock(return_value=invalid_items)
         )
     assert cache.should_scrape(url, 3600)[0] is True
+
+
+async def test_be003_repeated_url_keeps_every_extraction(cache: SmartCache) -> None:
+    # Values are generated per run; the URL is listed twice, as a caller passing a repeat would.
+    url = f"https://{secrets.token_hex(6)}.invalid/{secrets.token_hex(4)}"
+    first, second = [{"title": secrets.token_hex(8)}], [{"title": secrets.token_hex(8)}]
+    fetch = AsyncMock(side_effect=[first, second])
+    result = await IncrementalScraper(cache).scrape_incremental([url, url], fetch)
+    assert fetch.await_count == 2
+    assert result["new_items"] == first + second
+    assert result["items"] == first + second

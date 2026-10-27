@@ -1,6 +1,7 @@
 """Offline API fixtures; all state and file outputs are isolated per test."""
 
 import asyncio
+import secrets
 from pathlib import Path
 
 import httpx
@@ -37,10 +38,11 @@ async def client():
 
 @pytest.fixture
 def job(tmp_path: Path):
+    run_id = secrets.token_hex(8)
     return ScrapeJob(
-        id="qa_job",
-        name="QA fixture",
-        start_url="https://fixture.invalid/page/1",
+        id=f"qa_{run_id}",
+        name=f"qa {run_id}",
+        start_url="https://fixture.invalid/page/1",  # reserved TLD; never resolves
         item_selector="article",
         fields={"title": {"selector": "h2"}},
         rate_limit={"enabled": False},
